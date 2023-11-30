@@ -2,7 +2,7 @@ import { Schema } from "./parts/classes";
 
 /**
  * Interface for Exabase init  */
-export type Exabase_Init = {
+export type ExabaseOptions = {
   /**
    * Exabase DBMS
    * ---
@@ -45,7 +45,7 @@ export type Exabase_Init = {
    * ---
    * Data schemas
    */
-  schemas: SchemaType[];
+  schemas: SchemaOptions[];
   /**
    * Exabase DBMS
    * ---
@@ -56,7 +56,7 @@ export type Exabase_Init = {
 
 /**
  * Interface for schema metadata mappings  */
-export interface SchemaType {
+export interface SchemaOptions {
   /**
    * Table name.
    */
@@ -112,7 +112,7 @@ export interface SchemaRelationOptions {
   /**
    * Indicates with which schema this relation is made.
    */
-  target: Schema;
+  target: Schema<any>;
   /**
    * Type of relation. Can be one of the value of the RelationTypes class.
    */

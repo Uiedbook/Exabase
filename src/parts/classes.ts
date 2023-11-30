@@ -5,11 +5,12 @@ import {
   Msgs,
   QueryType,
   SchemaRelationOptions,
-  SchemaType,
+  SchemaOptions,
   qType,
   relationship_name,
   trx,
   wQueue,
+  SchemaColumnOptions,
 } from "../types";
 import { validateData } from "./validator.js";
 import {
@@ -58,10 +59,12 @@ export class ExabaseError extends Error {
   }
 }
 
-export class Schema {
+export class Schema<const Model extends SchemaOptions> {
   tableName: string;
   RCT?: boolean;
-  columns: any;
+  columns: {
+    [x: string]: SchemaColumnOptions;
+  } = {};
   relationship?: Record<relationship_name, SchemaRelationOptions> = {};
   _unique_field: Record<string, true> | undefined = {};
   _foreign_field: Record<string, string> | undefined = undefined;
@@ -69,7 +72,7 @@ export class Schema {
     | ((data: Record<string, string>) => true | Record<string, string>)
     | undefined;
   //! maybe add pre & post processing hooks
-  constructor(options: SchemaType) {
+  constructor(options: Model) {
     this.tableName = options.tableName.trim().toUpperCase();
     if (options.tableName) {
       this._unique_field = {};
@@ -135,7 +138,7 @@ export class Schema {
 }
 
 //? this is okay because it's reusable
-export class Transaction<DTO extends Record<string, any>> {
+export class Transaction<Model> {
   private _Manager: Manager;
   private _query: QueryType[] = [];
   constructor(Manager: Manager) {
@@ -219,12 +222,12 @@ export class Transaction<DTO extends Record<string, any>> {
 
     return new Promise((r) => {
       this._Manager._run(query, r, "nm");
-    }) as Promise<DTO[]>;
+    }) as Promise<Model[]>;
   }
 
-  save(data: DTO) {
+  save(data: Model) {
     let query: QueryType;
-    if (data._id) {
+    if ((data as any)._id) {
       query = {
         update: this._Manager._schema._validate(data, "UPDATE"),
       };
@@ -235,15 +238,15 @@ export class Transaction<DTO extends Record<string, any>> {
     }
     return new Promise((r) => {
       this._Manager._run(query, r, "m");
-    }) as Promise<DTO>;
+    }) as Promise<Model>;
   }
-  delete(data: DTO) {
+  delete(data: Model) {
     const query: QueryType = {
       delete: this._Manager._schema._validate(data, "DELETE"),
     };
     return new Promise((r) => {
       this._Manager._run(query, r, "m");
-    }) as Promise<DTO>;
+    }) as Promise<Model>;
   }
   count() {
     const query: QueryType = {
@@ -319,7 +322,7 @@ export class Transaction<DTO extends Record<string, any>> {
       this._Manager._run(query, r, "nm");
     });
   }
-  async batch(data: DTO[], type: "INSERT" | "UPDATE" | "DELETE") {
+  async batch(data: Model[], type: "INSERT" | "UPDATE" | "DELETE") {
     if (Array.isArray(data) && "INSERT-UPDATE-DELETE".includes(type)) {
       await this._prepare_for(data, type);
     } else {
@@ -328,7 +331,7 @@ export class Transaction<DTO extends Record<string, any>> {
       );
     }
   }
-  private async _prepare_for(data: DTO[], type: string) {
+  private async _prepare_for(data: Model[], type: string) {
     const validations = data.map((item) => {
       return {
         [type.toLowerCase()]: this._Manager._schema._validate(item, type),
@@ -345,15 +348,15 @@ export class Transaction<DTO extends Record<string, any>> {
     if (this._query.length) {
       return new Promise((r) => {
         this._Manager._run(this._query.splice(0), r, "m");
-      }) as Promise<DTO[]>;
+      }) as Promise<Model[]>;
     }
-    return [] as unknown as Promise<DTO[]>;
+    return [] as unknown as Promise<Model[]>;
   }
 }
 
 export class Manager {
-  _schema: Schema;
-  public _transaction: Transaction<{}>;
+  _schema: Schema<any>;
+  public _transaction: Transaction<any>;
   private wQueue: wQueue = [];
   private wDir?: string;
   private tableDir: string = "";
@@ -362,9 +365,9 @@ export class Manager {
   private _LogFiles: LOG_file_type = {};
   private _LsLogFile?: string;
   logging: boolean = false;
-  constructor(schema: Schema, usablemManagerMem: number) {
+  constructor(schema: Schema<any>, usablemManagerMem: number) {
     this._schema = schema;
-    this._transaction = new Transaction<{}>(this);
+    this._transaction = new Transaction<any>(this);
     //? get the theorical max items in one log file
     // ? an arbitiary bit size per column for a schema in real time = 20
     this._full_lv_bytesize = Math.round(

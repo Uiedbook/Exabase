@@ -1,5 +1,5 @@
 import { mkdirSync } from "node:fs";
-import { Exabase_Init } from "./types.js";
+import { ExabaseOptions } from "./types.js";
 import { _ExabaseRingInterface, _AccessRingInterfaces } from "./parts/Ring.js";
 import {
   ExabaseError,
@@ -10,10 +10,10 @@ import {
   getComputedUsage,
 } from "./parts/classes.js";
 
-export default class Exabase {
+export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
   private _ready = false;
   private _exabaseDirectory: string;
-  constructor(init: Exabase_Init) {
+  constructor(init: EaxbaseInit) {
     //? initialisations
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
@@ -49,7 +49,7 @@ export default class Exabase {
     // setup managers
     init.schemas.forEach((schema) => {
       Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
-        schema as Schema,
+        schema as Schema<any>,
         usableManagerGB
       );
     });
@@ -70,21 +70,23 @@ export default class Exabase {
       });
   }
   get Ready() {
-    return new Promise<Exabase>((r) => {
+    return new Promise((r) => {
       const R = setInterval(() => {
         if (this._ready === true) {
           console.log("Exabase mounted!");
           clearInterval(R);
-          r(this);
+          r(true);
         }
-      }, 200);
+      }, 100);
     });
   }
-  getTransaction<DTO extends Record<string, unknown>>(schema: Schema) {
+  getTransaction<const ColumnTypes extends keyof Schema<any>["columns"]>(
+    schema: Schema<any>
+  ) {
     if (this._ready) {
       if (Utils.EXABASE_MANAGERS[schema?.tableName]) {
         return Utils.EXABASE_MANAGERS[schema.tableName]
-          ._transaction as Transaction<DTO>;
+          ._transaction as Transaction<Record<ColumnTypes, unknown>>;
       } else {
         throw new ExabaseError(
           "The given schema - " +
@@ -109,4 +111,3 @@ export default class Exabase {
 
 //? exports
 export { Schema, ExabaseError } from "./parts/classes.js";
-// export type { ExaDoc } from "./types";
