@@ -1,0 +1,11 @@
+/node_modules
+
+/Exabase
+/FOODB
+/DB
+tests/sql_file
+/data
+/EXABASE_DB
+/lib
+backup.tar.gz
+tests/sql_file/Northwind_large.sqlite
