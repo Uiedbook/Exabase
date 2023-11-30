@@ -80,13 +80,13 @@ export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
       }, 100);
     });
   }
-  getTransaction<const ColumnTypes extends keyof Schema<any>["columns"]>(
-    schema: Schema<any>
-  ) {
+  getTransaction(schema: Schema<any>) {
     if (this._ready) {
       if (Utils.EXABASE_MANAGERS[schema?.tableName]) {
         return Utils.EXABASE_MANAGERS[schema.tableName]
-          ._transaction as Transaction<Record<ColumnTypes, unknown>>;
+          ._transaction as Transaction<
+          Record<keyof (typeof schema)["columns"], unknown>
+        >;
       } else {
         throw new ExabaseError(
           "The given schema - " +

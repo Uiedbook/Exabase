@@ -7,6 +7,7 @@ const userSchema = new Schema({
     name: { type: String },
   },
 });
+
 const db = new Exabase({ schemas: [userSchema] });
 // ? get Exabase ready
 await db.Ready;
