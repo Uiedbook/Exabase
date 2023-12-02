@@ -247,7 +247,7 @@ export const addForeignKeys = async (
   }
 
   const foreign_message = await Utils.EXABASE_MANAGERS[
-    reference.foreign_table
+    reference.foreign_table.toUpperCase()
   ]._transaction.find(reference.foreign_id);
 
   if (!foreign_message) {
@@ -332,7 +332,7 @@ export const populateForeignKeys = async (
             rela[relationship] = msgs.flat();
           } else {
             const msgs = await Utils.EXABASE_MANAGERS[
-              relationships[relationship]
+              relationships[relationship].toUpperCase()
             ]._transaction.find(fk);
             rela[relationship] = msgs as Record<string, any>;
           }

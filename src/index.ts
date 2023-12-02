@@ -10,8 +10,9 @@ import {
   getComputedUsage,
 } from "./parts/classes.js";
 
-export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
+export default class Exabase<EaxbaseInit extends ExabaseOptions> {
   private _ready = false;
+  private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
   constructor(init: EaxbaseInit) {
     //? initialisations
@@ -33,7 +34,7 @@ export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
       });
       console.log("Exabase initialised!");
     } catch (e: any) {
-      // console.log(e);
+      //? console.log(e);
       if ({ e }.e.code === "EEXIST") {
         // ? [3] update Exabase if it exists
         Object.assign(
@@ -46,10 +47,14 @@ export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
         );
       }
     }
-    // setup managers
+    //? setup schema relationships
+    init.schemas.forEach((schema) => {
+      schema._constructRelationships(init.schemas);
+    });
+    //? setup managers
     init.schemas.forEach((schema) => {
       Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
-        schema as Schema<any>,
+        schema as Schema,
         usableManagerGB
       );
     });
@@ -62,25 +67,25 @@ export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
       )
     )
       .then((_all) => {
+        //? console.log(_all);
         this._ready = true;
-        // console.log(_all);
+        console.log("Exabase: connected!");
+        this._conn && this._conn(true);
       })
       .catch((e) => {
         console.log(e);
       });
   }
-  get Ready() {
-    return new Promise((r) => {
-      const R = setInterval(() => {
-        if (this._ready === true) {
-          console.log("Exabase mounted!");
-          clearInterval(R);
-          r(true);
-        }
-      }, 100);
-    });
+  connect() {
+    if (!this._ready) {
+      console.log("Exabase: connecting...");
+      return new Promise((r) => {
+        this._conn = r;
+      });
+    }
+    return undefined;
   }
-  getTransaction(schema: Schema<any>) {
+  getTransaction(schema: Schema) {
     if (this._ready) {
       if (Utils.EXABASE_MANAGERS[schema?.tableName]) {
         return Utils.EXABASE_MANAGERS[schema.tableName]
@@ -99,8 +104,8 @@ export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
     }
   }
   async expose() {
+    // ? setting up ring interface
     if (this._ready === true) {
-      // ? setting up ring interface
       await _AccessRingInterfaces();
       return _ExabaseRingInterface;
     } else {
@@ -110,4 +115,5 @@ export default class Exabase<const EaxbaseInit extends ExabaseOptions> {
 }
 
 //? exports
-export { Schema, ExabaseError } from "./parts/classes.js";
+export { Schema, ExabaseError, Transaction } from "./parts/classes.js";
+export type { ExaDoc } from "./types.js";

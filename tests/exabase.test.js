@@ -12,9 +12,10 @@ const assert = {
 
 describe("queries", () => {
   let userTRX, OrderTRX;
-  it("Basic Exabase setup", async () => {
+  it("Basic setup", async () => {
     const Order = new Schema({
       tableName: "order",
+      RCT: true,
       columns: {
         ticket: { type: String, unique: true },
       },
@@ -27,7 +28,7 @@ describe("queries", () => {
       },
       relationship: {
         requestedOrders: {
-          target: Order,
+          target: "Order",
           type: "MANY",
         },
       },
@@ -36,24 +37,20 @@ describe("queries", () => {
     // ?
     const db = new Exabase({ schemas: [User, Order] });
     // ? get Exabase ready
-    await db.Ready;
+    await db.connect();
     // TRX(s)
     userTRX = db.getTransaction(User);
     OrderTRX = db.getTransaction(Order);
   });
   it("basic query", async () => {
     const userin = await userTRX.save({ name: "james bond" });
-
     const userout = await userTRX.find(userin._id);
     assert.strict(userin._id, userout[0]._id);
   });
   it("large inset", async () => {
     const users = Array(5000).fill({ name: "saul" });
-
     await userTRX.batch(users, "INSERT");
-
     await userTRX.exec();
-
     let usersCount = await userTRX.find();
     assert.strict(usersCount.length, 5001, "current item count");
   });
@@ -64,25 +61,19 @@ describe("queries", () => {
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
     }
-
     await userTRX.batch(users, "UPDATE");
-
     await userTRX.exec();
-
     const updatedUsers = await userTRX.find();
     assert.strict(updatedUsers[0].name, "paul");
   });
   it("basic search query", async () => {
     const userin = await userTRX.save({ name: "sara" });
-
     const userout = await userTRX.find({ name: "sara" });
     assert.strict(userin._id, userout.at(-1)._id);
   });
   it("basic query (relationships) ", async () => {
     const userin = await userTRX.save({ name: "james bond" });
-
     const orderin = await OrderTRX.save({ ticket: String(Date.now()) });
-
     await userTRX.addRelation({
       _id: userin._id,
       foreign_id: orderin._id,
@@ -107,7 +98,6 @@ describe("queries", () => {
   });
   it("unique field queries ", async () => {
     const orderin = await OrderTRX.save({ ticket: String(Date.now()) });
-
     const orderout = await OrderTRX.find({
       ticket: orderin.ticket,
     });
@@ -115,19 +105,14 @@ describe("queries", () => {
   });
   it("clean up", async () => {
     const users = await userTRX.find();
-
     const orders = await OrderTRX.find();
 
     await userTRX.batch(users, "DELETE");
-
     await OrderTRX.batch(orders, "DELETE");
-
     await userTRX.exec();
-
     await OrderTRX.exec();
 
     const usersCount = await userTRX.count();
-
     const ordersCount = await OrderTRX.count();
     assert.strict(usersCount, 0);
     assert.strict(ordersCount, 0);

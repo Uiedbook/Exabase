@@ -9,4 +9,4 @@ echo  "  Building ...."
 npm run compile
 echo  "  Packing ...."
 npm pack
-mv exabase-0.0.0.tgz ~/uiedbook-exabase.package
+mv **.tgz ~/

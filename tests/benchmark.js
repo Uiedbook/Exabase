@@ -40,7 +40,7 @@ const ExabaseR = new Exabase({
   schemas: [Employee],
 });
 
-await ExabaseR.Ready;
+await ExabaseR.connect();
 const trx = ExabaseR.getTransaction(Employee);
 const d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);

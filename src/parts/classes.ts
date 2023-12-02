@@ -59,7 +59,7 @@ export class ExabaseError extends Error {
   }
 }
 
-export class Schema<const Model extends SchemaOptions> {
+export class Schema {
   tableName: string;
   RCT?: boolean;
   columns: {
@@ -72,7 +72,7 @@ export class Schema<const Model extends SchemaOptions> {
     | ((data: Record<string, string>) => true | Record<string, string>)
     | undefined;
   //! maybe add pre & post processing hooks
-  constructor(options: Model) {
+  constructor(options: SchemaOptions) {
     this.tableName = options.tableName.trim().toUpperCase();
     if (options.tableName) {
       this._unique_field = {};
@@ -100,16 +100,46 @@ export class Schema<const Model extends SchemaOptions> {
           this._unique_field[key] = true;
         }
       }
-      //? keep a easy track of relationships
-      if (options.relationship) {
-        this._foreign_field = {};
-        for (const key in options.relationship) {
-          this._foreign_field[key] = options.relationship[key].target.tableName;
-        }
-      }
-      // check if theres a unique key entered
+      //? check if theres a unique key entered else make it undefined to avoid truthiness
       if (Object.keys(this._unique_field).length === 0) {
         this._unique_field = undefined;
+      }
+      //? keep a easy track of relationships
+      if (options.relationship) {
+        this.relationship = options.relationship;
+      }
+    }
+  }
+  _constructRelationships(allSchemas: Schema[]) {
+    if (this.tableName) {
+      //? keep a easy track of relationships
+      if (this.relationship) {
+        this._foreign_field = {};
+        for (const key in this.relationship) {
+          if (typeof this.relationship![key].target === "string") {
+            const namee = this.relationship![key].target.toUpperCase();
+            const findschema = allSchemas.find(
+              (schema) => schema.tableName === namee
+            );
+            if (findschema) {
+              this._foreign_field[key] = namee;
+            } else {
+              throw new ExabaseError(
+                " tableName:",
+                namee,
+                " not found on any schema, please recheck the relationship definition of the ",
+                this.tableName,
+                " schema"
+              );
+            }
+          } else {
+            throw new ExabaseError(
+              " Error on schema ",
+              this.tableName,
+              " relationship target must be a string "
+            );
+          }
+        }
       }
     }
   }
@@ -286,7 +316,7 @@ export class Transaction<Model> {
         type: rela.type,
         foreign_id: options.foreign_id,
         relationship: options.relationship,
-        foreign_table: rela.target.tableName,
+        foreign_table: rela.target,
       },
     };
     return new Promise((r) => {
@@ -315,7 +345,7 @@ export class Transaction<Model> {
         type: rela.type,
         foreign_id: options.foreign_id,
         relationship: options.relationship,
-        foreign_table: rela.target.tableName,
+        foreign_table: rela.target,
       },
     };
     return new Promise((r) => {
@@ -355,7 +385,7 @@ export class Transaction<Model> {
 }
 
 export class Manager {
-  _schema: Schema<any>;
+  _schema: Schema;
   public _transaction: Transaction<any>;
   private wQueue: wQueue = [];
   private wDir?: string;
@@ -365,7 +395,7 @@ export class Manager {
   private _LogFiles: LOG_file_type = {};
   private _LsLogFile?: string;
   logging: boolean = false;
-  constructor(schema: Schema<any>, usablemManagerMem: number) {
+  constructor(schema: Schema, usablemManagerMem: number) {
     this._schema = schema;
     this._transaction = new Transaction<any>(this);
     //? get the theorical max items in one log file
@@ -462,12 +492,12 @@ export class Manager {
     }
   }
   async _run_wal_sync(transactions: wQueue) {
-    const delQueue: string[] = [];
+    //? persist active logs in memory
     const degrees: Record<string, Msgs> = {};
+    //? a list of used wal files
+    const usedWalFiles: string[] = [];
     const walers = transactions.map(async ([key, transaction]) => {
-      //? keep used wal keys
-      delQueue.push(key);
-      //? persist logs in memory
+      usedWalFiles.push(key);
       if (Array.isArray(transaction)) {
         let fg: string;
         for (let i = 0; i < transaction.length; i++) {
@@ -509,20 +539,15 @@ export class Manager {
         }
       }
     });
-    await Promise.all(walers);
 
-    //? save new consistent state to disk
-    const commiters = Object.keys(degrees).map((key) =>
-      this._commit(key, degrees[key])
+    // ? compile wals
+    await Promise.all(walers);
+    //? save new consistent DB Logs to disk and sync RCT
+    await Promise.all(
+      Object.keys(degrees).map((key) => this._commit(key, degrees[key]))
     );
-    //? remove data from the wal folder & wal queue
-    const deleters = delQueue.map(async (key) => {
-      await unlink(this.wDir! + key);
-    });
-    // ? sync and delete used  commit logs
-    await Promise.all(commiters);
-    // ? delete used commit logs
-    await Promise.all(deleters);
+    //? remove data from the wal folder by deleting used commit logs
+    await Promise.all(usedWalFiles.map((file) => unlink(this.wDir! + file)));
   }
   async _commit(fn: string, messages: Msgs) {
     // ! the LOG copy is unneccessary. and it just slows down the commmit proccess
@@ -531,9 +556,9 @@ export class Manager {
     this.setLog(fn, messages.at(-1)?._id!, messages.length);
     const fnl = this.tableDir + fn;
     await writeDataToFile(fnl, messages);
+    // ? update this active RCT
     if (Utils.RCT[this.RCT_KEY] !== false) {
-      (Utils.RCT[this.RCT_KEY] as Record<string, Msgs>)[fn] =
-        undefined as unknown as Msgs;
+      (Utils.RCT[this.RCT_KEY] as Record<string, Msgs>)[fn] = messages;
     }
     // ! below are the code before this decision
     // //? log file src
@@ -618,7 +643,7 @@ export class Manager {
         const rela: Record<string, string> = {};
         for (let i = 0; i < query.select.relationship.length; i++) {
           const r = query.select.relationship;
-          rela[r] = this._schema.relationship![r as string].target.tableName;
+          rela[r] = this._schema.relationship![r as string].target;
         }
         query.select.relationship = rela;
       }

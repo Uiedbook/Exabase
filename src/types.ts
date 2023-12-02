@@ -45,7 +45,7 @@ export type ExabaseOptions = {
    * ---
    * Data schemas
    */
-  schemas: SchemaOptions[];
+  schemas: Schema[];
   /**
    * Exabase DBMS
    * ---
@@ -110,9 +110,11 @@ export type relationship_name = string;
  * Interface for schema relations mappings  */
 export interface SchemaRelationOptions {
   /**
-   * Indicates with which schema this relation is made.
+   * Indicates with which schema this relation is connected to.
+   *
+   * the tableName of that schema
    */
-  target: Schema<any>;
+  target: string;
   /**
    * Type of relation. Can be one of the value of the RelationTypes class.
    */
@@ -207,6 +209,6 @@ export type allowedMethods = methods[];
 
 export type LOG_file_type = Record<string, { last_id: string; size: number }>;
 
-export type ExaDoc<Model extends { [column: string]: unknown }> = Model & {
+export type ExaDoc<Model extends { [column: string]: any }> = Model & {
   _id?: string;
 };
