@@ -408,8 +408,17 @@ export const findIndex = async (
     if (!messages[uf]) {
       return false;
     }
+    /*
+    {
+    ? here's a real example of what the messages variable looks like
+    ? so not an array but an object of property indexes
+    email: {
+      'friday1@gmail.com': '656cd09b48e1c473de50b059',
+      'friday2@gmail.com': '656cd10a48e1c473de50b05b'
+    }
+    */
     if (messages[uf][data[uf]]) {
-      return [uf, [data[uf]]];
+      return [uf, messages[uf][data[uf]]];
     }
   }
   return false;
