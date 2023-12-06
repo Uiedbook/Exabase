@@ -29,7 +29,7 @@ test("example setup, schema setup, inset and find, search, update, and delete op
   });
   const search_order = await OrderTRX.find(update_order);
   assert.strict(update_order._id, search_order[0]._id);
-  const delete_order = await OrderTRX.delete(create_order);
+  const delete_order = await OrderTRX.delete(create_order._id);
   const find_deleted_order = await OrderTRX.find(create_order._id);
   assert.strict(find_deleted_order, undefined);
   // console.log({

@@ -1,4 +1,4 @@
-import { opendir, unlink } from "node:fs/promises";
+import { copyFile, opendir, rename, unlink } from "node:fs/promises";
 import {
   LOG_file_type,
   Msg,
@@ -31,6 +31,7 @@ import {
 import { Packr } from "msgpackr";
 import { existsSync, mkdirSync } from "node:fs";
 import { freemem } from "node:os";
+import { it } from "node:test";
 
 export class Utils {
   static MANIFEST = {
@@ -155,7 +156,7 @@ export class Schema {
         v
       );
     }
-    if (!data._id && (type === "UPDATE" || type === "DELETE")) {
+    if (!data._id && type === "UPDATE") {
       throw new ExabaseError(
         type + " on table :",
         this.tableName,
@@ -270,13 +271,20 @@ export class Transaction<Model> {
       this._Manager._run(query, r, "m");
     }) as Promise<Model>;
   }
-  delete(data: Model) {
+  delete(_id: string) {
+    if (!_id || typeof _id !== "string") {
+      throw new ExabaseError(
+        "cannot continue with delete query '",
+        _id,
+        "' is not a valid Exabase _id value"
+      );
+    }
     const query: QueryType = {
-      delete: this._Manager._schema._validate(data, "DELETE"),
+      delete: _id,
     };
     return new Promise((r) => {
       this._Manager._run(query, r, "m");
-    }) as Promise<Model>;
+    }) as Promise<Model | undefined>;
   }
   count() {
     const query: QueryType = {
@@ -361,8 +369,26 @@ export class Transaction<Model> {
       );
     }
   }
-  private async _prepare_for(data: Model[], type: string) {
+  private async _prepare_for(
+    data: Model[],
+    type: "INSERT" | "UPDATE" | "DELETE"
+  ) {
     const validations = data.map((item) => {
+      if (type === "DELETE") {
+        if ((item as any)._id) {
+          item = (item as any)._id;
+        }
+        if (!item || typeof item !== "string") {
+          throw new ExabaseError(
+            "cannot continue with delete query '",
+            item,
+            "' is not a valid Exabase _id value"
+          );
+        }
+        return {
+          [type.toLowerCase()]: item,
+        };
+      }
       return {
         [type.toLowerCase()]: this._Manager._schema._validate(item, type),
       };
@@ -430,6 +456,9 @@ export class Manager {
     const dir = await opendir(this.tableDir!);
     const logfiles = [];
     for await (const dirent of dir) {
+      // ? here we destroy invalid sync files, availability of such files
+      // ? signifies an application crash stopping exabase from completing a commit
+      // ? the commit operation can then be restarted from the wal files still in the wal directory
       if (dirent.name.includes("-SYNC")) {
         await unlink(this.tableDir + dirent.name);
         continue;
@@ -550,33 +579,28 @@ export class Manager {
     await Promise.all(usedWalFiles.map((file) => unlink(this.wDir! + file)));
   }
   async _commit(fn: string, messages: Msgs) {
-    // ! the LOG copy is unneccessary. and it just slows down the commmit proccess
-    // ! while wal commit is going on, no other operation can access log files so why copy?
-    // ! just overwrite
+    //? the LOG copy is very neccessary for crash recovery situations.
     this.setLog(fn, messages.at(-1)?._id!, messages.length);
-    const fnl = this.tableDir + fn;
-    await writeDataToFile(fnl, messages);
     // ? update this active RCT
     if (Utils.RCT[this.RCT_KEY] !== false) {
       (Utils.RCT[this.RCT_KEY] as Record<string, Msgs>)[fn] = messages;
     }
-    // ! below are the code before this decision
     // //? log file src
-    // const fnl = this.tableDir + fn;
-    // // ? log file copy src
-    // const sylog = fnl + "-SYNC";
-    // // ? create a copy of Log file
-    // if (existsSync(fnl)) {
-    //   await copyFile(fnl, sylog);
-    // }
-    // // ? set log size
-    // this.setLog(fn, messages.at(-1)?._id!, messages.length);
-    // // ? save new consistent state
-    // await writeDataToFile(sylog, messages);
-    // // ? replace log file with sync_log file
-    // if ((await rename(sylog, fnl)) !== undefined) {
-    //   // ! throw error
-    // }
+    const fnl = this.tableDir + fn;
+    // ? log file copy src
+    const sylog = fnl + "-SYNC";
+    // ? create a copy of Log file
+    if (existsSync(fnl)) {
+      await copyFile(fnl, sylog);
+    }
+    // ? set log size
+    this.setLog(fn, messages.at(-1)?._id!, messages.length);
+    // ? save new consistent state
+    await writeDataToFile(sylog, messages);
+    // ? replace log file with sync_log file
+    if ((await rename(sylog, fnl)) !== undefined) {
+      // ! throw error
+    }
   }
   async _partition_wal_compiler() {
     if (this.wQueue.length === 0) {
@@ -691,7 +715,14 @@ export class Manager {
       return size;
     }
     if (query["delete"]) {
-      return deleteMessage(query.delete, tableDir, this._schema._unique_field);
+      const file = this.getLog(query.delete);
+      return deleteMessage(
+        query.delete,
+        tableDir,
+        this._schema._unique_field,
+        this.RCT_KEY,
+        file
+      );
     }
     if (query["reference"] && query["reference"]._new) {
       const file = this.getLog(query.reference._id);
@@ -719,8 +750,9 @@ export class Manager {
       }
       if (type !== "nm") {
         const wid = generate_id();
-        this.wQueue.push([wid, trs as Msgs]);
-        await writeDataToFile(this.wDir! + wid, trs as Msgs);
+        trs &&
+          this.wQueue.push([wid, trs as Msgs]) &&
+          (await writeDataToFile(this.wDir! + wid, trs as Msgs));
       }
       if (this.logging) {
         console.log({ query, result: trs });

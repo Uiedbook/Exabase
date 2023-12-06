@@ -84,14 +84,19 @@ export async function insertMessage(
   return message;
 }
 export async function deleteMessage(
-  data: Msg,
+  _id: string,
   dir: string,
-  _unique_field: Record<string, true> | undefined
+  _unique_field: Record<string, true> | undefined,
+  RCT_KEY: string,
+  fn: string
 ) {
   if (_unique_field) {
-    await dropIndex(dir, data, _unique_field);
+    const message = await findMessage(RCT_KEY, dir + fn, {
+      select: _id,
+    });
+    message && (await dropIndex(dir, message, _unique_field));
   }
-  return { _id: data._id, _wal_flag: "d" } as Msg;
+  return { _id, _wal_flag: "d" } as Msg;
 }
 
 export async function findMessage(
