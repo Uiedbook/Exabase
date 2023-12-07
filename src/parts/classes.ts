@@ -11,6 +11,7 @@ import {
   trx,
   wQueue,
   SchemaColumnOptions,
+  SearchIndexOptions,
 } from "../types";
 import { validateData } from "./validator.js";
 import {
@@ -66,6 +67,7 @@ export class Schema {
   columns: {
     [x: string]: SchemaColumnOptions;
   } = {};
+  searchIndexOptions?: SearchIndexOptions;
   relationship?: Record<relationship_name, SchemaRelationOptions> = {};
   _unique_field: Record<string, true> | undefined = {};
   _foreign_field: Record<string, string> | undefined = undefined;
@@ -78,6 +80,7 @@ export class Schema {
     if (options.tableName) {
       this._unique_field = {};
       this.relationship = options.relationship;
+      this.searchIndexOptions = options.searchIndexOptions;
       this.RCT = options.RCT;
       this.migrationFN = options.migrationFN;
       this.columns = { ...(options?.columns || {}) };
@@ -143,6 +146,30 @@ export class Schema {
         }
       }
     }
+  }
+  _ValidateSearchIndex() {
+    // ? search index columns checks
+    if (this.tableName) {
+      //? keep a easy track of relationships
+      if (this.searchIndexOptions) {
+        for (const key in this.searchIndexOptions) {
+          if (!this.columns[key]) {
+            throw new ExabaseError(
+              " tableName:",
+              key,
+              " not found on table",
+              this.tableName,
+              ", please recheck the defined columns!"
+            );
+          }
+        }
+      }
+    }
+    // ? index validation
+    /*
+    
+    
+    */
   }
   _validate(data: any, type?: string) {
     // console.log(this.columns, data);
@@ -466,7 +493,7 @@ export class Manager {
       if (dirent.isFile()) {
         const fn = dirent.name;
         logfiles.push(fn);
-        if ("FOREIGNSEARCHINDEXES".includes(fn)) {
+        if ("FOREIGNSEARCHUNIQUE-INDEXES".includes(fn)) {
           continue;
         }
         const LOG = await readDataFromFile(
@@ -692,7 +719,7 @@ export class Manager {
     if (query["unique"]) {
       return new Promise(async (r) => {
         const select = await findMessageByUnique(
-          tableDir + "/INDEXES",
+          tableDir + "/UNIQUE-INDEXES",
           this._schema._unique_field!,
           query.unique
         );

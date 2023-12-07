@@ -58,6 +58,9 @@ export type ExabaseOptions = {
  * Interface for schema metadata mappings  */
 export interface SchemaOptions {
   /**
+   * Search index options  */
+  searchIndexOptions?: SearchIndexOptions;
+  /**
    * Table name.
    */
   tableName: string;
@@ -150,6 +153,11 @@ export interface SchemaColumnOptions {
    * Indicates if column's value is unique
    */
   unique?: boolean;
+}
+/**
+ * Interface for search index type mappings  */
+export interface SearchIndexOptions {
+  [column: string]: boolean;
 }
 
 /**

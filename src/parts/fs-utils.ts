@@ -37,7 +37,11 @@ export async function updateMessage(
   message: Msg
 ) {
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "/INDEXES", _unique_field, message);
+    const someIdex = await findIndex(
+      dir + "/UNIQUE-INDEXES",
+      _unique_field,
+      message
+    );
     // ? checking for existing specified unique identifiers
     if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
       throw new ExabaseError(
@@ -63,7 +67,11 @@ export async function insertMessage(
   message: Msg
 ) {
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "/INDEXES", _unique_field, message);
+    const someIdex = await findIndex(
+      dir + "/UNIQUE-INDEXES",
+      _unique_field,
+      message
+    );
     if (Array.isArray(someIdex)) {
       throw new ExabaseError(
         "INSERT on table :",
@@ -378,7 +386,7 @@ export const updateIndex = async (
   _unique_field: Record<string, true>,
   message: Msg
 ) => {
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/INDEXES";
+  fileName = fileName.split("/").slice(0, 2).join("/") + "/UNIQUE-INDEXES";
   let messages = (await readDataFromFile(
     "none",
     fileName
@@ -474,7 +482,7 @@ export const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-  await FileLockTable.write(fileName + "/INDEXES", messages);
+  await FileLockTable.write(fileName + "/UNIQUE-INDEXES", messages);
 };
 
 //? binary search it
@@ -576,7 +584,7 @@ are designed to be concurent.
 but we cannot gurantee the changes to some certain files
 
 like the FOREIGN key table 
-and the INDEXES table files
+and the UNIQUE-INDEXES table files
 
 the below data structure allows to synchronise these file access
 */
