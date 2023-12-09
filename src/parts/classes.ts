@@ -299,7 +299,7 @@ export class Transaction<Model> {
     }) as Promise<Model>;
   }
   delete(_id: string) {
-    if (!_id || typeof _id !== "string") {
+    if (typeof _id !== "string") {
       throw new ExabaseError(
         "cannot continue with delete query '",
         _id,
