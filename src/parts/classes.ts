@@ -93,6 +93,24 @@ export class Schema {
           options.columns[key].type = ((d: string | number | Date) =>
             new Date(d).toString().includes("Inval") === false) as any;
         }
+        //? validating default values
+        if (options.columns[key].default) {
+          // ? check for type
+          if (
+            typeof options.columns[key].default !==
+            typeof (options.columns[key].type as StringConstructor)()
+          ) {
+            throw new ExabaseError(
+              " schema property default value '",
+              options.columns[key].default,
+              "' for ",
+              key,
+              " on the ",
+              this.tableName,
+              " tableName has a wrong type"
+            );
+          }
+        }
         //? JSON
         if (options.columns[key].type === JSON) {
           options.columns[key].type = ((d: string) =>
@@ -104,7 +122,7 @@ export class Schema {
           this._unique_field[key] = true;
         }
       }
-      //? check if theres a unique key entered else make it undefined to avoid truthiness
+      //? check if theres a unique key entered else make it undefined to avoid a truthiness bug
       if (Object.keys(this._unique_field).length === 0) {
         this._unique_field = undefined;
       }
@@ -147,30 +165,7 @@ export class Schema {
       }
     }
   }
-  _ValidateSearchIndex() {
-    // ? search index columns checks
-    if (this.tableName) {
-      //? keep a easy track of relationships
-      if (this.searchIndexOptions) {
-        for (const key in this.searchIndexOptions) {
-          if (!this.columns[key]) {
-            throw new ExabaseError(
-              " tableName:",
-              key,
-              " not found on table",
-              this.tableName,
-              ", please recheck the defined columns!"
-            );
-          }
-        }
-      }
-    }
-    // ? index validation
-    /*
-    
-    
-    */
-  }
+
   _validate(data: any, type?: string) {
     // console.log(this.columns, data);
     const v = validateData(data, this!.columns);
@@ -474,6 +469,7 @@ export class Manager {
       //? this is a chain process
       // ? first get logs from disk
       // ? recover and flush WAL
+      // ? sync search index
       await this._sync_logs();
     }
     return true;
@@ -546,6 +542,35 @@ export class Manager {
     if (isThereSomeThingToFlush) {
       await this._partition_wal_compiler();
     }
+    await this._sync_searchindex();
+  }
+  async _sync_searchindex() {
+    // ? search index columns checks
+    const sindexes = [];
+    if (this._schema.tableName) {
+      //? keep a easy track of relationships
+      if (this._schema.searchIndexOptions) {
+        for (const key in this._schema.searchIndexOptions) {
+          if (!this._schema.columns[key]) {
+            throw new ExabaseError(
+              " tableName:",
+              key,
+              " not found on table",
+              this._schema.tableName,
+              ", please recheck the defined columns!"
+            );
+          } else {
+            sindexes.push(key);
+          }
+        }
+      }
+    }
+    // ? index  validation
+
+    /*
+    
+    
+    */
   }
   async _run_wal_sync(transactions: wQueue) {
     //? persist active logs in memory

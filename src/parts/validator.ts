@@ -22,8 +22,10 @@ export function validateData(
       continue;
     }
     if ((data[prop] === undefined || data[prop] === null) && !nullable) {
-      info = `${prop} is required`;
-      break;
+      if (!value.default) {
+        info = `${prop} is required`;
+        break;
+      }
     }
     // ?
     if (typeof data[prop] !== "undefined") {
