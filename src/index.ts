@@ -112,6 +112,20 @@ export default class Exabase<EaxbaseInit extends ExabaseOptions> {
       throw new ExabaseError("Exabase not ready!");
     }
   }
+  async executeQuery<Model = unknown>(query: string) {
+    //? verify query validity
+    try {
+      if (typeof query !== "string") throw new Error();
+      const parsedQuery = JSON.parse(query);
+      const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
+      if (!table) throw new Error();
+      return new Promise((r) => {
+        table._run(parsedQuery.query, r, parsedQuery.type || "nm");
+      }) as Promise<Model[]>;
+    } catch (error) {
+      throw new ExabaseError("Invalid query: ", query);
+    }
+  }
 }
 
 //? exports

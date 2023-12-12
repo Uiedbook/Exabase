@@ -236,8 +236,10 @@ export class Transaction<Model> {
             [key]: value,
           };
         } else {
-          // ? search the query instead
-          query.search = { [key]: value };
+          // ! the find method will no longer search
+          throw new ExabaseError(
+            `column field ${key} is not unique, please try searching instead`
+          );
         }
       } else {
         // ? check if props exists
@@ -278,6 +280,54 @@ export class Transaction<Model> {
     }) as Promise<Model[]>;
   }
 
+  search(
+    searchQuery: Model,
+    options?: {
+      populate?: string[] | boolean;
+      take?: number;
+      skip?: number;
+    }
+  ) {
+    let query: QueryType = {};
+    let key: string = "",
+      value: any;
+    for (const k in searchQuery) {
+      key = k;
+      value = searchQuery[k];
+      break;
+    }
+    if (!key) throw new ExabaseError("invalid search query ", searchQuery);
+    query.search = { [key]: value };
+    // ? populate options
+    if (typeof options === "object") {
+      query.populate = {};
+      query.skip = options.skip;
+      query.take = options.take;
+      const fields = this._Manager._schema._foreign_field!;
+      if (options.populate === true) {
+        for (const lab in fields) {
+          query.populate[lab] = fields[lab];
+        }
+      } else {
+        if (Array.isArray(options.populate)) {
+          for (let i = 0; i < options.populate.length; i++) {
+            const lab = options.populate[0];
+            const relaName = fields[lab];
+            if (relaName) {
+              query.populate[lab] = fields[lab];
+            } else {
+              throw new ExabaseError(
+                "can't POPULATE missing realtionship " + lab
+              );
+            }
+          }
+        }
+      }
+    }
+    return new Promise((r) => {
+      this._Manager._run(query, r, "m");
+    }) as Promise<Model>;
+  }
   save(data: Model) {
     let query: QueryType;
     if ((data as any)._id) {
@@ -566,11 +616,6 @@ export class Manager {
       }
     }
     // ? index  validation
-
-    /*
-    
-    
-    */
   }
   async _run_wal_sync(transactions: wQueue) {
     //? persist active logs in memory
@@ -709,6 +754,7 @@ export class Manager {
   setLog(fn: string, last_id: string, size: number) {
     this._LogFiles[fn] = { last_id, size };
   }
+
   _trx_runner(
     query: QueryType,
     tableDir: string
@@ -807,7 +853,7 @@ export class Manager {
           (await writeDataToFile(this.wDir! + wid, trs as Msgs));
       }
       if (this.logging) {
-        console.log({ query, result: trs });
+        console.log({ query, table: this._schema.tableName, type });
       }
       resolver!(trs);
     };

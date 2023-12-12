@@ -15,7 +15,7 @@ test("example setup, schema setup, inset and find, search, update, and delete op
       ticket: { type: String, unique: true },
     },
   });
-  const db = new Exabase({ schemas: [Order] });
+  const db = new Exabase({ schemas: [Order], logging: true });
   // ? get Exabase ready
   await db.connect();
   const OrderTRX = db.getTransaction(Order);
