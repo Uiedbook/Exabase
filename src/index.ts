@@ -47,10 +47,7 @@ export default class Exabase<EaxbaseInit extends ExabaseOptions> {
         );
       }
     }
-    //? setup schema relationships
-    init.schemas.forEach((schema) => {
-      schema._constructRelationships(init.schemas);
-    });
+
     //? setup managers
     init.schemas.forEach((schema) => {
       Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
@@ -63,6 +60,7 @@ export default class Exabase<EaxbaseInit extends ExabaseOptions> {
         manager._setup({
           _exabaseDirectory: this._exabaseDirectory,
           logging: init.logging || false,
+          schemas: init.schemas,
         })
       )
     )

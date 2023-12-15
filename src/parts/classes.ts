@@ -132,62 +132,6 @@ export class Schema {
       }
     }
   }
-  _constructRelationships(allSchemas: Schema[]) {
-    if (this.tableName) {
-      //? keep a easy track of relationships
-      if (this.relationship) {
-        this._foreign_field = {};
-        for (const key in this.relationship) {
-          if (typeof this.relationship![key].target === "string") {
-            const namee = this.relationship![key].target.toUpperCase();
-            const findschema = allSchemas.find(
-              (schema) => schema.tableName === namee
-            );
-            if (findschema) {
-              this._foreign_field[key] = namee;
-            } else {
-              throw new ExabaseError(
-                " tableName:",
-                namee,
-                " not found on any schema, please recheck the relationship definition of the ",
-                this.tableName,
-                " schema"
-              );
-            }
-          } else {
-            throw new ExabaseError(
-              " Error on schema ",
-              this.tableName,
-              " relationship target must be a string "
-            );
-          }
-        }
-      }
-    }
-  }
-
-  _validate(data: any, type?: string) {
-    // console.log(this.columns, data);
-    const v = validateData(data, this!.columns);
-    if (typeof v === "string") {
-      throw new ExabaseError(
-        type,
-        " on table :",
-        this.tableName,
-        " aborted, reason - ",
-        v
-      );
-    }
-    if (!data._id && type === "UPDATE") {
-      throw new ExabaseError(
-        type + " on table :",
-        this.tableName,
-        " aborted, reason - _id is required"
-      );
-    }
-
-    return v;
-  }
 }
 
 //? this is okay because it's reusable
@@ -332,11 +276,11 @@ export class Transaction<Model> {
     let query: QueryType;
     if ((data as any)._id) {
       query = {
-        update: this._Manager._schema._validate(data, "UPDATE"),
+        update: this._Manager._validate(data, "UPDATE"),
       };
     } else {
       query = {
-        insert: this._Manager._schema._validate(data, "INSERT"),
+        insert: this._Manager._validate(data, "INSERT"),
       };
     }
     return new Promise((r) => {
@@ -462,7 +406,7 @@ export class Transaction<Model> {
         };
       }
       return {
-        [type.toLowerCase()]: this._Manager._schema._validate(item, type),
+        [type.toLowerCase()]: this._Manager._validate(item, type),
       };
     });
     data.length &&
@@ -504,7 +448,13 @@ export class Manager {
     //? set RCT key
     this.RCT_KEY = this._schema.tableName;
   }
-  async _setup(init: { _exabaseDirectory: string; logging: boolean }) {
+  async _setup(init: {
+    _exabaseDirectory: string;
+    logging: boolean;
+    schemas: Schema[];
+  }) {
+    // ? setup relationship
+    this._constructRelationships(init.schemas);
     // ? setup steps
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
     this.wDir = this.tableDir + "WAL/";
@@ -755,6 +705,62 @@ export class Manager {
     this._LogFiles[fn] = { last_id, size };
   }
 
+  _constructRelationships(allSchemas: Schema[]) {
+    if (this._schema.tableName) {
+      //? keep a easy track of relationships
+      if (this._schema.relationship) {
+        this._schema._foreign_field = {};
+        for (const key in this._schema.relationship) {
+          if (typeof this._schema.relationship![key].target === "string") {
+            const namee = this._schema.relationship![key].target.toUpperCase();
+            const findschema = allSchemas.find(
+              (schema) => schema.tableName === namee
+            );
+            if (findschema) {
+              this._schema._foreign_field[key] = namee;
+            } else {
+              throw new ExabaseError(
+                " tableName:",
+                namee,
+                " not found on any schema, please recheck the relationship definition of the ",
+                this._schema.tableName,
+                " schema"
+              );
+            }
+          } else {
+            throw new ExabaseError(
+              " Error on schema ",
+              this._schema.tableName,
+              " relationship target must be a string "
+            );
+          }
+        }
+      }
+    }
+  }
+
+  _validate(data: any, type?: string) {
+    // console.log(this.columns, data);
+    const v = validateData(data, this._schema.columns);
+    if (typeof v === "string") {
+      throw new ExabaseError(
+        type,
+        " on table :",
+        this._schema.tableName,
+        " aborted, reason - ",
+        v
+      );
+    }
+    if (!data._id && type === "UPDATE") {
+      throw new ExabaseError(
+        type + " on table :",
+        this._schema.tableName,
+        " aborted, reason - _id is required"
+      );
+    }
+
+    return v;
+  }
   _trx_runner(
     query: QueryType,
     tableDir: string

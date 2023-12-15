@@ -2,7 +2,7 @@
 
 In the fast-paced world of databases, where every millisecond counts, Exabase emerges as a game-changer, challenging conventions and pushing the boundaries of what's possible. Today, we embark on a journey through the numbers to uncover the untold story of Exabase's exceptional performance, leaving traditional contenders in the dust.
 
-## A Peek Behind the Benchmark Curtain
+## Benchmark info
 
 In the heart of our database showdown, Exabase faces off against SQLite in a classic query duel: `SELECT * FROM "Employee"`. The results? Nothing short of spectacular.
 
