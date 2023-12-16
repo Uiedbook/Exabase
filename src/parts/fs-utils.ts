@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { LOG_file_type, Msg, Msgs, fTable, iTable } from "../types";
 import { Utils, ExabaseError } from "./classes";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { copyFile, rename, unlink } from "node:fs/promises";
 import { Buffer } from "node:buffer";
 
@@ -23,6 +23,15 @@ export const readDataFromFile = async (RCT_KEY: string, filePath: string) => {
     return [] as Msgs;
   }
 };
+// export const readDataFromFileSync = (filePath: string) => {
+//   try {
+//     const data = readFileSync(filePath);
+//     const d = Utils.packr.decode(data) || [];
+//     return d;
+//   } catch (error) {
+//     return [] as Msgs;
+//   }
+// };
 
 export const writeDataToFile = (
   filePath: string,
