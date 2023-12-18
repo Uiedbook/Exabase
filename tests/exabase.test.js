@@ -45,10 +45,10 @@ describe("queries", () => {
   it("basic query", async () => {
     const userin = await userTRX.save({ name: "james bond" });
     const userout = await userTRX.find(userin._id);
-    assert.strict(userin._id, userout[0]._id);
+    assert.strict(userin._id, userout._id);
   });
   it("large inset", async () => {
-    const users = Array(5000).fill({ name: "saul" });
+    const users = Array(5_000).fill({ name: "saul" });
     await userTRX.batch(users, "INSERT");
     await userTRX.exec();
     let usersCount = await userTRX.find();
@@ -68,7 +68,7 @@ describe("queries", () => {
   });
   it("basic search query", async () => {
     const userin = await userTRX.save({ name: "sara" });
-    const userout = await userTRX.find({ name: "sara" });
+    const userout = await userTRX.search({ name: "sara" });
     assert.strict(userin._id, userout.at(-1)._id);
   });
   it("basic query (relationships) ", async () => {
@@ -83,7 +83,7 @@ describe("queries", () => {
     const populateRelationship = await userTRX.find(userin._id, {
       populate: true,
     });
-    assert.strict(populateRelationship[0].requestedOrders[0]._id, orderin._id);
+    assert.strict(populateRelationship.requestedOrders[0]._id, orderin._id);
     await userTRX.removeRelation({
       _id: userin._id,
       foreign_id: orderin._id,
@@ -91,7 +91,7 @@ describe("queries", () => {
     });
     // ? check that the relationship is empty
     assert.strict(
-      (await userTRX.find(userin._id, { populate: true }))[0].requestedOrders
+      (await userTRX.find(userin._id, { populate: true })).requestedOrders
         .length,
       0
     );
@@ -101,7 +101,7 @@ describe("queries", () => {
     const orderout = await OrderTRX.find({
       ticket: orderin.ticket,
     });
-    assert.strict(orderin._id, orderout[0]._id);
+    assert.strict(orderin._id, orderout._id);
   });
   it("clean up", async () => {
     const users = await userTRX.find();
@@ -112,8 +112,12 @@ describe("queries", () => {
     await userTRX.exec();
     await OrderTRX.exec();
 
+    userTRX.flush();
+    OrderTRX.flush();
+
     const usersCount = await userTRX.count();
     const ordersCount = await OrderTRX.count();
+
     assert.strict(usersCount, 0);
     assert.strict(ordersCount, 0);
   });

@@ -1,6 +1,6 @@
 {
   "name": "exabase",
-  "version": "0.0.0-rc-03",
+  "version": "0.0.0-rc-04",
   "description": "A scaling focused distributed nosql database with surprising performance and strong data consistency.",
   "main": "lib/index.js",
   "type": "module",
@@ -32,6 +32,7 @@
     "tests": "node --test tests/exabase.test.js",
     "tigle": "node --test tests/single.test.js",
     "build": "tsup src/index.ts",
+    "xtree": "bun trash/Xtree.ts",
     "bench": "bun run ./tests/benchmark.js"
   },
   "author": "Friday Candour",

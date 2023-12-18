@@ -14,7 +14,7 @@ export const readDataFromFile = async (RCT_KEY: string, filePath: string) => {
   }
   try {
     const data = await readFile(filePath);
-    const d = Utils.packr.decode(data) || [];
+    const d = (Utils.packr.decode(data) || []) as Msgs;
     if (Utils.RCT[RCT_KEY] !== false) {
       (Utils.RCT[RCT_KEY] as Record<string, Msgs>)[filePath] = d;
     }
@@ -23,15 +23,15 @@ export const readDataFromFile = async (RCT_KEY: string, filePath: string) => {
     return [] as Msgs;
   }
 };
-// export const readDataFromFileSync = (filePath: string) => {
-//   try {
-//     const data = readFileSync(filePath);
-//     const d = Utils.packr.decode(data) || [];
-//     return d;
-//   } catch (error) {
-//     return [] as Msgs;
-//   }
-// };
+export const readDataFromFileSync = (filePath: string) => {
+  try {
+    const data = readFileSync(filePath);
+    const d = Utils.packr.decode(data) || [];
+    return d;
+  } catch (error) {
+    return [];
+  }
+};
 
 export const writeDataToFile = (
   filePath: string,
@@ -46,11 +46,7 @@ export async function updateMessage(
   message: Msg
 ) {
   if (_unique_field) {
-    const someIdex = await findIndex(
-      dir + "/UNIQUE-INDEXES",
-      _unique_field,
-      message
-    );
+    const someIdex = await findIndex(dir + "/UINDEX", _unique_field, message);
     // ? checking for existing specified unique identifiers
     if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
       throw new ExabaseError(
@@ -76,11 +72,7 @@ export async function insertMessage(
   message: Msg
 ) {
   if (_unique_field) {
-    const someIdex = await findIndex(
-      dir + "/UNIQUE-INDEXES",
-      _unique_field,
-      message
-    );
+    const someIdex = await findIndex(dir + "/UINDEX", _unique_field, message);
     if (Array.isArray(someIdex)) {
       throw new ExabaseError(
         "INSERT on table :",
@@ -107,16 +99,21 @@ export async function deleteMessage(
   RCT_KEY: string,
   fn: string
 ) {
+  const message = await findMessage(RCT_KEY, dir + fn, {
+    select: _id,
+  });
   if (_unique_field) {
-    const message = await findMessage(RCT_KEY, dir + fn, {
-      select: _id,
-    });
-    message && (await dropIndex(dir, message, _unique_field));
+    if (message) {
+      await dropIndex(dir, message, _unique_field);
+    }
   }
-  return { _id, _wal_flag: "d" } as Msg;
+  if (message) {
+    message._wal_flag = "d";
+  }
+  return message as Msg;
 }
 
-export async function findMessage(
+export async function findMessages(
   RCT_KEY: string,
   fileName: string,
   fo: {
@@ -138,16 +135,14 @@ export async function findMessage(
       messages = messages.slice(0, take);
     }
     if (populate) {
-      messages = messages.map(
-        async (m: { [x: string]: Record<string, any>; _id: any }) => {
-          const _foreign = await populateForeignKeys(fileName, m._id, populate);
-          for (const key in _foreign) {
-            m[key] = _foreign[key];
-          }
-          return m;
+      const _med = messages.map(async (m: Msg) => {
+        const _foreign = await populateForeignKeys(fileName, m._id, populate);
+        for (const key in _foreign) {
+          (m[key as keyof typeof m] as any) = _foreign[key] as Msgs;
         }
-      );
-      messages = await Promise.all(messages);
+        return m;
+      });
+      messages = await Promise.all(_med);
     }
     return messages;
   }
@@ -161,17 +156,18 @@ export async function findMessage(
     mid = Math.floor((left + right) / 2);
     midId = messages[mid]._id;
     if (midId === select) {
+      const message = messages[mid];
       if (populate) {
         const _foreign = await populateForeignKeys(
           fileName,
-          messages[mid]._id,
+          message._id,
           populate
         );
         for (const key in _foreign) {
-          messages[mid][key] = _foreign[key];
+          (message[key as keyof typeof message] as any) = _foreign[key];
         }
       }
-      return [messages[mid]];
+      return message;
     } else if (midId < select) {
       left = mid + 1;
     } else if (midId === undefined) {
@@ -180,68 +176,48 @@ export async function findMessage(
       right = mid - 1;
     }
   }
+  return;
 }
-
-export async function findMessagesByProperties(
+export async function findMessage(
   RCT_KEY: string,
-  fileName: any,
+  fileName: string,
   fo: {
-    skip?: number;
+    select: string;
     populate?: Record<string, string>;
-    take?: number;
-    search?: Record<string, any>;
-  },
-  files: LOG_file_type
+  }
 ) {
-  let foundList = [],
-    len = 0,
-    continued = false;
-  const { take, skip, populate, search } = fo;
-  let skipped = false;
-  const keys = Object.keys(files);
-  for (let i = 0; i < keys.length; i++) {
-    if (continued) {
-      break;
-    }
-    const file = "/" + keys[i];
-    let tru = false;
-    const messages = await readDataFromFile(RCT_KEY, fileName + file);
-    if (skip && !skipped) {
-      //? remove skip
-      messages.splice(0, skip);
-      //? skip only once
-      skipped = true;
-    }
-    for (let i = 0; i < messages.length; i++) {
-      tru = true;
-      const message = messages[i];
-      for (const key in search) {
-        if (message[key] !== search[key]) {
-          tru = false;
-          break;
-        }
-      }
-      if (tru === true) {
-        foundList.push(message);
-        len += 1;
-      }
-      if (len === take) {
-        continued = true;
-        break;
-      }
-    }
-    if (populate) {
-      foundList = foundList.map(async (m: any) => {
-        const _foreign = await populateForeignKeys(fileName, m._id, populate);
+  const { select, populate } = fo;
+  let messages = await readDataFromFile(RCT_KEY, fileName);
+  //? binary search it
+  let left = 0;
+  let right = messages.length - 1;
+  let mid = Math.floor((left + right) / 2);
+  let midId = messages[mid]?._id;
+  while (left <= right) {
+    mid = Math.floor((left + right) / 2);
+    midId = messages[mid]._id;
+    if (midId === select) {
+      const message = messages[mid];
+      if (populate) {
+        const _foreign = await populateForeignKeys(
+          fileName,
+          message._id,
+          populate
+        );
         for (const key in _foreign) {
-          m[key] = _foreign[key];
+          (message[key as keyof typeof message] as any) = _foreign[key];
         }
-        return m;
-      });
-      foundList = await Promise.all(foundList);
+      }
+      return message;
+    } else if (midId < select) {
+      left = mid + 1;
+    } else if (midId === undefined) {
+      return undefined;
+    } else {
+      right = mid - 1;
     }
   }
-  return foundList;
+  return;
 }
 
 export const addForeignKeys = async (
@@ -285,7 +261,7 @@ export const addForeignKeys = async (
       "' not found!"
     );
   }
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/FOREIGN";
+  fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
   //? update foreign key table
   let messages = (await readDataFromFile(
     "none",
@@ -328,7 +304,7 @@ export const populateForeignKeys = async (
   relationships: Record<string, string>
   //? comes as relationship: foreign_table
 ) => {
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/FOREIGN";
+  fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
   //? get foreign keys from table
   let messages = (await readDataFromFile(
     "none",
@@ -374,7 +350,7 @@ export const removeForeignKeys = async (
   }
 ) => {
   //? update foreign key table
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/FOREIGN";
+  fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
   const messages = (await readDataFromFile(
     "none",
     fileName
@@ -395,7 +371,7 @@ export const updateIndex = async (
   _unique_field: Record<string, true>,
   message: Msg
 ) => {
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/UNIQUE-INDEXES";
+  fileName = fileName.split("/").slice(0, 2).join("/") + "/UINDEX";
   let messages = (await readDataFromFile(
     "none",
     fileName
@@ -491,7 +467,7 @@ export const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-  await FileLockTable.write(fileName + "/UNIQUE-INDEXES", messages);
+  await FileLockTable.write(fileName + "/UINDEX", messages);
 };
 
 //? binary search it
@@ -592,16 +568,17 @@ are designed to be concurent.
 
 but we cannot gurantee the changes to some certain files
 
-like the FOREIGN key table 
-and the UNIQUE-INDEXES table files
+like the 
+- FINDEX key table 
+- XINDEX key table and the 
+- UINDEX key table files
 
-the below data structure allows to synchronise these file access
+the below data structure allows to synchronise these file accesses
 */
 
 export const FileLockTable = {
   table: {} as Record<string, boolean>,
   async write(fileName: string, content: any) {
-    //
     if (this.table[fileName] === true) {
       setImmediate(() => {
         this.write(fileName, content);

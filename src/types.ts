@@ -196,8 +196,6 @@ export type qType =
 
 export type QueryType = Partial<Record<qType, any>>;
 
-export type trx = (resolver?: (value: unknown) => void) => Promise<void>;
-
 export type Msgs = { _id: string; _wal_flag: string }[];
 export type Msg = { _id: string; _wal_flag: string };
 

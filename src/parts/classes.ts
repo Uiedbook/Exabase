@@ -1,4 +1,7 @@
 import { copyFile, opendir, rename, unlink } from "node:fs/promises";
+import { existsSync, mkdirSync } from "node:fs";
+import { freemem } from "node:os";
+import { Packr } from "msgpackr";
 import {
   LOG_file_type,
   Msg,
@@ -6,9 +9,7 @@ import {
   QueryType,
   SchemaRelationOptions,
   SchemaOptions,
-  qType,
   relationship_name,
-  trx,
   wQueue,
   SchemaColumnOptions,
   SearchIndexOptions,
@@ -24,15 +25,13 @@ import {
   readDataFromFile,
   binarysorted_insert,
   removeForeignKeys,
-  findMessagesByProperties,
   generate_id,
   binarysearch_mutate,
   findMessageByUnique,
+  FileLockTable,
+  readDataFromFileSync,
+  findMessages,
 } from "./fs-utils";
-import { Packr } from "msgpackr";
-import { existsSync, mkdirSync } from "node:fs";
-import { freemem } from "node:os";
-import { it } from "node:test";
 
 export class Utils {
   static MANIFEST = {
@@ -141,12 +140,25 @@ export class Transaction<Model> {
   constructor(Manager: Manager) {
     this._Manager = Manager;
   }
+  /**
+   * Exabase query
+   * Get the timestamp this data was inserted into the database
+   * @param data
+   * @returns Date
+   */
   static getTimestamp(data: { _id: string }) {
-    if (data._id) {
-      return new Date(parseInt(this.toString().slice(0, 8), 16) * 1000);
-    }
-    return;
+    return (
+      data._id && new Date(parseInt(this.toString().slice(0, 8), 16) * 1000)
+    );
   }
+  /**
+   * Exabase query
+   * find items on the database,
+   * field can be _id string or unique props object
+   * @param field
+   * @param options
+   * @returns
+   */
   find(
     field?:
       | {
@@ -174,21 +186,13 @@ export class Transaction<Model> {
         break;
       }
       const fieldT = (this._Manager._schema.columns as any)[key as string];
-      if (fieldT) {
-        if (fieldT && fieldT.unique) {
-          query["unique"] = {
-            [key]: value,
-          };
-        } else {
-          // ! the find method will no longer search
-          throw new ExabaseError(
-            `column field ${key} is not unique, please try searching instead`
-          );
-        }
+      if (fieldT && fieldT.unique) {
+        query["unique"] = {
+          [key]: value,
+        };
       } else {
-        // ? check if props exists
         throw new ExabaseError(
-          `column field ${key} does not exists in ${this._Manager._schema.tableName}`
+          `column field ${key} is not unique, please try searching instead`
         );
       }
     }
@@ -223,7 +227,13 @@ export class Transaction<Model> {
       this._Manager._run(query, r, "nm");
     }) as Promise<Model[]>;
   }
-
+  /**
+   * Exabase query
+   * search items on the database,
+   * @param searchQuery
+   * @param options
+   * @returns
+   */
   search(
     searchQuery: Model,
     options?: {
@@ -232,21 +242,14 @@ export class Transaction<Model> {
       skip?: number;
     }
   ) {
-    let query: QueryType = {};
-    let key: string = "",
-      value: any;
-    for (const k in searchQuery) {
-      key = k;
-      value = searchQuery[k];
-      break;
-    }
-    if (!key) throw new ExabaseError("invalid search query ", searchQuery);
-    query.search = { [key]: value };
+    if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
+      throw new ExabaseError("invalid search query ", searchQuery);
+    let query: QueryType = { search: searchQuery };
     // ? populate options
     if (typeof options === "object") {
-      query.populate = {};
       query.skip = options.skip;
       query.take = options.take;
+      query.populate = {};
       const fields = this._Manager._schema._foreign_field!;
       if (options.populate === true) {
         for (const lab in fields) {
@@ -269,9 +272,15 @@ export class Transaction<Model> {
       }
     }
     return new Promise((r) => {
-      this._Manager._run(query, r, "m");
+      this._Manager._run(query, r, "nm");
     }) as Promise<Model>;
   }
+  /**
+   * Exabase query
+   * insert or update items on the database,
+   * @param data
+   * @returns
+   */
   save(data: Model) {
     let query: QueryType;
     if ((data as any)._id) {
@@ -287,6 +296,12 @@ export class Transaction<Model> {
       this._Manager._run(query, r, "m");
     }) as Promise<Model>;
   }
+  /**
+   * Exabase query
+   * delete items on the database,
+   * @param _id
+   * @returns
+   */
   delete(_id: string) {
     if (typeof _id !== "string") {
       throw new ExabaseError(
@@ -302,17 +317,33 @@ export class Transaction<Model> {
       this._Manager._run(query, r, "m");
     }) as Promise<Model | undefined>;
   }
-  count() {
+  /**
+   * Exabase query
+   * count items on the database
+   * @returns
+   */
+  count(pops?: Record<string, any>) {
     const query: QueryType = {
-      count: true,
+      count: pops || true,
     };
     return new Promise((r) => {
       this._Manager._run(query, r, "nm");
     }) as Promise<number>;
   }
+  /**
+   * Exabase query
+   * clear the wal of the table on the database
+   */
   flush() {
-    return this._Manager._partition_wal_compiler();
+    //! this guy has a bug gonna fix that later
+    // return this._Manager._partition_wal_compiler();
   }
+  /**
+   * Exabase query
+   * connect relationship in the table on the database
+   * @param options
+   * @returns
+   */
   addRelation(options: {
     _id: string;
     foreign_id: string;
@@ -347,6 +378,12 @@ export class Transaction<Model> {
       this._Manager._run(query, r, "nm");
     });
   }
+  /**
+   * Exabase query
+   * disconnect relationship in the table on the database
+   * @param options
+   * @returns
+   */
   removeRelation(options: {
     _id: string;
     foreign_id: string;
@@ -376,9 +413,15 @@ export class Transaction<Model> {
       this._Manager._run(query, r, "nm");
     });
   }
-  async batch(data: Model[], type: "INSERT" | "UPDATE" | "DELETE") {
+  /**
+   * Exabase query
+   * batch write operations on the database
+   * @param data
+   * @param type
+   */
+  batch(data: Model[], type: "INSERT" | "UPDATE" | "DELETE") {
     if (Array.isArray(data) && "INSERT-UPDATE-DELETE".includes(type)) {
-      await this._prepare_for(data, type);
+      return this._prepare_for(data, type);
     } else {
       throw new ExabaseError(
         `Invalid inputs for .batch method, data should be array and type should be any of  "INSERT", "UPDATE",  "DELETE" .`
@@ -389,33 +432,33 @@ export class Transaction<Model> {
     data: Model[],
     type: "INSERT" | "UPDATE" | "DELETE"
   ) {
-    const validations = data.map((item) => {
+    for (let i = 0; i < data.length; i++) {
+      let item = data[i];
       if (type === "DELETE") {
         if ((item as any)._id) {
           item = (item as any)._id;
         }
-        if (!item || typeof item !== "string") {
+        if (typeof item !== "string") {
           throw new ExabaseError(
             "cannot continue with delete query '",
             item,
             "' is not a valid Exabase _id value"
           );
         }
-        return {
+        this._query.push({
           [type.toLowerCase()]: item,
-        };
+        });
+      } else {
+        this._query.push({
+          [type.toLowerCase()]: this._Manager._validate(item, type),
+        });
       }
-      return {
-        [type.toLowerCase()]: this._Manager._validate(item, type),
-      };
-    });
-    data.length &&
-      this._query.push(
-        ...((await Promise.all(validations)) as Partial<
-          Record<qType, any>
-        > as any[])
-      );
+    }
   }
+  /**
+   * Exabase query
+   * execute a batch operation on the database
+   */
   exec() {
     if (this._query.length) {
       return new Promise((r) => {
@@ -436,6 +479,7 @@ export class Manager {
   private _full_lv_bytesize: number;
   private _LogFiles: LOG_file_type = {};
   private _LsLogFile?: string;
+  private SearchManager?: XTree<Msg>;
   logging: boolean = false;
   constructor(schema: Schema, usablemManagerMem: number) {
     this._schema = schema;
@@ -459,6 +503,8 @@ export class Manager {
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
     this.wDir = this.tableDir + "WAL/";
     this.logging = init.logging;
+    // ? setting up Xtree search index
+    this.SearchManager = new XTree({ persitKey: this.tableDir + "XINDEX" });
     //? setting up RCT for this manager
     Utils.RCT[this.RCT_KEY] = this._schema.RCT ? {} : false;
     //? setup table directories
@@ -478,6 +524,7 @@ export class Manager {
   async _sync_logs() {
     const dir = await opendir(this.tableDir!);
     const logfiles = [];
+    let size = 0;
     for await (const dirent of dir) {
       // ? here we destroy invalid sync files, availability of such files
       // ? signifies an application crash stopping exabase from completing a commit
@@ -489,7 +536,9 @@ export class Manager {
       if (dirent.isFile()) {
         const fn = dirent.name;
         logfiles.push(fn);
-        if ("FOREIGNSEARCHUNIQUE-INDEXES".includes(fn)) {
+        // ! check for this files keys, some are probably not used anymore
+        // ? f = foreign, u = unique, x = search indexes
+        if ("FINDEX-UINDEX-XINDEX".includes(fn)) {
           continue;
         }
         const LOG = await readDataFromFile(
@@ -498,6 +547,7 @@ export class Manager {
         );
         const last_id = LOG.at(-1)?._id || "";
         this._LogFiles[fn] = { last_id, size: LOG.length };
+        size += LOG.length;
         if (!this._LsLogFile) {
           this._LsLogFile = fn;
         } else {
@@ -511,8 +561,10 @@ export class Manager {
     }
     //! wal dir wal merger logic
     await this._startup_run_wal_sync();
+    await this._sync_searchindex(size);
+    // ! resizing has been disconnected till further considerations
     //? get current _full_lv_bytesize and rescale if nessecessary
-    await ResizeLogFiles(logfiles, this._full_lv_bytesize, this.tableDir!);
+    // await ResizeLogFiles(logfiles, this._full_lv_bytesize, this.tableDir!);
   }
   async _startup_run_wal_sync() {
     if (!existsSync(this.wDir!)) {
@@ -542,9 +594,8 @@ export class Manager {
     if (isThereSomeThingToFlush) {
       await this._partition_wal_compiler();
     }
-    await this._sync_searchindex();
   }
-  async _sync_searchindex() {
+  async _sync_searchindex(size: number) {
     // ? search index columns checks
     const sindexes = [];
     if (this._schema.tableName) {
@@ -566,6 +617,14 @@ export class Manager {
       }
     }
     // ? index  validation
+    if (!this.SearchManager!.confirmLength(size)) {
+      console.log("Re-calculating search index due to changes in log size");
+      this.SearchManager!.restart(); // reset indexes to zero
+      for (const file in this._LogFiles) {
+        const LOG = await readDataFromFile(this.RCT_KEY, this.tableDir + file);
+        this.SearchManager!.bulkInsert(LOG); // index all available items
+      }
+    }
   }
   async _run_wal_sync(transactions: wQueue) {
     //? persist active logs in memory
@@ -740,7 +799,6 @@ export class Manager {
   }
 
   _validate(data: any, type?: string) {
-    // console.log(this.columns, data);
     const v = validateData(data, this._schema.columns);
     if (typeof v === "string") {
       throw new ExabaseError(
@@ -761,10 +819,27 @@ export class Manager {
 
     return v;
   }
+  _select_(query: QueryType) {
+    //? creating a relationship map if needed
+    if (Array.isArray(query.select.relationship)) {
+      const rela: Record<string, string> = {};
+      for (let i = 0; i < query.select.relationship.length; i++) {
+        const r = query.select.relationship;
+        rela[r] = this._schema.relationship![r as string].target;
+      }
+      query.select.relationship = rela;
+    }
+    const file = this.getLog(query.select);
+    return findMessage(
+      this.RCT_KEY,
+      this.tableDir + file,
+      query as any
+    ) as Promise<Msg>;
+  }
   _trx_runner(
     query: QueryType,
     tableDir: string
-  ): Promise<Msg | void | Msgs> | number | void {
+  ): Promise<Msg | void | Msgs | number | undefined> | number | void {
     if (query["select"]) {
       //? creating a relationship map if needed
       if (Array.isArray(query.select.relationship)) {
@@ -776,7 +851,7 @@ export class Manager {
         query.select.relationship = rela;
       }
       const file = this.getLog(query.select);
-      return findMessage(this.RCT_KEY, tableDir + file, query as any);
+      return findMessages(this.RCT_KEY, tableDir + file, query as any);
     }
     if (query["insert"]) {
       return insertMessage(tableDir, this._schema._unique_field, query.insert);
@@ -784,39 +859,46 @@ export class Manager {
     if (query["update"]) {
       return updateMessage(tableDir, this._schema._unique_field, query.update);
     }
-    // ! fix
     if (query["search"]) {
-      return findMessagesByProperties(
-        this.RCT_KEY,
-        tableDir,
-        query,
-        this._LogFiles
+      const indexes = this.SearchManager!.search(query.search, query.take);
+      const searches = indexes.map((idx) =>
+        this._select_({ select: idx, populate: query.populate })
       );
+      return Promise.all(searches);
     }
     if (query["unique"]) {
       return new Promise(async (r) => {
         const select = await findMessageByUnique(
-          tableDir + "/UNIQUE-INDEXES",
+          tableDir + "/UINDEX",
           this._schema._unique_field!,
           query.unique
         );
         if (select) {
           const file = this.getLog(select!);
-          r(findMessage(this.RCT_KEY, tableDir + file, { select }));
+          r(
+            await findMessage(this.RCT_KEY, tableDir + file, {
+              select,
+              populate: query.populate,
+            })
+          );
         } else {
           r([]);
         }
       });
     }
     if (query["count"]) {
-      //! we can get count right here
-      let size = 0;
-      const obj = Object.values(this._LogFiles);
-      for (let c = 0; c < obj.length; c++) {
-        const element = obj[c];
-        size += element.size || 0;
+      if (query["count"] === true) {
+        //? we can get count right here
+        let size = 0;
+        const obj = Object.values(this._LogFiles);
+        for (let c = 0; c < obj.length; c++) {
+          const element = obj[c];
+          size += element.size || 0;
+        }
+        return size;
+      } else {
+        return this.SearchManager!.count(query["count"]);
       }
-      return size;
     }
     if (query["delete"]) {
       const file = this.getLog(query.delete);
@@ -839,11 +921,11 @@ export class Manager {
   }
   public async _run(
     query: QueryType | QueryType[],
-    resolver: (value: any) => void,
+    r: (value: any) => void,
     type: "m" | "nm"
   ) {
     //? create a trx
-    const trx: trx = async (resolver) => {
+    const trx = async () => {
       let trs: number | void | Msg | Msgs;
       if (!Array.isArray(query)) {
         trs = await this._trx_runner(query, this.tableDir!);
@@ -853,23 +935,300 @@ export class Manager {
         )) as Msgs;
       }
       if (type !== "nm") {
-        const wid = generate_id();
-        trs &&
-          this.wQueue.push([wid, trs as Msgs]) &&
-          (await writeDataToFile(this.wDir! + wid, trs as Msgs));
+        if (trs) {
+          const wid = generate_id();
+          await writeDataToFile(this.wDir! + wid, trs as Msgs);
+          this.wQueue.push([wid, trs as Msgs]);
+          await this.SearchManager?.manage(trs as Msg);
+        }
       }
       if (this.logging) {
         console.log({ query, table: this._schema.tableName, type });
       }
-      resolver!(trs);
+      return trs;
     };
     // ? run the write ahead logging manager
-    // ? so data to be read is consistent
+    // ? so data to be read is consistent if not already
     if (type === "nm") {
       await this._partition_wal_compiler();
     }
     //? run the trx
-    trx(resolver);
+    r(trx());
+  }
+}
+
+class XNode {
+  constructor(keys?: { value: unknown; indexes: number[] }[]) {
+    this.keys = keys || [];
+  }
+  keys: { value: unknown; indexes: number[] }[] = [];
+  insert(value: unknown, index: number) {
+    let low = 0;
+    let high = this.keys.length - 1;
+    for (; low <= high; ) {
+      const mid = Math.floor((low + high) / 2);
+      const current = this.keys[mid].value;
+      if (current! === value!) {
+        this.keys[mid].indexes.push(index);
+        return;
+      }
+      if (current! < value!) {
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    this.keys.splice(low, 0, { value, indexes: [index] });
+  }
+  disert(value: unknown, index: number) {
+    let left = 0;
+    let right = this.keys.length - 1;
+    for (; left <= right; ) {
+      const mid = Math.floor((left + right) / 2);
+      const current = this.keys[mid].value;
+      if (current === value) {
+        this.keys[mid].indexes = this.keys[mid].indexes.filter(
+          (a) => a !== index
+        );
+        break;
+      } else if (current! < value!) {
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+  }
+  upsert(value: unknown, index: number) {
+    this.disert(value, index);
+    this.insert(value, index);
+  }
+  search(value: unknown) {
+    let left = 0;
+    let right = this.keys.length - 1;
+    for (; left <= right; ) {
+      const mid = Math.floor((left + right) / 2);
+      const current = this.keys[mid].value;
+      if (
+        current === value ||
+        (typeof current === "string" && current.includes(value as string))
+      ) {
+        return this.keys[mid].indexes;
+      } else if (current! < value!) {
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+
+    return;
+  }
+}
+
+export class XTree<X extends Record<string, any>> {
+  base: string[] = [];
+  mutatingBase: boolean = false;
+  persitKey: string;
+  tree: Record<keyof X, XNode> = {} as Record<keyof X, XNode>;
+
+  constructor(init: { persitKey: string }) {
+    this.persitKey = init.persitKey;
+    const [base, tree] = XTree.restore(init.persitKey);
+    if (base) {
+      this.base = base;
+      this.tree = tree;
+    }
+  }
+  restart() {
+    this.base = [];
+    this.tree = {} as Record<keyof X, XNode>;
+  }
+  search(search: X, take: number = Infinity, skip: number = 0) {
+    const results: string[] = [];
+    for (const key in search) {
+      if (this.tree[key]) {
+        const indexes = this.tree[key].search(search[key]);
+        if (skip && results.length >= skip) {
+          results.splice(0, skip);
+          skip = 0;
+        }
+        results.push(...(indexes || []).map((idx) => this.base[idx]));
+        if (results.length >= take) break;
+      }
+    }
+    if (results.length >= take) return results.slice(0, take);
+    return results;
+  }
+
+  searchBase(_id: string) {
+    let left = 0;
+    let right = this.base.length - 1;
+    for (; left <= right; ) {
+      const mid = Math.floor((left + right) / 2);
+      const current = this.base[mid];
+      if (current === _id) {
+        return mid;
+      } else if (current! < _id!) {
+        left = mid + 1;
+      } else {
+        right = mid - 1;
+      }
+    }
+    return;
+  }
+
+  async count(search: X) {
+    let resultsCount: number = 0;
+    for (const key in search) {
+      if (this.tree[key]) {
+        resultsCount += this.tree[key].search(search[key])?.length || 0;
+      }
+    }
+    return resultsCount;
+  }
+
+  confirmLength(size: number) {
+    return this.base.length === size;
+  }
+
+  manage(trx: Msg | Msgs) {
+    if (Array.isArray(trx)) {
+      switch (trx[0]._wal_flag) {
+        case "i":
+          return this.bulkInsert(trx as unknown as X[]);
+        case "u":
+          return this.bulkUpsert(trx as unknown as X[]);
+        case "d":
+          return this.bulkDisert(trx as unknown as X[]);
+      }
+    } else {
+      switch (trx._wal_flag) {
+        case "i":
+          return this.insert(trx as unknown as X);
+        case "u":
+          return this.upsert(trx as unknown as X);
+        case "d":
+          return this.disert(trx as unknown as X);
+      }
+    }
+    return;
+  }
+  async insert(data: X, bulk = false) {
+    if (!data._id) throw new Error("bad insert");
+    if (!this.mutatingBase) {
+      this.mutatingBase = true;
+    } else {
+      setImmediate(() => {
+        this.insert(data);
+      });
+      return;
+    }
+    // ? save keys in their corresponding nodes
+    if (typeof data === "object" && !Array.isArray(data)) {
+      for (const key in data) {
+        if (key === "_id" || key === "_wal_flag") continue;
+        if (!this.tree[key]) {
+          this.tree[key] = new XNode();
+        }
+        this.tree[key].insert(data[key], this.base.length);
+      }
+      this.base.push(data._id);
+    }
+    if (!bulk) await this.persit();
+    this.mutatingBase = false;
+  }
+  async disert(data: X, bulk = false) {
+    if (!data._id) throw new Error("bad insert");
+    if (!this.mutatingBase) {
+      this.mutatingBase = true;
+    } else {
+      setImmediate(() => {
+        this.disert(data);
+      });
+      return;
+    }
+    const index = this.searchBase(data._id);
+    if (!index) return;
+    if (typeof data === "object" && !Array.isArray(data)) {
+      for (const key in data) {
+        if (key === "_id" || !this.tree[key]) continue;
+        this.tree[key].disert(data[key], index);
+      }
+      this.base.splice(index, 1);
+    }
+    if (!bulk) await this.persit();
+    this.mutatingBase = false;
+  }
+  async upsert(data: X, bulk = false) {
+    if (!data._id) throw new Error("bad insert");
+    if (!this.mutatingBase) {
+      this.mutatingBase = true;
+    } else {
+      setImmediate(() => {
+        this.disert(data);
+      });
+      return;
+    }
+    const index = this.searchBase(data._id);
+    if (index === undefined) return;
+    if (typeof data === "object" && !Array.isArray(data)) {
+      for (const key in data) {
+        if (key === "_id") continue;
+        if (!this.tree[key]) {
+          this.tree[key] = new XNode();
+        }
+        this.tree[key].upsert(data[key], index);
+      }
+    }
+    if (!bulk) await this.persit();
+    this.mutatingBase = false;
+  }
+
+  async bulkInsert(dataset: X[]) {
+    if (Array.isArray(dataset)) {
+      for (let i = 0; i < dataset.length; i++) {
+        this.insert(dataset[i], true);
+      }
+      await this.persit();
+    }
+  }
+  async bulkDisert(dataset: X[]) {
+    if (Array.isArray(dataset)) {
+      for (let i = 0; i < dataset.length; i++) {
+        this.disert(dataset[i], true);
+      }
+      await this.persit();
+    }
+  }
+  async bulkUpsert(dataset: X[]) {
+    if (Array.isArray(dataset)) {
+      for (let i = 0; i < dataset.length; i++) {
+        this.upsert(dataset[i], true);
+      }
+      await this.persit();
+    }
+  }
+
+  private persit() {
+    const obj: Record<string, any> = {};
+    const keys = Object.keys(this.tree);
+    for (let index = 0; index < keys.length; index++) {
+      obj[keys[index]] = this.tree[keys[index]].keys;
+    }
+    return FileLockTable.write(this.persitKey, {
+      base: this.base,
+      tree: obj,
+    });
+  }
+
+  static restore(persitKey: string) {
+    const data = readDataFromFileSync(persitKey);
+    const tree: Record<string, any> = {};
+    if (data.tree) {
+      for (const key in data.tree) {
+        tree[key] = new XNode(data.tree[key]);
+      }
+    }
+    return [data.base, tree];
   }
 }
 
@@ -920,6 +1279,7 @@ async function ResizeLogFiles(
     ResizeLeftOvers(leftovers, current_index, length, true, tableDir);
   }
 }
+
 async function ResizeLeftOvers(
   leftovers: any[],
   current_index: number,

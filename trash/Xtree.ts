@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
-import { Utils } from "./src/parts/classes";
-import { writeDataToFile } from "./src/parts/fs-utils";
-import { Msgs } from "./src/types";
+import { Utils } from "../src/parts/classes";
+import { FileLockTable } from "../src/parts/fs-utils";
+import { Msgs } from "../src/types";
 
 const readDataFromFileSync = (filePath: string) => {
   try {
@@ -13,7 +13,7 @@ const readDataFromFileSync = (filePath: string) => {
   }
 };
 
-class XNode {
+export class XNode {
   constructor(keys?: { value: unknown; indexes: number[] }[]) {
     this.keys = keys || [];
   }
@@ -69,32 +69,35 @@ class XTree<X extends Record<string, any>> {
   constructor(init: { persitKey: string }) {
     this.persitKey = init.persitKey;
     const [base, tree] = XTree.restore(init.persitKey);
-    if (base && tree) {
+    if (base) {
       this.base = base;
       this.tree = tree;
     }
   }
 
-  search(key: keyof X, value: unknown) {
-    if (this.tree[key]) {
-      const indexes = this.tree[key].search(value);
-      return indexes?.map((idx) => this.base[idx]);
-    }
-    return;
-  }
-
-  multiSearch(search: X) {
+  search(search: X, NumberOfItems: number = Infinity) {
     const results: X[] = [];
     for (const key in search) {
       if (this.tree[key]) {
         const indexes = this.tree[key].search(search[key]);
         results.push(...(indexes || []).map((idx) => this.base[idx]));
+        if (results.length >= NumberOfItems) break;
       }
     }
+    if (results.length >= NumberOfItems) return results.slice(0, NumberOfItems);
     return results;
   }
+  count(search: X) {
+    let resultsCount: number = 0;
+    for (const key in search) {
+      if (this.tree[key]) {
+        resultsCount += this.tree[key].search(search[key])?.length || 0;
+      }
+    }
+    return resultsCount;
+  }
 
-  insert(data: X) {
+  async insert(data: X, bulk = false) {
     if (!data._id) throw new Error("bad insert");
     if (!this.inserting) {
       this.inserting = true;
@@ -107,6 +110,7 @@ class XTree<X extends Record<string, any>> {
     // ? save keys in their corresponding nodes
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
+        if (key === "_id") continue;
         if (!this.tree[key]) {
           this.tree[key] = new XNode();
         }
@@ -114,17 +118,17 @@ class XTree<X extends Record<string, any>> {
       }
       this.base.push(data._id);
     }
-    this.persit();
+    if (!bulk) await this.persit();
     this.inserting = false;
   }
 
-  bulkInsert(dataset: X[]) {
+  async bulkInsert(dataset: X[]) {
     if (Array.isArray(dataset)) {
       for (let i = 0; i < dataset.length; i++) {
-        this.insert(dataset[i]);
+        this.insert(dataset[i], true);
       }
+      await this.persit();
     }
-    this.persit();
   }
 
   private persit() {
@@ -133,7 +137,7 @@ class XTree<X extends Record<string, any>> {
     for (let index = 0; index < keys.length; index++) {
       obj[keys[index]] = this.tree[keys[index]].keys;
     }
-    return writeDataToFile(this.persitKey, {
+    return FileLockTable.write(this.persitKey, {
       base: this.base,
       tree: obj,
     });
@@ -151,13 +155,15 @@ class XTree<X extends Record<string, any>> {
   }
 }
 
-const data = { name: "john", _id: "ksssssssss" };
+const data = { name: "john", _id: "id" };
 const tree = new XTree<Partial<typeof data>>({ persitKey: "boohoo" });
-// tree.insert(data);
-// tree.insert(data);
-console.log(tree.search("name", "john"));
-console.log(
-  tree.multiSearch({
-    _id: "ksssssssss",
-  })
-);
+let count = 0;
+console.time("index new item");
+tree.insert(data);
+console.timeEnd("index new item");
+console.time("count all items");
+count = tree.count({
+  name: "j",
+});
+console.timeEnd("count all items");
+console.log("items in the Index => " + count);
