@@ -396,19 +396,19 @@ This might not be okay for resource heavy workloads. hence it can be turned off 
 
 # Exabase peripherals
 
+### JetPath
+
+An http router ( completed ) extracted from Exabase rings, extracted for use in stand alone apps.
+
+People love the innovation we achieved when we customised how routes should conform to function names, this router also uses the Cradova route matcher logic to get routes faster without using any regex. this is as fast as it could get. [Learn more about JetPath]("https://github.com/uiedbook/jetpath").
+
 ### ExaCore
 
 ExaCore ( under dev ) is an administractive Panel that connects to, monitors and executes operations on your Exabase Rings interface. [Get ExaCore]("/")
 
-### ExabaseStore
+### ExaStore
 
 A client-side ( under dev ) library for communication with your Exabase rings interface, does a high level theoritical load-balancing out of the box. [Learn more about ExaStore]("/")
-
-### JetPath
-
-A javascript-based http router ( completed ) extracted from Exabase rings, extracted for use in stand alone apps.
-
-People love the innovation we achieved when we customised how routes should conform to function names, this router also uses the Cradova route matcher logic to get routes faster without using any regex. this is as fast as it could get. [Learn more about JetPath]("https://github.com/uiedbook/jetpath").
 
 It's super interesting what has been achieved so far.
 
@@ -416,10 +416,9 @@ It's super interesting what has been achieved so far.
 
 Opensourced And Free.
 
-Uiedbook is an open source team of web focused engineers, their vision is to make the web better, improving and innovating infrastructures for a better web experi3ence.
+Uiedbook is an open source team of web focused engineers, their vision is to make the web better, improving and innovating infrastructures for a better web experience.
 
-You can Join the [Uiedbook group]("https://t.me/UiedbookHQ") on telegram.
-Ask your questions and become a team-member/contributor by becoming an insider.
+Join Us on [telegram]("https://t.me/UiedbookHQ").
 
 ### Contribution and License Agreement
 

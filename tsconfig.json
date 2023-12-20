@@ -15,5 +15,5 @@
     "forceConsistentCasingInFileNames": true,
     "useDefineForClassFields": false
   },
-  "include": ["src", "Xtree.ts"]
+  "include": ["src", "trash/backup.ts"]
 }

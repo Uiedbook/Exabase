@@ -1,16 +1,19 @@
 import { mkdirSync } from "node:fs";
-import { ExabaseOptions } from "./types.js";
-import { _ExabaseRingInterface, _AccessRingInterfaces } from "./parts/Ring.js";
+import { ExaDoc, ExabaseOptions } from "./primitives/types.js";
+import {
+  _ExabaseRingInterface,
+  _AccessRingInterfaces,
+} from "./primitives/http-functions.js";
 import {
   ExabaseError,
   Utils,
   Manager,
   Schema,
   Transaction,
-  getComputedUsage,
-} from "./parts/classes.js";
+} from "./primitives/classes.js";
+import { getComputedUsage } from "./primitives/functions.js";
 
-export default class Exabase<EaxbaseInit extends ExabaseOptions> {
+export class Exabase<EaxbaseInit extends ExabaseOptions> {
   private _ready = false;
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
@@ -127,5 +130,6 @@ export default class Exabase<EaxbaseInit extends ExabaseOptions> {
 }
 
 //? exports
-export { Schema, ExabaseError, Transaction } from "./parts/classes.js";
-export type { ExaDoc } from "./types.js";
+export { Schema, ExabaseError } from "./primitives/classes.js";
+export type { ExaDoc } from "./primitives/types.js";
+export type TransactionType<Model = ExaDoc<{}>> = Transaction<Model>;

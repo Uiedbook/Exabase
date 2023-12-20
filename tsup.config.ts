@@ -9,7 +9,7 @@ const config: Options = {
   treeshake: "smallest",
   target: "esnext",
   bundle: true,
-  outDir: "lib",
+  outDir: "dist",
   esbuildOptions(options) {
     options.legalComments = "none";
   },

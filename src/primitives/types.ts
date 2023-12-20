@@ -1,4 +1,4 @@
-import { Schema } from "./parts/classes";
+import { Schema } from "./classes";
 
 /**
  * Interface for Exabase init  */

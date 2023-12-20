@@ -1,10 +1,19 @@
 import { randomBytes } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
-import { LOG_file_type, Msg, Msgs, fTable, iTable } from "../types";
-import { Utils, ExabaseError } from "./classes";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, rename, unlink } from "node:fs/promises";
 import { Buffer } from "node:buffer";
+import { freemem } from "node:os";
+//
+import {
+  Msg,
+  Msgs,
+  SchemaColumnOptions,
+  columnValidationType,
+  fTable,
+  iTable,
+} from "./types";
+import { Utils, ExabaseError } from "./classes";
 
 export const readDataFromFile = async (RCT_KEY: string, filePath: string) => {
   if (Utils.RCT[RCT_KEY]) {
@@ -610,3 +619,141 @@ export const FileLockTable = {
     await rename(fcpn, fileName);
   },
 };
+
+// Schema validator
+
+export function validateData(
+  data: Record<string, Record<string, any>> = {},
+  schema: Record<string, SchemaColumnOptions> = {}
+) {
+  let info: Record<string, any> | string = {};
+  //? check for valid input
+  if (typeof data !== "object") {
+    info = " data is invalid " + data;
+  }
+  for (const [prop, value] of Object.entries(schema)) {
+    const { type, length, width, nullable } = value as columnValidationType;
+    (info as Record<string, any>)[prop] = data[prop] || value.default || null;
+    if (prop === "_id") {
+      continue;
+    }
+    // ? check for nullability
+    if ((data[prop] === undefined || data[prop] === null) && nullable) {
+      continue;
+    }
+    if ((data[prop] === undefined || data[prop] === null) && !nullable) {
+      if (!value.default) {
+        info = `${prop} is required`;
+        break;
+      }
+    }
+    // ?
+    if (typeof data[prop] !== "undefined") {
+      // ? check for empty strings
+      if (
+        typeof data[prop] === "string" &&
+        data[prop].trim() === "" &&
+        nullable
+      ) {
+        info = `${prop} cannot be empty `;
+        break;
+      }
+      // ? check for type
+      if (typeof type === "function" && typeof data[prop] !== typeof type()) {
+        info = `${prop} type is invalid ${typeof data[prop]}`;
+        break;
+      }
+      //? checks for numbers width
+      if (
+        width &&
+        !Number.isNaN(Number(data[prop])) &&
+        Number(data[prop]) < width
+      ) {
+        info = `Given ${prop} must not be lesser than ${width}`;
+        break;
+      }
+      //? checks for String length
+      if (
+        length &&
+        typeof data[prop] === "string" &&
+        data[prop].length > length
+      ) {
+        info = `${prop} is more than ${length} characters `;
+      }
+    }
+  }
+  return info;
+}
+
+//  other functions
+
+export const getComputedUsage = (
+  allowedUsagePercent: number,
+  schemaLength: number
+) => {
+  const nuPerc = (p: number) => p / 1500; /*
+      ? (100 = convert to percentage, 15 = exabase gravity constant) = 1500 units  */
+  //? percent allowed to be used
+  // ? what can be used by exabse
+  const usableGB = freemem() * nuPerc(allowedUsagePercent || 10); /*
+      ? normalise any 0% of falsy values to 10% */
+  // ? usage size per schema derivation
+  const usableManagerGB = usableGB / (schemaLength || 1);
+  return usableManagerGB;
+};
+
+async function ResizeLogFiles(
+  sources: string[],
+  length: number,
+  tableDir: string
+) {
+  let leftovers: any[] = [];
+  let current_index = 1;
+  let logged = false;
+  for (const src of sources) {
+    const data = await readDataFromFile("", src);
+    if (data.length === length) {
+      return;
+    }
+    if (!logged) {
+      console.log("Resizing Log files due to change ");
+      logged = true;
+    }
+    leftovers.push(...data);
+    // @ts-ignore
+    [leftovers, current_index] = await ResizeLeftOvers(
+      leftovers,
+      current_index,
+      length,
+      false
+    );
+  }
+  // ? save leftovers last
+  // ? write point
+  if (leftovers.length) {
+    ResizeLeftOvers(leftovers, current_index, length, true, tableDir);
+  }
+}
+
+async function ResizeLeftOvers(
+  leftovers: any[],
+  current_index: number,
+  length = 1_000,
+  last = false,
+  tableDir: string
+) {
+  while (leftovers.length >= length) {
+    // ? > length
+    // ? keep leftovers
+    const data = [...leftovers.splice(0, length)];
+    // ? write point
+    await writeDataToFile(tableDir + "SCALE-" + current_index, data);
+    current_index += 1;
+  }
+  // ? save leftovers last
+  // ? write point
+  if (leftovers.length && last) {
+    await writeDataToFile(tableDir + "SCALE-" + current_index, leftovers);
+  }
+  return [leftovers, current_index];
+}

@@ -1,12 +1,12 @@
 {
   "name": "exabase",
-  "version": "0.0.0-rc-04",
+  "version": "0.0.0-rc-05",
   "description": "A scaling focused distributed nosql database with surprising performance and strong data consistency.",
-  "main": "lib/index.js",
+  "main": "dist/index.js",
   "type": "module",
   "files": [
-    "lib/index.d.ts",
-    "lib/index.js"
+    "dist/index.d.ts",
+    "dist/index.js"
   ],
   "keywords": [
     "database",
@@ -25,7 +25,7 @@
     "javascript"
   ],
   "scripts": {
-    "compile": "rm -rf lib && npm run build",
+    "compile": "rm -rf dist && npm run build",
     "rebuild-test": "npm run compile && rm -rf ./EXABASE_DB && node --test tests/exabase.test.js",
     "reset-test": "rm -rf ./EXABASE_DB && node --test tests/exabase.test.js",
     "just-test": "node --test tests/exabase.test.js",

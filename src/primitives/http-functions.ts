@@ -1,5 +1,44 @@
 import { AppCTXType } from "jetpath";
-import { Utils } from "./classes";
+//
+import { ExabaseError, Utils } from "./classes";
+
+export const _ExabaseRingInterface = async (ctx: AppCTXType) => {
+  const data = await ctx.json();
+  switch (data.type) {
+    case "app":
+      app(data.query);
+      break;
+    case "authorise":
+      authorise(data.query);
+      break;
+    case "save":
+      save(data.query);
+      break;
+    case "hydrate":
+      hydrate(data.query);
+      break;
+    default:
+      ctx.reply("pong");
+      break;
+  }
+};
+
+export const _AccessRingInterfaces = async () => {
+  // ? generate authorisation token and login all ring bearers
+  const ringbearerResponses = Utils.MANIFEST.ringbearers.map((r) =>
+    fetch(r + "/exabase", {})
+  );
+  for await (const ringbearerResponse of ringbearerResponses) {
+    const data = await ringbearerResponse.json();
+    if (data.status !== "OK") {
+      throw new ExabaseError(
+        "Failed Exabase Auth! - connecting to a ring bearer at ",
+        ringbearerResponse.url
+      );
+    }
+  }
+  return true;
+};
 
 //! /login - (request out) logins an Exabase Ring interface.
 export const app = async (ctx: AppCTXType) => {
