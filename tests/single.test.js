@@ -1,5 +1,5 @@
 // @ts-nocheck
-import Exabase, { Schema } from "../lib/index.js";
+import { Exabase, Schema } from "../dist/index.js";
 import { test } from "node:test";
 const assert = {
   strict(a, b, c = "") {

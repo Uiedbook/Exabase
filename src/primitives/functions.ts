@@ -29,6 +29,7 @@ export const readDataFromFile = async (RCT_KEY: string, filePath: string) => {
     }
     return d;
   } catch (error) {
+    // console.log(error, filePath);
     return [] as Msgs;
   }
 };
@@ -38,6 +39,7 @@ export const readDataFromFileSync = (filePath: string) => {
     const d = Utils.packr.decode(data) || [];
     return d;
   } catch (error) {
+    // console.log(error, filePath);
     return [];
   }
 };
@@ -55,7 +57,7 @@ export async function updateMessage(
   message: Msg
 ) {
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "/UINDEX", _unique_field, message);
+    const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     // ? checking for existing specified unique identifiers
     if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
       throw new ExabaseError(
@@ -81,7 +83,7 @@ export async function insertMessage(
   message: Msg
 ) {
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "/UINDEX", _unique_field, message);
+    const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     if (Array.isArray(someIdex)) {
       throw new ExabaseError(
         "INSERT on table :",
@@ -101,6 +103,7 @@ export async function insertMessage(
   }
   return message;
 }
+
 export async function deleteMessage(
   _id: string,
   dir: string,
@@ -476,6 +479,7 @@ export const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
+
   await FileLockTable.write(fileName + "/UINDEX", messages);
 };
 

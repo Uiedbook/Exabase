@@ -9,7 +9,7 @@
 
 import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
-import Exabase, { Schema } from "../lib/index.js";
+import { Schema, Exabase } from "../dist/index.js";
 const db = Database.open("tests/sql_file/Northwind_large.sqlite");
 
 const Employee = new Schema({

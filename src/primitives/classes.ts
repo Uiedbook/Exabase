@@ -336,7 +336,7 @@ export class Transaction<Model> {
    */
   flush() {
     //! this guy has a bug gonna fix that later
-    // return this._Manager._partition_wal_compiler();
+    return this._Manager._partition_wal_compiler();
   }
   /**
    * Exabase query
@@ -437,17 +437,17 @@ export class Transaction<Model> {
       if (type === "DELETE") {
         if ((item as any)._id) {
           item = (item as any)._id;
+          if (typeof item !== "string") {
+            throw new ExabaseError(
+              "cannot continue with delete query '",
+              item,
+              "' is not a valid Exabase _id value"
+            );
+          }
+          this._query.push({
+            [type.toLowerCase()]: item,
+          });
         }
-        if (typeof item !== "string") {
-          throw new ExabaseError(
-            "cannot continue with delete query '",
-            item,
-            "' is not a valid Exabase _id value"
-          );
-        }
-        this._query.push({
-          [type.toLowerCase()]: item,
-        });
       } else {
         this._query.push({
           [type.toLowerCase()]: this._Manager._validate(item, type),
@@ -460,7 +460,7 @@ export class Transaction<Model> {
    * execute a batch operation on the database
    */
   exec() {
-    if (this._query.length) {
+    if (this._query.length !== 0) {
       return new Promise((r) => {
         this._Manager._run(this._query.splice(0), r, "m");
       }) as Promise<Model[]>;
@@ -584,6 +584,7 @@ export class Manager {
         // ? some of these trs will be [] in cases where there was a crash and data retrival failed
         // ? hence the responce was not a success
         // ? therefore only a database remains consistent in the face of crashes
+
         const trs = await readDataFromFile(
           this.RCT_KEY,
           this.wDir + dirent.name
@@ -869,7 +870,7 @@ export class Manager {
     if (query["unique"]) {
       return new Promise(async (r) => {
         const select = await findMessageByUnique(
-          tableDir + "/UINDEX",
+          tableDir + "UINDEX",
           this._schema._unique_field!,
           query.unique
         );
@@ -935,15 +936,12 @@ export class Manager {
         )) as Msgs;
       }
       if (type !== "nm") {
-        if (trs) {
+        if (typeof trs === "object") {
           const wid = generate_id();
           await writeDataToFile(this.wDir! + wid, trs as Msgs);
           this.wQueue.push([wid, trs as Msgs]);
           await this.SearchManager?.manage(trs as Msg);
         }
-      }
-      if (this.logging) {
-        console.log({ query, table: this._schema.tableName, type });
       }
       return trs;
     };
@@ -952,8 +950,13 @@ export class Manager {
     if (type === "nm") {
       await this._partition_wal_compiler();
     }
+
     //? run the trx
     r(trx());
+    // ? log the query
+    if (this.logging) {
+      console.log({ query, table: this._schema.tableName, type });
+    }
   }
 }
 

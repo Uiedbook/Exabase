@@ -81,7 +81,7 @@ declare class Transaction<Model> {
      * Exabase query
      * clear the wal of the table on the database
      */
-    flush(): void;
+    flush(): Promise<void>;
     /**
      * Exabase query
      * connect relationship in the table on the database

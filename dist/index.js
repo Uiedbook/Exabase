@@ -37,7 +37,7 @@ var writeDataToFile = (filePath, data) => {
 };
 async function updateMessage(dir, _unique_field, message) {
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "/UINDEX", _unique_field, message);
+    const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
       throw new ExabaseError(
         "UPDATE on table :",
@@ -58,7 +58,7 @@ async function updateMessage(dir, _unique_field, message) {
 }
 async function insertMessage(dir, _unique_field, message) {
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "/UINDEX", _unique_field, message);
+    const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     if (Array.isArray(someIdex)) {
       throw new ExabaseError(
         "INSERT on table :",
@@ -745,6 +745,7 @@ var Transaction = class {
    * clear the wal of the table on the database
    */
   flush() {
+    return this._Manager._partition_wal_compiler();
   }
   /**
    * Exabase query
@@ -832,17 +833,17 @@ var Transaction = class {
       if (type === "DELETE") {
         if (item._id) {
           item = item._id;
+          if (typeof item !== "string") {
+            throw new ExabaseError(
+              "cannot continue with delete query '",
+              item,
+              "' is not a valid Exabase _id value"
+            );
+          }
+          this._query.push({
+            [type.toLowerCase()]: item
+          });
         }
-        if (typeof item !== "string") {
-          throw new ExabaseError(
-            "cannot continue with delete query '",
-            item,
-            "' is not a valid Exabase _id value"
-          );
-        }
-        this._query.push({
-          [type.toLowerCase()]: item
-        });
       } else {
         this._query.push({
           [type.toLowerCase()]: this._Manager._validate(item, type)
@@ -855,7 +856,7 @@ var Transaction = class {
    * execute a batch operation on the database
    */
   exec() {
-    if (this._query.length) {
+    if (this._query.length !== 0) {
       return new Promise((r) => {
         this._Manager._run(this._query.splice(0), r, "m");
       });
@@ -1182,7 +1183,7 @@ var Manager = class {
     if (query["unique"]) {
       return new Promise(async (r) => {
         const select = await findMessageByUnique(
-          tableDir + "/UINDEX",
+          tableDir + "UINDEX",
           this._schema._unique_field,
           query.unique
         );
@@ -1242,15 +1243,12 @@ var Manager = class {
         );
       }
       if (type !== "nm") {
-        if (trs) {
+        if (typeof trs === "object") {
           const wid = generate_id();
           await writeDataToFile(this.wDir + wid, trs);
           this.wQueue.push([wid, trs]);
           await this.SearchManager?.manage(trs);
         }
-      }
-      if (this.logging) {
-        console.log({ query, table: this._schema.tableName, type });
       }
       return trs;
     };
@@ -1258,6 +1256,9 @@ var Manager = class {
       await this._partition_wal_compiler();
     }
     r(trx());
+    if (this.logging) {
+      console.log({ query, table: this._schema.tableName, type });
+    }
   }
 };
 var XNode = class {
