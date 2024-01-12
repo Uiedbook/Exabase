@@ -45,7 +45,7 @@ export type ExabaseOptions = {
    * ---
    * Data schemas
    */
-  schemas: Schema[];
+  schemas: Schema<any>[];
   /**
    * Exabase DBMS
    * ---
@@ -218,3 +218,5 @@ export type LOG_file_type = Record<string, { last_id: string; size: number }>;
 export type ExaDoc<Model extends { [column: string]: any }> = Model & {
   _id?: string;
 };
+
+export type connectOptions = {};

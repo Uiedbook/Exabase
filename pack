@@ -3,10 +3,8 @@
  
 
 echo "" 
-echo ""
-# npm run build
-echo  "  Building ...."
-npm run compile
+echo "" 
 echo  "  Packing ...."
+tsc --emitDeclarationOnly
 npm pack
 mv **.tgz ~/

@@ -1,5 +1,9 @@
 import { mkdirSync } from "node:fs";
-import { ExaDoc, ExabaseOptions } from "./primitives/types.js";
+import {
+  type ExaDoc,
+  type ExabaseOptions,
+  type connectOptions,
+} from "./primitives/types.js";
 import {
   _ExabaseRingInterface,
   _AccessRingInterfaces,
@@ -8,13 +12,13 @@ import {
   ExabaseError,
   Utils,
   Manager,
-  Schema,
-  Transaction,
+  Transaction as TRX,
 } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
+import { JetPath } from "jetpath";
 
 export class Exabase<EaxbaseInit extends ExabaseOptions> {
-  private _ready = false;
+  private _announced = false;
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
   constructor(init: EaxbaseInit) {
@@ -54,10 +58,11 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
     //? setup managers
     init.schemas.forEach((schema) => {
       Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
-        schema as Schema,
+        schema,
         usableManagerGB
       );
     });
+    // ? setup relationships
     Promise.allSettled(
       Object.values(Utils.EXABASE_MANAGERS).map((manager) =>
         manager._setup({
@@ -69,7 +74,7 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
     )
       .then((_all) => {
         //? console.log(_all);
-        this._ready = true;
+        this._announced = true;
         console.log("Exabase: connected!");
         this._conn && this._conn(true);
       })
@@ -77,8 +82,13 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
         console.log(e);
       });
   }
-  connect() {
-    if (!this._ready) {
+  connect(app?: JetPath | connectOptions) {
+    if (app instanceof JetPath) {
+      _AccessRingInterfaces();
+      //? hooks
+      _ExabaseRingInterface;
+    } //? else { some other stuff with config if available}
+    if (!this._announced) {
       console.log("Exabase: connecting...");
       return new Promise((r) => {
         this._conn = r;
@@ -86,34 +96,10 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
     }
     return undefined;
   }
-  getTransaction(schema: Schema) {
-    if (this._ready) {
-      if (Utils.EXABASE_MANAGERS[schema?.tableName]) {
-        return Utils.EXABASE_MANAGERS[schema.tableName]
-          ._transaction as Transaction<
-          Record<keyof (typeof schema)["columns"], unknown>
-        >;
-      } else {
-        throw new ExabaseError(
-          "The given schema - " +
-            (schema?.tableName || "undefined") +
-            " is not connected to the Eaxbase Instance"
-        );
-      }
-    } else {
-      throw new ExabaseError("Exabase not ready!");
-    }
-  }
-  async expose() {
-    // ? setting up ring interface
-    if (this._ready === true) {
-      await _AccessRingInterfaces();
-      return _ExabaseRingInterface;
-    } else {
-      throw new ExabaseError("Exabase not ready!");
-    }
-  }
   async executeQuery<Model = unknown>(query: string) {
+    if (!this._announced) {
+      throw new ExabaseError("Exabase not ready!");
+    }
     //? verify query validity
     try {
       if (typeof query !== "string") throw new Error();
@@ -132,4 +118,4 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
 //? exports
 export { Schema, ExabaseError } from "./primitives/classes.js";
 export type { ExaDoc } from "./primitives/types.js";
-export type TransactionType<Model = ExaDoc<{}>> = Transaction<Model>;
+export type Transaction<Model = ExaDoc<{}>> = TRX<Model>;

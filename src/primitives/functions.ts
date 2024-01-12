@@ -6,12 +6,12 @@ import { Buffer } from "node:buffer";
 import { freemem } from "node:os";
 //
 import {
-  Msg,
-  Msgs,
-  SchemaColumnOptions,
-  columnValidationType,
-  fTable,
-  iTable,
+  type Msg,
+  type Msgs,
+  type SchemaColumnOptions,
+  type columnValidationType,
+  type fTable,
+  type iTable,
 } from "./types";
 import { Utils, ExabaseError } from "./classes";
 
@@ -258,7 +258,7 @@ export const addForeignKeys = async (
 
   const foreign_message = await Utils.EXABASE_MANAGERS[
     reference.foreign_table.toUpperCase()
-  ]._transaction.find(reference.foreign_id);
+  ]._transaction.findOne(reference.foreign_id);
 
   if (!foreign_message) {
     throw new ExabaseError(
@@ -336,14 +336,14 @@ export const populateForeignKeys = async (
             const marray = fk.map(async (id) => {
               return Utils.EXABASE_MANAGERS[
                 relationships[relationship]
-              ]._transaction.find(id);
+              ]._transaction.findOne(id);
             });
             const msgs = await Promise.all(marray);
             rela[relationship] = msgs.flat();
           } else {
             const msgs = await Utils.EXABASE_MANAGERS[
               relationships[relationship].toUpperCase()
-            ]._transaction.find(fk);
+            ]._transaction.findOne(fk);
             rela[relationship] = msgs as Record<string, any>;
           }
         }
@@ -548,9 +548,9 @@ export const binarysorted_insert = async (message: Msg, messages: Msgs) => {
   return messages;
 };
 
-const PROCESS_UNIQUE = randomBytes(5);
-let index = ~~(Math.random() * 0xffffff);
 export const generate_id = (): string => {
+  const PROCESS_UNIQUE = randomBytes(5);
+  let index = ~~(Math.random() * 0xffffff);
   const time = ~~(Date.now() / 1000);
   const inc = (index = (index + 1) % 0xffffff);
   const buffer = Buffer.alloc(12);
@@ -656,7 +656,7 @@ export function validateData(
       // ? check for empty strings
       if (
         typeof data[prop] === "string" &&
-        data[prop].trim() === "" &&
+        data[prop]["trim"]() === "" &&
         nullable
       ) {
         info = `${prop} cannot be empty `;
@@ -680,7 +680,7 @@ export function validateData(
       if (
         length &&
         typeof data[prop] === "string" &&
-        data[prop].length > length
+        data[prop]["length"] > length
       ) {
         info = `${prop} is more than ${length} characters `;
       }
@@ -706,58 +706,58 @@ export const getComputedUsage = (
   return usableManagerGB;
 };
 
-async function ResizeLogFiles(
-  sources: string[],
-  length: number,
-  tableDir: string
-) {
-  let leftovers: any[] = [];
-  let current_index = 1;
-  let logged = false;
-  for (const src of sources) {
-    const data = await readDataFromFile("", src);
-    if (data.length === length) {
-      return;
-    }
-    if (!logged) {
-      console.log("Resizing Log files due to change ");
-      logged = true;
-    }
-    leftovers.push(...data);
-    // @ts-ignore
-    [leftovers, current_index] = await ResizeLeftOvers(
-      leftovers,
-      current_index,
-      length,
-      false
-    );
-  }
-  // ? save leftovers last
-  // ? write point
-  if (leftovers.length) {
-    ResizeLeftOvers(leftovers, current_index, length, true, tableDir);
-  }
-}
+// async function ResizeLogFiles(
+//   sources: string[],
+//   length: number,
+//   tableDir: string
+// ) {
+//   let leftovers: any[] = [];
+//   let current_index = 1;
+//   let logged = false;
+//   for (const src of sources) {
+//     const data = await readDataFromFile("", src);
+//     if (data.length === length) {
+//       return;
+//     }
+//     if (!logged) {
+//       console.log("Resizing Log files due to change ");
+//       logged = true;
+//     }
+//     leftovers.push(...data);
+//     // @ts-ignore
+//     [leftovers, current_index] = await ResizeLeftOvers(
+//       leftovers,
+//       current_index,
+//       length,
+//       false
+//     );
+//   }
+//   // ? save leftovers last
+//   // ? write point
+//   if (leftovers.length) {
+//     ResizeLeftOvers(leftovers, current_index, length, true, tableDir);
+//   }
+// }
 
-async function ResizeLeftOvers(
-  leftovers: any[],
-  current_index: number,
-  length = 1_000,
-  last = false,
-  tableDir: string
-) {
-  while (leftovers.length >= length) {
-    // ? > length
-    // ? keep leftovers
-    const data = [...leftovers.splice(0, length)];
-    // ? write point
-    await writeDataToFile(tableDir + "SCALE-" + current_index, data);
-    current_index += 1;
-  }
-  // ? save leftovers last
-  // ? write point
-  if (leftovers.length && last) {
-    await writeDataToFile(tableDir + "SCALE-" + current_index, leftovers);
-  }
-  return [leftovers, current_index];
-}
+// async function ResizeLeftOvers(
+//   leftovers: any[],
+//   current_index: number,
+//   length = 1_000,
+//   last = false,
+//   tableDir: string
+// ) {
+//   while (leftovers.length >= length) {
+//     // ? > length
+//     // ? keep leftovers
+//     const data = [...leftovers.splice(0, length)];
+//     // ? write point
+//     await writeDataToFile(tableDir + "SCALE-" + current_index, data);
+//     current_index += 1;
+//   }
+//   // ? save leftovers last
+//   // ? write point
+//   if (leftovers.length && last) {
+//     await writeDataToFile(tableDir + "SCALE-" + current_index, leftovers);
+//   }
+//   return [leftovers, current_index];
+// }

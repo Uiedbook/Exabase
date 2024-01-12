@@ -10,6 +10,7 @@
 import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
 import { Schema, Exabase } from "../dist/index.js";
+
 const db = Database.open("tests/sql_file/Northwind_large.sqlite");
 
 const Employee = new Schema({
@@ -41,17 +42,16 @@ const ExabaseR = new Exabase({
 });
 
 await ExabaseR.connect();
-const trx = ExabaseR.getTransaction(Employee);
+const trx = Employee.transaction;
 const d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);
-const c = await sql.all();
-// @ts-ignore
+const c = sql.all();
 console.log("Exabase item count", d);
 console.log("sqlite item count", c.length);
-// @ts-ignore
+
 if (!d) {
   console.time("|");
-  await trx.batch(c, "INSERT");
+  await trx.batch(c as any[], "INSERT");
   await trx.exec();
   console.timeEnd("|");
   console.log("sqlite data inserted into Exabase");
@@ -63,15 +63,14 @@ console.log(
 
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
-    await trx.find("*");
+    await trx.findMany();
   });
 }
 
+const sq = db.prepare(`SELECT * FROM "Employee"`);
 {
-  const sq = db.prepare(`SELECT * FROM "Employee"`);
-  bench('SELECT * FROM "Employee" sqlite', async () => {
-    await sq.all();
-    // console.log(a);
+  bench('SELECT * FROM "Employee" sqlite', () => {
+    sq.all();
   });
 }
 
