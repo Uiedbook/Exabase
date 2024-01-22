@@ -1,7 +1,6 @@
 import { copyFile, opendir, rename, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { Packr } from "msgpackr";
-//
 import {
   type LOG_file_type,
   type Msg,
@@ -9,10 +8,10 @@ import {
   type QueryType,
   type SchemaRelationOptions,
   type SchemaOptions,
-  type relationship_name,
   type wQueue,
   type SchemaColumnOptions,
   type SearchIndexOptions,
+  type ExaDoc,
 } from "./types";
 import {
   findMessage,
@@ -32,16 +31,25 @@ import {
   findMessages,
   validateData,
 } from "./functions";
+import { Sign, Verify } from "node:crypto";
 
 export class Utils {
-  static MANIFEST = {
-    name: "Exabase",
-    port: 8080,
+  static MANIFEST: {
+    schemas: Schema<any>[];
+    bearer: string;
+    rings: string[];
+    EXABASE_KEYS: { privateKey: String; publicKey: String };
+    sign?: Sign;
+    verify?: Verify;
+  } = {
     schemas: [],
-    mode: "REPLICATION",
-    extension_level: 1,
-    ringbearers: [],
+    bearer: "",
+    rings: [],
+    EXABASE_KEYS: { privateKey: "", publicKey: "" },
+    sign: undefined,
+    verify: undefined,
   };
+  static EXABASE_RING_STATE: Record<string, Manager> = {};
   static EXABASE_MANAGERS: Record<string, Manager> = {};
   static packr = new Packr();
   //? Regularity Cache Tank or whatever.
@@ -63,25 +71,26 @@ export class ExabaseError extends Error {
 export class Schema<Model> {
   tableName: string;
   RCT?: boolean;
-  _trx: Transaction<Model>;
+  _trx: Query<Model>;
   columns: {
     [x: string]: SchemaColumnOptions;
   } = {};
   searchIndexOptions?: SearchIndexOptions;
-  relationship?: Record<relationship_name, SchemaRelationOptions> = {};
-  _unique_field: Record<string, true> | undefined = {};
-  _foreign_field: Record<string, string> | undefined = undefined;
+  relationship?: Record<string, SchemaRelationOptions>;
+  _unique_field?: Record<string, true> = undefined;
+  _foreign_field?: Record<string, string> = {};
   migrationFN:
     | ((data: Record<string, string>) => true | Record<string, string>)
     | undefined;
+  _premature: boolean = true;
   //! maybe add pre & post processing hooks
-  constructor(options: SchemaOptions) {
-    //? mock transaction
-    this._trx = new Transaction(false as any);
+  constructor(options: SchemaOptions<Model>) {
+    //? mock query
+    this._trx = new Query({} as any);
     this.tableName = options.tableName.trim().toUpperCase();
     if (options.tableName) {
       this._unique_field = {};
-      this.relationship = options.relationship;
+      //? keep a easy track of relationships
       this.searchIndexOptions = options.searchIndexOptions;
       this.RCT = options.RCT;
       this.migrationFN = options.migrationFN;
@@ -134,26 +143,19 @@ export class Schema<Model> {
       }
     }
   }
-  get transaction() {
-    if (!this._trx.premature) {
-      return this._trx;
-    }
+  /**
+   * Exabase
+   * ---
+   * querys object
+   * @returns {Query<Model>}
+   */
+  get query(): Query<Model> {
+    if (!this._premature) return this._trx;
     throw new ExabaseError(
-      "Schema - " + this.tableName + " is not connected to an Exabase Instance"
+      "Schema - " +
+        this.tableName +
+        " is not yet connected to an Exabase Instance"
     );
-  }
-}
-
-//? this is okay because it's reusable
-export class Transaction<Model> {
-  private _Manager: Manager;
-  private _query: QueryType[] = [];
-  premature: boolean = true;
-  constructor(Manager: Manager) {
-    this._Manager = Manager;
-    if (Manager) {
-      this.premature = false;
-    }
   }
   /**
    * Exabase query
@@ -166,6 +168,20 @@ export class Transaction<Model> {
       data._id && new Date(parseInt(this.toString().slice(0, 8), 16) * 1000)
     );
   }
+}
+
+//? this is okay because it's reusable
+export class Query<Model> {
+  private _Manager: Manager;
+  private _query: QueryType[] = [];
+  premature: boolean = true;
+  constructor(Manager: Manager) {
+    this._Manager = Manager;
+    if (Manager) {
+      this.premature = false;
+    }
+  }
+
   /**
    * Exabase query
    * find items on the database,
@@ -236,11 +252,7 @@ export class Transaction<Model> {
 
     return new Promise((r) => {
       this._Manager._run(query, r, "nm");
-    }) as Promise<
-      (Model & {
-        _id: string;
-      })[]
-    >;
+    }) as Promise<ExaDoc<Model>[]>;
   }
   /**
    * Exabase query
@@ -307,11 +319,7 @@ export class Transaction<Model> {
 
     return new Promise((r) => {
       this._Manager._run(query, r, "nm");
-    }) as Promise<
-      Model & {
-        _id: string;
-      }
-    >;
+    }) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -359,11 +367,7 @@ export class Transaction<Model> {
     }
     return new Promise((r) => {
       this._Manager._run(query, r, "nm");
-    }) as Promise<
-      (Model & {
-        _id: string;
-      })[]
-    >;
+    }) as Promise<ExaDoc<Model>[]>;
   }
   /**
    * Exabase query
@@ -371,7 +375,7 @@ export class Transaction<Model> {
    * @param data
    * @returns
    */
-  save(data: Partial<Model>) {
+  save(data: Partial<ExaDoc<Model>>) {
     let query: QueryType;
     if ((data as any)._id) {
       query = {
@@ -384,11 +388,7 @@ export class Transaction<Model> {
     }
     return new Promise((r) => {
       this._Manager._run(query, r, "m");
-    }) as Promise<
-      Model & {
-        _id: string;
-      }
-    >;
+    }) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -409,7 +409,7 @@ export class Transaction<Model> {
     };
     return new Promise((r) => {
       this._Manager._run(query, r, "m");
-    }) as Promise<Model>;
+    }) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -522,7 +522,7 @@ export class Transaction<Model> {
       );
     }
   }
-  private async _prepare_for(
+  private _prepare_for(
     data: Partial<Model>[],
     type: "INSERT" | "UPDATE" | "DELETE"
   ) {
@@ -559,18 +559,13 @@ export class Transaction<Model> {
         this._Manager._run(this._query.splice(0), r, "m");
       }) as Promise<Model[]>;
     }
-    return [] as unknown as Promise<
-      Model &
-        {
-          _id: string;
-        }[]
-    >;
+    return [] as unknown as Promise<ExaDoc<Model>[]>;
   }
 }
 
 export class Manager {
   _schema: Schema<any>;
-  public _transaction: Transaction<any>;
+  public _query: Query<any>;
   private wQueue: wQueue = [];
   private wDir?: string;
   private tableDir: string = "";
@@ -578,13 +573,13 @@ export class Manager {
   private _full_lv_bytesize: number;
   private _LogFiles: LOG_file_type = {};
   private _LsLogFile?: string;
-  private _search: XTree<Msg>;
+  private _search: XTree;
   logging: boolean = false;
   constructor(schema: Schema<any>, usablemManagerMem: number) {
     this._schema = schema;
-    this._search = new XTree<any>({ persitKey: "" });
-    this._transaction = new Transaction<any>(this);
-    schema._trx = this._transaction;
+    this._search = new XTree({ persitKey: "" });
+    this._query = new Query<any>(this);
+    schema._trx = this._query;
     //? get the theorical max items in one log file
     // ? an arbitiary bit size per column for a schema in real time = 20
     this._full_lv_bytesize = Math.round(
@@ -678,7 +673,7 @@ export class Manager {
         if (!isThereSomeThingToFlush) {
           isThereSomeThingToFlush = true;
           console.log(
-            "Exabase is flushing uncommitted transactions after last shutdown"
+            "Exabase is flushing uncommitted querys after last shutdown"
           );
         }
         // ? some of these trs will be [] in cases where there was a crash and data retrival failed
@@ -727,18 +722,22 @@ export class Manager {
       }
     }
   }
-  async _run_wal_sync(transactions: wQueue) {
+  async _run_wal_sync(querys: wQueue) {
     //? persist active logs in memory
     const degrees: Record<string, Msgs> = {};
     //? a list of used wal files
     const usedWalFiles: string[] = [];
-    const walers = transactions.map(async ([key, transaction]) => {
+    const walers = querys.map(async ([key, query]) => {
       usedWalFiles.push(key);
-      if (Array.isArray(transaction)) {
-        for (let i = 0; i < transaction.length; i++) {
-          const d = transaction[i];
+      if (Array.isArray(query)) {
+        for (let i = 0; i < query.length; i++) {
+          const d = query[i];
           if (!d._wal_flag) {
-            throw new ExabaseError(d, " has not wal flag");
+            if ((d as any)._wal_ignore_flag) {
+              continue;
+            }
+            console.error({ item: d });
+            throw new ExabaseError("element has not wal flag");
           }
           //? log file
           const fn = this._getLog(d._id);
@@ -758,7 +757,7 @@ export class Manager {
         }
       } else {
         //? log file
-        const fn = this._getLog(transaction._id);
+        const fn = this._getLog(query._id);
         if (!degrees[fn]) {
           // ? load log file
           degrees[fn] = await readDataFromFile(
@@ -766,10 +765,10 @@ export class Manager {
             this.tableDir + fn
           );
         }
-        if (transaction._wal_flag === "i") {
-          degrees[fn] = await binarysorted_insert(transaction, degrees[fn]);
+        if (query._wal_flag === "i") {
+          degrees[fn] = await binarysorted_insert(query, degrees[fn]);
         } else {
-          degrees[fn] = await binarysearch_mutate(transaction, degrees[fn]);
+          degrees[fn] = await binarysearch_mutate(query, degrees[fn]);
         }
       }
     });
@@ -805,33 +804,34 @@ export class Manager {
     // ? replace log file with sync_log file
     if ((await rename(sylog, fnl)) !== undefined) {
       // ! throw error
+      console.log("bug");
     }
   }
   async _partition_wal_compiler() {
     if (this.wQueue.length === 0) {
       return;
     }
-    const transactions: any[] = [];
+    const querys: any[] = [];
     const trxQ: any[] = [];
     for (; this.wQueue.length !== 0; ) {
-      const transaction = this.wQueue.shift()!;
-      if (Array.isArray(transaction[1])) {
-        transactions.push([transaction]);
+      const query = this.wQueue.shift()!;
+      if (Array.isArray(query[1])) {
+        querys.push([query]);
       } else {
-        trxQ.push(transaction);
+        trxQ.push(query);
         if (trxQ.length === 10) {
-          transactions.push([...trxQ.splice(0)]);
+          querys.push([...trxQ.splice(0)]);
         }
       }
     }
     if (trxQ.length) {
-      transactions.push([...trxQ.splice(0)]);
+      querys.push([...trxQ.splice(0)]);
     }
     let i = 0;
     const runner = async () => {
-      await this._run_wal_sync(transactions[i]);
+      await this._run_wal_sync(querys[i]);
       i += 1;
-      if (i === transactions.length) {
+      if (i === querys.length) {
         return;
       }
       setImmediate(runner);
@@ -847,6 +847,14 @@ export class Manager {
     }
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
+      //? getting log file name for read operations
+      if (logFile.last_id > logId || logFile.last_id === logId) {
+        return filename;
+      }
+      //? getting log file name for inset operation
+      if (!logFile.last_id) {
+        return filename;
+      }
       if (logFile.size < size /*size check is for inserts*/) {
         return filename;
       }
@@ -960,8 +968,16 @@ export class Manager {
     }
     if (query["search"]) {
       const indexes = this._search.search(query.search, query.take);
-      const searches = indexes.map((idx) =>
-        this._select_({ select: idx, populate: query.populate })
+      if (!indexes.length) {
+        // console.log({
+        //   query: query.search,
+        //   indexes,
+        //   base: this._search.base,
+        //   tree: this._search.tree["ticket"].keys,
+        // });
+      }
+      const searches = indexes.map((_id: string) =>
+        this._select_({ select: _id, populate: query.populate })
       );
       return Promise.all(searches);
     }
@@ -1005,6 +1021,7 @@ export class Manager {
         query.delete,
         tableDir,
         this._schema._unique_field,
+        this._schema.relationship ? true : false,
         this.RCT_KEY,
         file
       );
@@ -1033,13 +1050,11 @@ export class Manager {
           query.map((q) => this._trx_runner(q, this.tableDir!))
         )) as Msgs;
       }
-      if (type !== "nm") {
-        if (typeof trs === "object") {
-          const wid = generate_id();
-          await writeDataToFile(this.wDir! + wid, trs as Msgs);
-          this.wQueue.push([wid, trs as Msgs]);
-          await this._search.manage(trs as Msg);
-        }
+      if (type !== "nm" && typeof trs === "object") {
+        const wid = generate_id();
+        await writeDataToFile(this.wDir! + wid, trs as Msgs);
+        this.wQueue.push([wid, trs as Msgs]);
+        await this._search.manage(trs as Msg);
       }
       return trs;
     };
@@ -1050,7 +1065,8 @@ export class Manager {
     }
 
     //? run the trx
-    r(trx());
+    r(await trx());
+    // console.log({ query });
     // ? log the query
     if (this.logging) {
       console.log({ query, table: this._schema.tableName, type });
@@ -1059,21 +1075,21 @@ export class Manager {
 }
 
 class XNode {
-  constructor(keys?: { value: unknown; indexes: number[] }[]) {
+  constructor(keys?: { value: any; indexes: number[] }[]) {
     this.keys = keys || [];
   }
-  keys: { value: unknown; indexes: number[] }[] = [];
-  insert(value: unknown, index: number) {
+  keys: { value: any; indexes: number[] }[] = [];
+  insert(value: any, index: number) {
     let low = 0;
     let high = this.keys.length - 1;
     for (; low <= high; ) {
       const mid = Math.floor((low + high) / 2);
       const current = this.keys[mid].value;
-      if (current! === value!) {
+      if (current === value) {
         this.keys[mid].indexes.push(index);
         return;
       }
-      if (current! < value!) {
+      if (current < value) {
         low = mid + 1;
       } else {
         high = mid - 1;
@@ -1091,7 +1107,7 @@ class XNode {
         this.keys[mid].indexes = this.keys[mid].indexes.filter(
           (a) => a !== index
         );
-        break;
+        return;
       } else if (current! < value!) {
         left = mid + 1;
       } else {
@@ -1124,11 +1140,11 @@ class XNode {
   }
 }
 
-export class XTree<X extends Record<string, any>> {
+export class XTree {
   base: string[] = [];
   mutatingBase: boolean = false;
   persitKey: string;
-  tree: Record<keyof X, XNode> = {} as Record<keyof X, XNode>;
+  tree: Record<string, XNode> = {};
 
   constructor(init: { persitKey: string }) {
     this.persitKey = init.persitKey;
@@ -1140,18 +1156,18 @@ export class XTree<X extends Record<string, any>> {
   }
   restart() {
     this.base = [];
-    this.tree = {} as Record<keyof X, XNode>;
+    this.tree = {} as Record<string, XNode>;
   }
-  search(search: X, take: number = Infinity, skip: number = 0) {
+  search(search: Msg, take: number = Infinity, skip: number = 0) {
     const results: string[] = [];
     for (const key in search) {
       if (this.tree[key]) {
-        const indexes = this.tree[key].search(search[key]);
+        const indexes = this.tree[key].search(search[key as keyof Msg]);
         if (skip && results.length >= skip) {
           results.splice(0, skip);
           skip = 0;
         }
-        results.push(...(indexes || []).map((idx) => this.base[idx]));
+        results.push(...(indexes || []).map((idx: number) => this.base[idx]));
         if (results.length >= take) break;
       }
     }
@@ -1177,12 +1193,11 @@ export class XTree<X extends Record<string, any>> {
     return;
   }
 
-  count(search: X) {
+  count(search: Msg) {
     let resultsCount: number = 0;
     for (const key in search) {
       if (this.tree[key]) {
-        resultsCount += this.tree[key].search(search[key]).length;
-        console.log(this.tree[key], key);
+        resultsCount += this.tree[key].search(search[key as keyof Msg]).length;
       }
     }
     return resultsCount;
@@ -1196,76 +1211,80 @@ export class XTree<X extends Record<string, any>> {
     if (Array.isArray(trx)) {
       switch (trx[0]._wal_flag) {
         case "i":
-          return this.bulkInsert(trx as unknown as X[]);
+          return this.bulkInsert(trx as unknown as Msgs);
         case "u":
-          return this.bulkUpsert(trx as unknown as X[]);
+          return this.bulkUpsert(trx as unknown as Msgs);
         case "d":
-          return this.bulkDisert(trx as unknown as X[]);
+          return this.bulkDisert(trx as unknown as Msgs);
+        default:
+          return;
       }
     } else {
       switch (trx._wal_flag) {
         case "i":
-          return this.insert(trx as unknown as X);
+          return this.insert(trx);
         case "u":
-          return this.upsert(trx as unknown as X);
+          return this.upsert(trx);
         case "d":
-          return this.disert(trx as unknown as X);
+          return this.disert(trx);
+        default:
+          return;
       }
     }
   }
-  insert(data: X, bulk = false) {
+  async insert(data: Msg, bulk = false) {
     if (!data["_id"]) throw new Error("bad insert");
     if (!this.mutatingBase) {
       this.mutatingBase = true;
     } else {
       setImmediate(() => {
-        this.insert(data);
+        this.insert(data, bulk);
       });
       return;
     }
     // ? save keys in their corresponding nodes
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
-        if (key === "_id" || key === "_wal_flag") continue;
+        if (key === "_id" || key === "_wal_flag" || key === "_wal_ignore_flag")
+          continue;
         if (!this.tree[key]) {
           this.tree[key] = new XNode();
         }
-        this.tree[key].insert(data[key], this.base.length);
+        this.tree[key].insert(data[key as keyof Msg], this.base.length);
       }
       this.base.push(data["_id"]);
+      this.mutatingBase = false;
     }
-    if (!bulk) this.persit();
-    this.mutatingBase = false;
+    if (!bulk) await this.persit();
   }
-  disert(data: X, bulk = false) {
+  async disert(data: Msg, bulk = false) {
     if (!data["_id"]) throw new Error("bad insert");
     if (!this.mutatingBase) {
-      this.mutatingBase = true;
     } else {
       setImmediate(() => {
-        this.disert(data);
+        this.disert(data, bulk);
       });
       return;
     }
     const index = this.searchBase(data["_id"]);
-    if (!index) return;
+    if (index === undefined) return;
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
         if (key === "_id" || !this.tree[key]) continue;
-        this.tree[key].disert(data[key], index);
+        this.tree[key].disert(data[key as keyof Msg], index);
       }
+      this.mutatingBase = true;
       this.base.splice(index, 1);
+      this.mutatingBase = false;
     }
-    if (!bulk) this.persit();
-    this.mutatingBase = false;
+    if (!bulk) await this.persit();
   }
-  upsert(data: X, bulk = false) {
+  async upsert(data: Msg, bulk = false) {
     if (!data["_id"]) throw new Error("bad insert");
     if (!this.mutatingBase) {
-      this.mutatingBase = true;
     } else {
       setImmediate(() => {
-        this.disert(data);
+        this.upsert(data, bulk);
       });
       return;
     }
@@ -1277,35 +1296,36 @@ export class XTree<X extends Record<string, any>> {
         if (!this.tree[key]) {
           this.tree[key] = new XNode();
         }
-        this.tree[key].upsert(data[key], index);
+        this.tree[key].upsert(data[key as keyof Msg], index);
       }
     }
-    if (!bulk) this.persit();
+    this.mutatingBase = true;
+    if (!bulk) await this.persit();
     this.mutatingBase = false;
   }
 
-  bulkInsert(dataset: X[]) {
+  async bulkInsert(dataset: Msgs) {
     if (Array.isArray(dataset)) {
       for (let i = 0; i < dataset.length; i++) {
         this.insert(dataset[i], true);
       }
-      this.persit();
+      await this.persit();
     }
   }
-  bulkDisert(dataset: X[]) {
+  async bulkDisert(dataset: Msgs) {
     if (Array.isArray(dataset)) {
       for (let i = 0; i < dataset.length; i++) {
         this.disert(dataset[i], true);
       }
-      this.persit();
+      await this.persit();
     }
   }
-  bulkUpsert(dataset: X[]) {
+  async bulkUpsert(dataset: Msgs) {
     if (Array.isArray(dataset)) {
       for (let i = 0; i < dataset.length; i++) {
         this.upsert(dataset[i], true);
       }
-      this.persit();
+      await this.persit();
     }
   }
 
@@ -1315,15 +1335,13 @@ export class XTree<X extends Record<string, any>> {
     for (let index = 0; index < keys.length; index++) {
       obj[keys[index]] = this.tree[keys[index]].keys;
     }
-    FileLockTable.write(this.persitKey, {
+    return FileLockTable.write(this.persitKey, {
       base: this.base,
       tree: obj,
     });
   }
   static restore(persitKey: string) {
     const data = readDataFromFileSync(persitKey);
-    console.log({ entry: data });
-
     const tree: Record<string, any> = {};
     if (data.tree) {
       for (const key in data.tree) {

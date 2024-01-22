@@ -1,8 +1,9 @@
 /*
+
 ! ********* STEPS *********** !
 ? install bun - from bun.sh
 ? get the sqlite file using ./sql_file/download.sh
-? build Everst -  bun run compile
+? build Exabase -  bun run compile
 ? run benchmark - bun run ./tests/benchmark.js
 
 */
@@ -42,7 +43,7 @@ const ExabaseR = new Exabase({
 });
 
 await ExabaseR.connect();
-const trx = Employee.transaction;
+const trx = Employee.query;
 const d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();

@@ -77,7 +77,7 @@ Exabase achives a high degree of efficiency and strong level scalability by empl
 
 - Consistency and Durability in log files and other very important files is achieved through an ACID complaint data processing mechanism which is optimised for crash recovery and consistency checks out of the box.
 
-- Exabase transactions are grounded in a strong atomic and isolated model, using a WAL (write ahead log) mechanism that achives faster write transactions and efficient data consistency across reads to Exabase schema log files, this allows for strong data consistency and durability within the Exabase DBMS infrastructure.
+- Exabase transactions are grounded in a strong atomic and isolated model, using a WAL (write ahead log) mechanism that achives faster write querys and efficient data consistency across reads to Exabase schema log files, this allows for strong data consistency and durability within the Exabase DBMS infrastructure.
 
 - Exabase employs Ring to Ring hydration to setup and sanitaze new instances of Exabase and allows the new instance to join the shared Exabase Rings interface.
 
@@ -129,207 +129,200 @@ The `Exabase` class accepts an object argument with the following options:
 
 ### Options
 
-| Property               | Required | Type            | Details                                                                                                                                                                                                                                                |
-| ---------------------- | -------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| name                   | false    | string          | The folder to persist data into defaults to `Exabase`.                                                                                                                                                                                                 |
-| schemas                | false    | SchemaOptions[] | An array of defined schema instances                                                                                                                                                                                                                   |
-| EXABASE_MEMORY_PERCENT | false    | number          | RCT Memory cache percentage                                                                                                                                                                                                                            |
-| password               | false    | string          | storage percentage                                                                                                                                                                                                                                     |
-| ringbearers            | false    | string[]        | list of urls that points to other nodes in this node's ring                                                                                                                                                                                            |
-| mode                   | false    | string          | The mode of this node when joining the shared ring interface default is REPLICATION. REPLICATION: will be a replica instance. EXTENSION: will be an extension of a ring bearer data with a defined extension level. auto hydration from a ring bearer. |
-| extension_level        | false    | number          | The level of extension this node is set to handle default:                                                                                                                                                                                             |
-
-## Transaction Class Methods
-
-<details><summary>.find</summary>
-
-```ts
-  find(
-    field: { uniqueField?: Record<string, any> } | string,
-    options?: {
-      populate?: string[] | boolean;
-      take?: number;
-      skip?: number;
-    }
-  ): Promise<unknown>;
-```
-
-used to select one or many and able to populate them.
-
 ```js
-await trx.find();
+export type ExabaseOptions = {
+  /**
+   * Exabase DBMS
+   * ---
+   * RCT Memory cache percentage  */
+  EXABASE_MEMORY_PERCENT?: number,
+  /**
+   * Exabase DBMS
+   * ---
+   * name  */
+  name?: string,
+  /**
+   * a url that points to another node this node can hydrate from if out of date  */
+  bearer?: string,
+  /**
+   * type of ring
+   */
+  mode?: "REPLICATION" | "EXTENSION",
+  /**
+   * Exabase DBMS
+   * ---
+   * Data schemas
+   */
+  schemas: Schema<any>[],
+  /**
+   * Exabase DBMS
+   * ---
+   * log each query?
+   */
+  logging?: boolean,
+  /**
+   * Exabase DBMS
+   * ---
+   * Exabase signing keys
+   */
+  EXABASE_KEYS?: { privateKey: string, publicKey: string },
+};
 ```
 
-</details>
-
-<details><summary>.save</summary>
+## Schema.Query Methods
 
 ```ts
-    save(data: Record<string, any>): Promise<unknown>;
-```
-
-can be use to create a new record and update an existing record when it has an_id field.
-
-```js
-await trx.save({ name: "cave man" });
-```
-
-</details>
-
-<details><summary>.delete</summary>
-
-```ts
-   delete(DeleteOptions: {
+    /**
+     * Exabase query
+     * find items on the database,
+     * field can be _id string or unique props object
+     * @param field
+     * @param options
+     * @returns void
+     */
+    findMany(field?: Partial<Model> | string, options?: {
+        populate?: string[] | boolean;
+        take?: number;
+        skip?: number;
+    }): Promise<(Model & {
         _id: string;
-    }): Promise<unknown>;
-```
-
-Used to remove a record
-
-```js
-await trx.delete(12);
-```
-
-</details>
-
-<details><summary>.count</summary>
-
-```ts
-    count(): Promise<unknown>;
-```
-
-return the size of the table
-
-```ts
-await trx.count();
-```
-
-</details>
-
-<details><summary>batching queries</summary>
-
-### batching write queies
-
-```js
-
- trx.batch([...queries], <type>)
-
-```
-
-type = insert | update | delete
-
-example
-
-```js
-await trx.batch(
-  [
-    {
-      FirstName: "George",
-      LastName: "Dods I",
-    },
-    {
-      FirstName: "woods",
-      LastName: "Dods II",
-    },
-    {
-      FirstName: "Annie",
-      LastName: "Dods III",
-    },
-  ],
-  "INSERT"
-);
-await trx.exec();
-```
-
-</details>
-
-<details><summary>.Flush</summary>
-
-```ts
-Flush: Promise<void>;
-```
-
-clears the write-ahead-log files
-
-```ts
-await trx.Flush;
-```
-
-</details>
-
-<details><summary>.addRelation</summary>
-
-```ts
- addRelation(options: {
+    })[]>;
+    /**
+     * Exabase query
+     * find items on the database,
+     * field can be _id string or unique props object
+     * @param field
+     * @param options
+     * @returns void
+     */
+    findOne(field: Partial<Model> | string, options?: {
+        populate?: string[] | boolean;
+    }): Promise<Model & {
+        _id: string;
+    }>;
+    /**
+     * Exabase query
+     * search items on the database,
+     * @param searchQuery
+     * @param options
+     * @returns void
+     */
+    search(searchQuery: Partial<Model>, options?: {
+        populate?: string[] | boolean;
+        take?: number;
+        skip?: number;
+    }): Promise<(Model & {
+        _id: string;
+    })[]>;
+    /**
+     * Exabase query
+     * insert or update items on the database,
+     * @param data
+     * @returns void
+     */
+    save(data: Partial<Model>): Promise<Model & {
+        _id: string;
+    }>;
+    /**
+     * Exabase query
+     * delete items on the database,
+     * @param _id
+     * @returns void
+     */
+    delete(_id: string): Promise<Model>;
+    /**
+     * Exabase query
+     * count items on the database
+     * @returns void
+     */
+    count(pops?: Partial<Model>): Promise<number>;
+    /**
+     * Exabase query
+     * connect relationship in the table on the database
+     * @param options
+     * @returns void
+     */
+    addRelation(options: {
         _id: string;
         foreign_id: string;
         relationship: string;
     }): Promise<unknown>;
-```
-
-Checks to see if a single key exists.
-
-```ts
-await trx.addRelation();
-```
-
-</details>
-
-<details><summary>.removeRelation</summary>
-
-```ts
- removeRelation(options: {
+    /**
+     * Exabase query
+     * disconnect relationship in the table on the database
+     * @param options
+     * @returns void
+     */
+    removeRelation(options: {
         _id: string;
         foreign_id: string;
         relationship: string;
     }): Promise<unknown>;
+    /**
+     * Exabase query
+     * batch write operations untill executed.
+     * @param data
+     * @param type
+     */
+    batch(data: Partial<Model>[], type: "INSERT" | "UPDATE" | "DELETE"): Promise<void>;
+    private _prepare_for;
+    /**
+     * Exabase query
+     * execute a batch operation on the database
+     */
+    exec(): Promise<Model[]> | Promise<Model & {
+        _id: string;
+    }[]>;
 ```
-
-Checks to see if a single key exists.
-
-```ts
-await trx.removeRelation();
-```
-
-</details>
 
 ## A Basic Database setup and queries.
 
-```js
-test("example setup, schema setup, inset and find, search, update, and delete operations", async () => {
-  const Order = new Schema({
+```ts
+test("example setup", async () => {
+
+  const Order = new Schema<{ ticket: string }>({
     tableName: "order",
     columns: {
       ticket: { type: String, unique: true },
     },
   });
+
   const db = new Exabase({ schemas: [Order] });
+
   // ? get Exabase ready
-  await db.Ready;
-  const OrderTRX = db.getTransaction(Order);
+  await db.connect();
+  const OrderTRX = Order.query;
 
   // ? operations
   const create_order = await OrderTRX.save({ ticket: Date.now().toString() });
 
-  const find_order = await OrderTRX.find(create_order._id);
+  const find_order = await OrderTRX.findOne(create_order._id);
 
-  assert.strict(create_order._id, find_order._id);
+  expect(create_order._id).toBe(find_order._id);
 
   const update_order = await OrderTRX.save({
     ...create_order,
     ticket: Date.now().toString(),
   });
 
-  const search_order = await OrderTRX.find(update_order);
+  const find_order_by_unique_field = await OrderTRX.findOne({
+    ticket: update_order.ticket,
+  });
 
-  assert.strict(update_order._id, search_order._id);
+  const search_order = await OrderTRX.search({
+    ticket: update_order.ticket,
+  });
 
-  const delete_order = await OrderTRX.delete(create_order);
+  expect(create_order._id).toBe(find_order_by_unique_field._id);
 
-  const find_deleted_order = await OrderTRX.find(create_order._id);
+  expect(create_order._id).toBe(search_order[0]._id);
 
-  assert.strict(find_deleted_order, undefined);
-});
+  await OrderTRX.delete(create_order._id);
+
+  const find_deleted_order = await OrderTRX.findOne(create_order._id);
+
+  expect(find_deleted_order).toBe(undefined);
+
 ```
 
 # Benchmarks

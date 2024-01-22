@@ -12,6 +12,7 @@ const users = new Schema<{ age: number; name: string }>({
 const db = new Exabase({ schemas: [users] });
 // ? get Exabase ready
 await db.connect();
-// const a = await users.query.save({ age: 2, name: "friday" });
-// await users.query.delete(a._id);
-// console.log(await users.query.findMany());
+const user = await users.query.findOne("65acffe7aa19c31a1d5fe2c0", {
+  populate: true,
+});
+console.log({ user });

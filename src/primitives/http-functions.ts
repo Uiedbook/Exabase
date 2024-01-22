@@ -1,47 +1,62 @@
-import { type AppCTXType } from "jetpath";
 //
 import { ExabaseError, Utils } from "./classes";
 
-export const _ExabaseRingInterface = async (ctx: AppCTXType) => {
-  const data: any = await ctx.json();
+export const _ExabaseRingInterface = async (ctx: {
+  throw(): never;
+  json: () => Promise<Record<string, any>>;
+  reply: (arg0: string) => never;
+}) => {
+  const data = await ctx.json();
   switch (data["type"]) {
-    case "app":
-      app(data["query"]);
+    // ? other rings can login this ring
+    case "login":
+      login(data["query"]);
       break;
-    case "authorise":
-      authorise(data["query"]);
+    // ? other rings can broadcast to this ring
+    case "broadcast":
+      login(data["query"]);
       break;
-    case "save":
+    //? a leader ring sends new writes to be saved locally
+    //? while this node is still syncing
+    //? after which this node can the upade those changes
+    case "new-data-while-sync":
       save(data["query"]);
       break;
+    // ? this node is out of sync and needs rehydration from a leader
+    // ? hydrate this node with data from a leader ring.
     case "hydrate":
       hydrate(data["query"]);
       break;
+    // ? other following node can tell this leader node their current state
+    // ? active state means not ready for broadcast, (i.e still syncing)
+    // ? therefore should oonly be sent new-data-while-sync querys
+    case "state-infomation":
+      hydrate(data["query"]);
+      break;
     default:
-      ctx.reply("pong");
+      ctx.throw();
       break;
   }
 };
 
-export const _AccessRingInterfaces = async () => {
-  // ? generate authorisation token and login all ring bearers
-  const ringbearerResponses = Utils.MANIFEST.ringbearers.map((r) =>
-    fetch(r + "/exabase", {})
-  );
-  for await (const ringbearerResponse of ringbearerResponses) {
-    const data: any = await ringbearerResponse.json();
-    if (data.status !== "OK") {
-      throw new ExabaseError(
-        "Failed Exabase Auth! - connecting to a ring bearer at ",
-        ringbearerResponse.url
-      );
-    }
+//? indexes is an object of each table with their table size.
+//? this is required for the leader to determine the consistency level of this node.
+//? and node
+export const _login_leader_ring = async (indexes: Record<string, number>) => {
+  // ? state = true? this is not new
+  const ringbearerResponse = await fetch(Utils.MANIFEST.bearer + "/login", {
+    method: "POST",
+    body: JSON.stringify({ indexes }),
+  });
+  const data: any = await ringbearerResponse.json();
+  if (data.status !== "OK") {
+    throw new ExabaseError("Failed Exabase login atempt");
   }
   return true;
 };
 
 //! /login - (request out) logins an Exabase Ring interface.
-const app = async (ctx: AppCTXType) => {
+const app = async (ctx: { reply: (arg0: { status: string }) => void }) => {
   // const req = (await ctx.body.json()) as {
   //   url: string;
   // };
@@ -49,7 +64,7 @@ const app = async (ctx: AppCTXType) => {
   // console.log(data);
   ctx.reply({ status: "OK" });
 };
-const login = async (ctx: AppCTXType) => {
+const login = async (ctx: { reply: (arg0: { status: string }) => void }) => {
   // const req = (await ctx.body.json()) as {
   //   url: string;
   // };
@@ -58,16 +73,22 @@ const login = async (ctx: AppCTXType) => {
   ctx.reply({ status: "OK" });
 };
 //! /authorise - (request in) request Exabase login credentails for authorisation before adding the node to the Ring interface.
-const authorise = async (ctx: AppCTXType) => {
+const authorise = async (ctx: {
+  body: { json: () => { url: string } | PromiseLike<{ url: string }> };
+  reply: (arg0: { status: string }) => void;
+}) => {
   const req = (await ctx.body.json()) as {
     url: string;
   };
-  (Utils.MANIFEST.ringbearers as string[]).push(req.url);
+  (Utils.MANIFEST.rings as string[]).push(req.url);
   // console.log(data);
   ctx.reply({ status: "OK" });
 };
 //! /hydrate -
-const hydrate = async (ctx: AppCTXType) => {
+const hydrate = async (ctx: {
+  reply: (arg0: { status: string }) => void;
+  code: number;
+}) => {
   // const data = await ctx.body.json();
   try {
     ctx.reply({ status: "OK" });
@@ -77,7 +98,10 @@ const hydrate = async (ctx: AppCTXType) => {
   }
 };
 //! /save - (request in) for live consistency (goes to all replicas)
-const save = async (ctx: AppCTXType) => {
+const save = async (ctx: {
+  reply: (arg0: { status: string }) => void;
+  code: number;
+}) => {
   // const data = await ctx.body.json();
   try {
     // EXABASE_MANAGERS[req.effection]._run(req.query, r, req.type);

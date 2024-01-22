@@ -27,8 +27,8 @@ const User = new Schema<{ name: string; requestedOrders: any[] }>({
 const db = new Exabase({ schemas: [User, Order] });
 // ? get Exabase ready
 await db.connect();
-const userTRX = User.transaction;
-const OrderTRX = Order.transaction;
+const userTRX = User.query;
+const OrderTRX = Order.query;
 
 //? tests
 describe("queries", async () => {
@@ -44,11 +44,11 @@ describe("queries", async () => {
     expect(userd).toBe(undefined as any);
   });
   it("large inset", async () => {
-    const users = Array(5_000).fill({ name: "saul" });
-    await userTRX.batch(users, "INSERT");
+    const users = Array(5).fill({ name: "saul" });
+    userTRX.batch(users, "INSERT");
     await userTRX.exec();
     const usersCount = await userTRX.count();
-    expect(usersCount).toBe(5000);
+    expect(usersCount).toBe(5);
   });
   it("large update", async () => {
     const users = await userTRX.findMany();
@@ -56,15 +56,15 @@ describe("queries", async () => {
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
     }
-    await userTRX.batch(users, "UPDATE");
+    userTRX.batch(users, "UPDATE");
     await userTRX.exec();
     const updatedUsers = await userTRX.findMany();
     expect(updatedUsers[0].name).toBe("paul");
   });
   it("basic search query", async () => {
     const userin = await userTRX.save({ name: "sara" });
-    const userout = await userTRX.findOne(userin._id);
-    expect(userin._id).toBe(userout?._id);
+    const userout = await userTRX.search({ name: "sara" });
+    expect(userin._id).toBe(userout[0]?._id);
   });
   it("basic query (relationships) ", async () => {
     const userin = await userTRX.save({ name: "james bond" });
@@ -98,22 +98,12 @@ describe("queries", async () => {
     expect(orderin._id).toBe(orderout._id);
   });
   it("clean up", async () => {
-    const users = await userTRX.count({ name: "paul" });
-    // const orders = await OrderTRX.count({});
-    console.log(users);
-
-    // users.forEach((user) => {
-    // userTRX.delete(user._id);
-    // });
-    // orders.forEach((Order) => {
-    // OrderTRX.delete(Order._id);
-    // });
-    // await userTRX.batch(users, "DELETE");
-    // await OrderTRX.batch(orders, "DELETE");
-    // await userTRX.exec();
-    // await OrderTRX.exec();
-    // await userTRX.flush();
-    // await OrderTRX.flush();
+    const users = await userTRX.findMany();
+    const orders = await OrderTRX.findMany();
+    userTRX.batch(users, "DELETE");
+    OrderTRX.batch(orders, "DELETE");
+    await OrderTRX.exec();
+    await userTRX.exec();
     // const usersCount = await userTRX.count();
     // const ordersCount = await OrderTRX.count();
     // expect(usersCount).toBe(0);

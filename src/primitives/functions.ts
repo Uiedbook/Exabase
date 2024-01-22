@@ -48,6 +48,8 @@ export const writeDataToFile = (
   filePath: string,
   data: Record<string, any>
 ) => {
+  console.log(filePath);
+
   return writeFile(filePath, Utils.packr.encode(data));
 };
 
@@ -108,21 +110,20 @@ export async function deleteMessage(
   _id: string,
   dir: string,
   _unique_field: Record<string, true> | undefined,
+  _foreign_field: boolean,
   RCT_KEY: string,
   fn: string
 ) {
   const message = await findMessage(RCT_KEY, dir + fn, {
     select: _id,
   });
-  if (_unique_field) {
-    if (message) {
-      await dropIndex(dir, message, _unique_field);
-    }
-  }
   if (message) {
+    if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
+    if (_foreign_field) await dropForeignKeys(dir + "FINDEX", _id);
     message._wal_flag = "d";
   }
-  return message as Msg;
+
+  return message || ({ _wal_ignore_flag: true } as unknown as Msg);
 }
 
 export async function findMessages(
@@ -258,7 +259,7 @@ export const addForeignKeys = async (
 
   const foreign_message = await Utils.EXABASE_MANAGERS[
     reference.foreign_table.toUpperCase()
-  ]._transaction.findOne(reference.foreign_id);
+  ]._query.findOne(reference.foreign_id);
 
   if (!foreign_message) {
     throw new ExabaseError(
@@ -306,7 +307,6 @@ export const addForeignKeys = async (
   }
   //? over-writting the structure
   messages[reference._id] = messageX;
-
   await FileLockTable.write(fileName, messages);
 };
 
@@ -336,14 +336,14 @@ export const populateForeignKeys = async (
             const marray = fk.map(async (id) => {
               return Utils.EXABASE_MANAGERS[
                 relationships[relationship]
-              ]._transaction.findOne(id);
+              ]._query.findOne(id);
             });
             const msgs = await Promise.all(marray);
             rela[relationship] = msgs.flat();
           } else {
             const msgs = await Utils.EXABASE_MANAGERS[
               relationships[relationship].toUpperCase()
-            ]._transaction.findOne(fk);
+            ]._query.findOne(fk);
             rela[relationship] = msgs as Record<string, any>;
           }
         }
@@ -378,7 +378,18 @@ export const removeForeignKeys = async (
     await FileLockTable.write(fileName, messages);
   }
 };
-export const updateIndex = async (
+const dropForeignKeys = async (fileName: string, _id: string) => {
+  //? update foreign key table
+  const messages = (await readDataFromFile(
+    "none",
+    fileName
+  )) as unknown as fTable;
+  if (messages[_id]) {
+    delete messages[_id];
+  }
+  await FileLockTable.write(fileName, messages);
+};
+const updateIndex = async (
   fileName: string,
   _unique_field: Record<string, true>,
   message: Msg
@@ -401,7 +412,7 @@ export const updateIndex = async (
   await FileLockTable.write(fileName, messages);
 };
 
-export const findIndex = async (
+const findIndex = async (
   fileName: string,
   _unique_field: Record<string, true>,
   data: Record<string, any>
@@ -457,8 +468,7 @@ export const findMessageByUnique = async (
   }
   return undefined;
 };
-
-export const dropIndex = async (
+const dropIndex = async (
   fileName: string,
   data: Record<string, any>,
   _unique_field: Record<string, true>
@@ -479,8 +489,7 @@ export const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-
-  await FileLockTable.write(fileName + "/UINDEX", messages);
+  await FileLockTable.write(fileName, messages);
 };
 
 //? binary search it

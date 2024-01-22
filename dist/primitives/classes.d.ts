@@ -1,14 +1,20 @@
+/// <reference types="node" />
 import { Packr } from "msgpackr";
-import { type Msg, type Msgs, type QueryType, type SchemaRelationOptions, type SchemaOptions, type relationship_name, type wQueue, type SchemaColumnOptions, type SearchIndexOptions } from "./types";
+import { type Msg, type Msgs, type QueryType, type SchemaRelationOptions, type SchemaOptions, type wQueue, type SchemaColumnOptions, type SearchIndexOptions, type ExaDoc } from "./types";
+import { Sign, Verify } from "node:crypto";
 export declare class Utils {
     static MANIFEST: {
-        name: string;
-        port: number;
-        schemas: never[];
-        mode: string;
-        extension_level: number;
-        ringbearers: never[];
+        schemas: Schema<any>[];
+        bearer: string;
+        rings: string[];
+        EXABASE_KEYS: {
+            privateKey: String;
+            publicKey: String;
+        };
+        sign?: Sign;
+        verify?: Verify;
     };
+    static EXABASE_RING_STATE: Record<string, Manager>;
     static EXABASE_MANAGERS: Record<string, Manager>;
     static packr: Packr;
     static RCT: Record<string, Record<string, Msgs | undefined> | boolean>;
@@ -20,23 +26,24 @@ export declare class ExabaseError extends Error {
 export declare class Schema<Model> {
     tableName: string;
     RCT?: boolean;
-    _trx: Transaction<Model>;
+    _trx: Query<Model>;
     columns: {
         [x: string]: SchemaColumnOptions;
     };
     searchIndexOptions?: SearchIndexOptions;
-    relationship?: Record<relationship_name, SchemaRelationOptions>;
-    _unique_field: Record<string, true> | undefined;
-    _foreign_field: Record<string, string> | undefined;
+    relationship?: Record<string, SchemaRelationOptions>;
+    _unique_field?: Record<string, true>;
+    _foreign_field?: Record<string, string>;
     migrationFN: ((data: Record<string, string>) => true | Record<string, string>) | undefined;
-    constructor(options: SchemaOptions);
-    get transaction(): Transaction<Model>;
-}
-export declare class Transaction<Model> {
-    private _Manager;
-    private _query;
-    premature: boolean;
-    constructor(Manager: Manager);
+    _premature: boolean;
+    constructor(options: SchemaOptions<Model>);
+    /**
+     * Exabase
+     * ---
+     * querys object
+     * @returns {Query<Model>}
+     */
+    get query(): Query<Model>;
     /**
      * Exabase query
      * Get the timestamp this data was inserted into the database
@@ -46,6 +53,12 @@ export declare class Transaction<Model> {
     static getTimestamp(data: {
         _id: string;
     }): "" | Date;
+}
+export declare class Query<Model> {
+    private _Manager;
+    private _query;
+    premature: boolean;
+    constructor(Manager: Manager);
     /**
      * Exabase query
      * find items on the database,
@@ -58,9 +71,7 @@ export declare class Transaction<Model> {
         populate?: string[] | boolean;
         take?: number;
         skip?: number;
-    }): Promise<(Model & {
-        _id: string;
-    })[]>;
+    }): Promise<ExaDoc<Model>[]>;
     /**
      * Exabase query
      * find items on the database,
@@ -71,9 +82,7 @@ export declare class Transaction<Model> {
      */
     findOne(field: Partial<Model> | string, options?: {
         populate?: string[] | boolean;
-    }): Promise<Model & {
-        _id: string;
-    }>;
+    }): Promise<ExaDoc<Model>>;
     /**
      * Exabase query
      * search items on the database,
@@ -85,25 +94,21 @@ export declare class Transaction<Model> {
         populate?: string[] | boolean;
         take?: number;
         skip?: number;
-    }): Promise<(Model & {
-        _id: string;
-    })[]>;
+    }): Promise<ExaDoc<Model>[]>;
     /**
      * Exabase query
      * insert or update items on the database,
      * @param data
      * @returns
      */
-    save(data: Partial<Model>): Promise<Model & {
-        _id: string;
-    }>;
+    save(data: Partial<ExaDoc<Model>>): Promise<ExaDoc<Model>>;
     /**
      * Exabase query
      * delete items on the database,
      * @param _id
      * @returns
      */
-    delete(_id: string): Promise<Model>;
+    delete(_id: string): Promise<ExaDoc<Model>>;
     /**
      * Exabase query
      * count items on the database
@@ -143,19 +148,17 @@ export declare class Transaction<Model> {
      * @param data
      * @param type
      */
-    batch(data: Partial<Model>[], type: "INSERT" | "UPDATE" | "DELETE"): Promise<void>;
+    batch(data: Partial<Model>[], type: "INSERT" | "UPDATE" | "DELETE"): void;
     private _prepare_for;
     /**
      * Exabase query
      * execute a batch operation on the database
      */
-    exec(): Promise<Model[]> | Promise<Model & {
-        _id: string;
-    }[]>;
+    exec(): Promise<Model[]>;
 }
 export declare class Manager {
     _schema: Schema<any>;
-    _transaction: Transaction<any>;
+    _query: Query<any>;
     private wQueue;
     private wDir?;
     private tableDir;
@@ -163,7 +166,7 @@ export declare class Manager {
     private _full_lv_bytesize;
     private _LogFiles;
     private _LsLogFile?;
-    private SearchManager?;
+    private _search;
     logging: boolean;
     constructor(schema: Schema<any>, usablemManagerMem: number);
     _setup(init: {
@@ -174,7 +177,7 @@ export declare class Manager {
     _sync_logs(): Promise<void>;
     _startup_run_wal_sync(): Promise<void>;
     _sync_searchindex(size: number): Promise<void>;
-    _run_wal_sync(transactions: wQueue): Promise<void>;
+    _run_wal_sync(querys: wQueue): Promise<void>;
     _commit(fn: string, messages: Msgs): Promise<void>;
     _partition_wal_compiler(): Promise<void>;
     _getLog(logId: string): string;
@@ -187,38 +190,38 @@ export declare class Manager {
 }
 declare class XNode {
     constructor(keys?: {
-        value: unknown;
+        value: any;
         indexes: number[];
     }[]);
     keys: {
-        value: unknown;
+        value: any;
         indexes: number[];
     }[];
-    insert(value: unknown, index: number): void;
+    insert(value: any, index: number): void;
     disert(value: unknown, index: number): void;
     upsert(value: unknown, index: number): void;
     search(value: unknown): number[];
 }
-export declare class XTree<X extends Record<string, any>> {
+export declare class XTree {
     base: string[];
     mutatingBase: boolean;
     persitKey: string;
-    tree: Record<keyof X, XNode>;
+    tree: Record<string, XNode>;
     constructor(init: {
         persitKey: string;
     });
     restart(): void;
-    search(search: X, take?: number, skip?: number): string[];
+    search(search: Msg, take?: number, skip?: number): string[];
     searchBase(_id: string): number | undefined;
-    count(search: X): Promise<number>;
+    count(search: Msg): number;
     confirmLength(size: number): boolean;
     manage(trx: Msg | Msgs): Promise<void> | undefined;
-    insert(data: X, bulk?: boolean): Promise<void>;
-    disert(data: X, bulk?: boolean): Promise<void>;
-    upsert(data: X, bulk?: boolean): Promise<void>;
-    bulkInsert(dataset: X[]): Promise<void>;
-    bulkDisert(dataset: X[]): Promise<void>;
-    bulkUpsert(dataset: X[]): Promise<void>;
+    insert(data: Msg, bulk?: boolean): Promise<void>;
+    disert(data: Msg, bulk?: boolean): Promise<void>;
+    upsert(data: Msg, bulk?: boolean): Promise<void>;
+    bulkInsert(dataset: Msgs): Promise<void>;
+    bulkDisert(dataset: Msgs): Promise<void>;
+    bulkUpsert(dataset: Msgs): Promise<void>;
     private persit;
     static restore(persitKey: string): any[];
 }

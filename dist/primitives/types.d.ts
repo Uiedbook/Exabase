@@ -13,31 +13,12 @@ export type ExabaseOptions = {
      * name  */
     name?: string;
     /**
-     * Exabase DBMS
-     * ---
-     * Database username  */
-    username?: string;
+     * a url that points to another node this node can hydrate from if out of date  */
+    bearer?: string;
     /**
-     * Exabase DBMS
-     * ---
-     * name  */
-    password?: string;
-    /**
-     * Exabase DBMS
-     * ---
-     * authorisation secret  */
-    EXABASE_SECRET?: string;
-    /**
-     * list of urls that points to other nodes in this node's ring  */
-    ringbearers?: string[];
-    mode?: "REPLICATION" | "EXTENSION";
-    /**
-     * Exabase DBMS
-     * ---
-     * the level of extension this node is set to handle
-     * default: 1
+     * type of ring
      */
-    extension_level?: number;
+    mode?: "REPLICATION" | "EXTENSION";
     /**
      * Exabase DBMS
      * ---
@@ -50,10 +31,19 @@ export type ExabaseOptions = {
      * log each query?
      */
     logging?: boolean;
+    /**
+     * Exabase DBMS
+     * ---
+     * Exabase signing keys
+     */
+    EXABASE_KEYS?: {
+        privateKey: string;
+        publicKey: string;
+    };
 };
 /**
  * Interface for schema metadata mappings  */
-export interface SchemaOptions {
+export interface SchemaOptions<Model> {
     /**
      * Search index options  */
     searchIndexOptions?: SearchIndexOptions;
@@ -76,7 +66,7 @@ export interface SchemaOptions {
      */
     RCT?: boolean;
     columns: {
-        [x: string]: SchemaColumnOptions;
+        [x in keyof Partial<Model>]: SchemaColumnOptions;
     };
     /**
      * Indicates relationship definitions for the schema
@@ -127,7 +117,7 @@ export interface SchemaColumnOptions {
     /**
      * Column type's length. For example type = "string" and length = 100
      */
-    length?: string | number;
+    length?: number;
     /**
      * For example, 4 specifies a number of four digits.
      */
@@ -166,14 +156,11 @@ export type columnValidationType = {
 };
 export type qType = "select" | "insert" | "delete" | "update" | "search" | "take" | "unique" | "skip" | "order" | "reference" | "count" | "populate";
 export type QueryType = Partial<Record<qType, any>>;
-export type Msgs = {
-    _id: string;
-    _wal_flag: string;
-}[];
 export type Msg = {
     _id: string;
     _wal_flag: string;
 };
+export type Msgs = Msg[];
 export interface fTable {
     [x: string]: {
         [x: string]: string[] | string;
@@ -185,15 +172,19 @@ export interface iTable {
     };
 }
 export type wQueue = [string, Msgs | Msg][];
-export type methods = "GET" | "HEAD" | "PUT" | "POST" | "DELETE" | "PATCH";
-export type allowedMethods = methods[];
 export type LOG_file_type = Record<string, {
     last_id: string;
     size: number;
 }>;
-export type ExaDoc<Model extends {
-    [column: string]: any;
-}> = Model & {
-    _id?: string;
+/**
+ * Document type
+ */
+export type ExaDoc<Model> = Model & {
+    /**
+     * Document id
+     */
+    _id: string;
 };
-export type connectOptions = {};
+export type connectOptions = {
+    decorate(decorations: Record<string, (ctx: any) => void>): void;
+};

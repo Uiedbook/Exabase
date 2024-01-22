@@ -28,14 +28,13 @@
   "scripts": {
     "compile": "bun bundle.ts",
     "rebuild-test": "run compile && rm -rf ./EXABASE_DB && bun test",
-    "test": "rm -rf ./EXABASE_DB && bun test --bail --timeout 200",
+    "test": "rm -rf ./EXABASE_DB && bun test",
     "build": " bun bundle.ts",
     "bench": "bun ./tests/benchmark.ts"
   },
   "author": "Friday Candour",
   "license": "Apache",
   "dependencies": {
-    "jetpath": "^1.2.4",
     "msgpackr": "^1.10.1"
   },
   "devDependencies": {

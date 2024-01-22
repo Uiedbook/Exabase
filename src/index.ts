@@ -6,16 +6,15 @@ import {
 } from "./primitives/types.js";
 import {
   _ExabaseRingInterface,
-  _AccessRingInterfaces,
+  _login_leader_ring,
 } from "./primitives/http-functions.js";
 import {
   ExabaseError,
   Utils,
   Manager,
-  Transaction as TRX,
+  Query as TRX,
 } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
-import { JetPath } from "jetpath";
 
 export class Exabase<EaxbaseInit extends ExabaseOptions> {
   private _announced = false;
@@ -35,10 +34,17 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
       mkdirSync(this._exabaseDirectory);
       // ? create manifest
       Object.assign(Utils.MANIFEST, {
-        name: init.name?.toUpperCase(),
         schemas: undefined as unknown as [],
-        EXABASE_SECRET: init.EXABASE_SECRET || "example",
-      });
+        bearer: init.bearer,
+        EXABASE_KEYS: {
+          privateKey: init.EXABASE_KEYS?.privateKey,
+          publicKey: init.EXABASE_KEYS?.publicKey,
+        },
+        mode: init.mode,
+        EXABASE_MEMORY_PERCENT: init.EXABASE_MEMORY_PERCENT,
+        logging: init.logging,
+        name: init.name,
+      } as ExabaseOptions);
       console.log("Exabase initialised!");
     } catch (e: any) {
       //? console.log(e);
@@ -46,9 +52,15 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
         // ? [3] update Exabase if it exists
         Object.assign(
           {
-            name: init.name?.toUpperCase(),
-            schemas: undefined as unknown as [],
-            EXABASE_SECRET: init.EXABASE_SECRET,
+            bearer: init.bearer,
+            EXABASE_KEYS: {
+              privateKey: init.EXABASE_KEYS?.privateKey,
+              publicKey: init.EXABASE_KEYS?.publicKey,
+            },
+            mode: init.mode,
+            EXABASE_MEMORY_PERCENT: init.EXABASE_MEMORY_PERCENT,
+            logging: init.logging,
+            name: init.name,
           },
           Utils.MANIFEST
         );
@@ -76,17 +88,34 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
         //? console.log(_all);
         this._announced = true;
         console.log("Exabase: connected!");
+        //? setup query makers
+        init.schemas.forEach((schema) => {
+          schema._premature = false;
+        });
         this._conn && this._conn(true);
       })
       .catch((e) => {
         console.log(e);
       });
   }
-  connect(app?: JetPath | connectOptions) {
-    if (app instanceof JetPath) {
-      _AccessRingInterfaces();
-      //? hooks
-      _ExabaseRingInterface;
+  connect(app?: connectOptions) {
+    // ? if jetpath is added
+    if (app?.decorate) {
+      if (!Utils.MANIFEST.EXABASE_KEYS.privateKey) {
+        throw new ExabaseError(
+          "Exabase public and private keys not provided for connection"
+        );
+      }
+      //? login this rings
+      _login_leader_ring({
+        //! /*indexes*/
+      });
+      // ? decorate jetpath ctx
+      app.decorate({
+        propagateExabaseRing(ctx) {
+          _ExabaseRingInterface(ctx);
+        },
+      });
     } //? else { some other stuff with config if available}
     if (!this._announced) {
       console.log("Exabase: connecting...");
@@ -118,4 +147,4 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
 //? exports
 export { Schema, ExabaseError } from "./primitives/classes.js";
 export type { ExaDoc } from "./primitives/types.js";
-export type Transaction<Model = ExaDoc<{}>> = TRX<Model>;
+export type query<Model = ExaDoc<{}>> = TRX<Model>;
