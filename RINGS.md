@@ -1,6 +1,44 @@
-An exabase ring is a distribution layer of one or more exabase nodes.
+# The new distributed systems arcitecture.
 
-It features the following:
+## Phylosophy
+
+In the world of distributed systems, the CAP theorem is a strong factor to be consideration based on the criticality of an application, in some applications, consistency is a critical requirement like in banking systems.
+
+Now let's go over these three factors and how observe how less emphasis on each can be a disadvantage.
+
+- Consistency. In general purpose distributed databases. consistency is a non-tradable factor. But however general purpose distributed database AWS Dynamo only provides eventual consistency which is less appealing for consistency critical workloads.
+
+Consistency requires every node in the system to act like as if it is just one node in the system, in this case there shouldn't be any difference in read or consistency status in all of the nodes in the system. This ensures a synchronious behaviour across nodes which is very desirable for most applications.
+
+- Partition tolerance. Partition tolerance aligns with Consistency and availability. and is the most critical non-tradable factor of any distributed system.
+
+Partition tolerance means faults in some node should not dirupt the availability & Consistency factors of the entire distributed system. Hence effective replication of the system comes very handy to achieve good level of Partition tolerance.
+
+In essense. Consistency and Partition tolerance faults are very hard to fix if possible, and are highly desirable in any distributed infracture.
+
+- Availability. without a high capacity of Availability, businesses can loose money due to increased latency of their istributed system, where lantency is the time spent waiting for the system to execute. But if a distributed system is properly implemented, the system can become more available with the addition of more nodes especially in a leader-less distributed system where leadership election and followership does not exist, hence no leader-ship dependency.
+
+"In conclussion Availabilty is not system critical but business critical"
+
+In this case it is relatively cheap to solve Availability issues than figuring out how to make an inconsistent system consistent in addition with Partition tolerance, when they become a problem.
+
+## My brief
+
+In the past year, i have been deeply attracted and rooted in the depths of distributed systems. i am not an expert or a trained personel in this field. but a strong zealous explorer and contributor.
+
+Over the past year i have geared my knowledge in assembling a ditributed database model. and my personal accomplishments has been quite sacrificing and satisfying at the same time.
+
+In this post i will be uncovering some few parts of my work so far and sharing some of my knoledge.
+
+I hope you will learn the essential needs for general purpose databases and also how to benchmark them for your usecase.
+
+## Empiricism
+
+This is the biggest section of this
+
+An exabase ring is a distribution layer of two or more exabase nodes.
+
+It incoperates the following:
 
 Strong data consistency.
 High availability/through-put.

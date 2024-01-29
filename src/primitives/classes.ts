@@ -163,10 +163,8 @@ export class Schema<Model> {
    * @param data
    * @returns Date
    */
-  static getTimestamp(data: { _id: string }) {
-    return (
-      data._id && new Date(parseInt(this.toString().slice(0, 8), 16) * 1000)
-    );
+  static getTimestamp(_id: string) {
+    return new Date(parseInt(_id.slice(0, 8), 16) * 1000);
   }
 }
 
@@ -575,6 +573,7 @@ export class Manager {
   private _LsLogFile?: string;
   private _search: XTree;
   logging: boolean = false;
+  private clock_vector = { x0: null, xn: null };
   constructor(schema: Schema<any>, usablemManagerMem: number) {
     this._schema = schema;
     this._search = new XTree({ persitKey: "" });
@@ -748,7 +747,7 @@ export class Manager {
               this.tableDir + fn
             );
           }
-
+          //?  {mount vector clock here}
           if (d._wal_flag === "i") {
             degrees[fn] = await binarysorted_insert(d, degrees[fn]);
           } else {

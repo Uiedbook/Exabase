@@ -580,6 +580,16 @@ export const generate_id = (): string => {
   buffer[9] = (inc >> 16) & 0xff;
   return buffer.toString("hex");
 };
+export const encode_timestamp = (timestamp: string): string => {
+  const time = ~~(new Date(timestamp).getTime() / 1000);
+  const buffer = Buffer.alloc(4);
+  // 4-byte timestamp
+  buffer[3] = time & 0xff;
+  buffer[2] = (time >> 8) & 0xff;
+  buffer[1] = (time >> 16) & 0xff;
+  buffer[0] = (time >> 24) & 0xff;
+  return buffer.toString("hex");
+};
 
 /** 
 
