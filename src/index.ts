@@ -14,7 +14,7 @@ import {
   Manager,
   Query as TRX,
 } from "./primitives/classes.js";
-import { getComputedUsage } from "./primitives/functions.js";
+// import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase<EaxbaseInit extends ExabaseOptions> {
   private _announced = false;
@@ -25,10 +25,10 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
     // ? setting up memory allocation for RCT enabled cache managers
-    const usableManagerGB = getComputedUsage(
-      init.EXABASE_MEMORY_PERCENT!,
-      init.schemas.length
-    );
+    // const usableManagerGB = getComputedUsage(
+    //   init.EXABASE_MEMORY_PERCENT!,
+    //   init.schemas.length
+    // );
     try {
       // ? create dirs
       mkdirSync(this._exabaseDirectory);
@@ -69,10 +69,7 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
 
     //? setup managers
     init.schemas.forEach((schema) => {
-      Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
-        schema,
-        usableManagerGB
-      );
+      Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(schema);
     });
     // ? setup relationships
     Promise.allSettled(

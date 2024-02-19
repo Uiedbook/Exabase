@@ -158,7 +158,6 @@ export type qType = "select" | "insert" | "delete" | "update" | "search" | "take
 export type QueryType = Partial<Record<qType, any>>;
 export type Msg = {
     _id: string;
-    _wal_flag: string;
 };
 export type Msgs = Msg[];
 export interface fTable {
@@ -171,7 +170,6 @@ export interface iTable {
         [x: string]: string;
     };
 }
-export type wQueue = [string, Msgs | Msg][];
 export type LOG_file_type = Record<string, {
     last_id: string;
     size: number;
@@ -188,3 +186,4 @@ export type ExaDoc<Model> = Model & {
 export type connectOptions = {
     decorate(decorations: Record<string, (ctx: any) => void>): void;
 };
+export type Xtree_flag = "i" | "u" | "d" | "n";

@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { Packr } from "msgpackr";
-import { type Msg, type Msgs, type QueryType, type SchemaRelationOptions, type SchemaOptions, type wQueue, type SchemaColumnOptions, type SearchIndexOptions, type ExaDoc } from "./types";
+import { type Msg, type Msgs, type QueryType, type SchemaRelationOptions, type SchemaOptions, type SchemaColumnOptions, type SearchIndexOptions, type ExaDoc, type Xtree_flag } from "./types";
 import { Sign, Verify } from "node:crypto";
 export declare class Utils {
     static MANIFEST: {
@@ -50,13 +50,10 @@ export declare class Schema<Model> {
      * @param data
      * @returns Date
      */
-    static getTimestamp(data: {
-        _id: string;
-    }): "" | Date;
+    static getTimestamp(_id: string): Date;
 }
 export declare class Query<Model> {
     private _Manager;
-    private _query;
     premature: boolean;
     constructor(Manager: Manager);
     /**
@@ -97,7 +94,7 @@ export declare class Query<Model> {
     }): Promise<ExaDoc<Model>[]>;
     /**
      * Exabase query
-     * insert or update items on the database,
+     * insert or update items on the database
      * @param data
      * @returns
      */
@@ -115,11 +112,6 @@ export declare class Query<Model> {
      * @returns
      */
     count(pops?: Partial<Model>): Promise<number>;
-    /**
-     * Exabase query
-     * clear the wal of the table on the database
-     */
-    flush(): Promise<void>;
     /**
      * Exabase query
      * connect relationship in the table on the database
@@ -144,49 +136,63 @@ export declare class Query<Model> {
     }): Promise<unknown>;
     /**
      * Exabase query
+     * insert or update many items on the database
+     * @param data
+     * @param type
+     */
+    insertBatch(data: Partial<Model>[]): Promise<Model[]>;
+    /**
+     * Exabase query
+     * insert or update many items on the database
+     * @param data
+     * @param type
+     */
+    updateBatch(data: Partial<Model>[]): Promise<Model[]>;
+    /**
+     * Exabase query
      * batch write operations on the database
      * @param data
      * @param type
      */
-    batch(data: Partial<Model>[], type: "INSERT" | "UPDATE" | "DELETE"): void;
-    private _prepare_for;
     /**
      * Exabase query
-     * execute a batch operation on the database
+     * batch write operations on the database
+     * @param data
+     * @param type
      */
-    exec(): Promise<Model[]>;
+    deleteBatch(data: Partial<Model>[]): Promise<Model[]>;
+    private _prepare_for;
 }
 export declare class Manager {
     _schema: Schema<any>;
+    _name: string;
     _query: Query<any>;
-    private wQueue;
-    private wDir?;
-    private tableDir;
-    private RCT_KEY;
-    private _full_lv_bytesize;
+    tableDir: string;
+    RCTied: boolean;
+    RCT: Record<string, Msgs>;
     private _LogFiles;
-    private _LsLogFile?;
+    private _topLogFile?;
     private _search;
+    waiters: Record<string, (() => void)[]>;
     logging: boolean;
-    constructor(schema: Schema<any>, usablemManagerMem: number);
+    constructor(schema: Schema<any>);
     _setup(init: {
         _exabaseDirectory: string;
         logging: boolean;
         schemas: Schema<any>[];
     }): Promise<void> | undefined;
+    write(file: string, message: Msg, flag: Xtree_flag): Promise<Msg>;
     _sync_logs(): Promise<void>;
-    _startup_run_wal_sync(): Promise<void>;
     _sync_searchindex(size: number): Promise<void>;
-    _run_wal_sync(querys: wQueue): Promise<void>;
-    _commit(fn: string, messages: Msgs): Promise<void>;
-    _partition_wal_compiler(): Promise<void>;
-    _getLog(logId: string): string;
+    _getReadingLog(logId: string): string;
+    _getInsertLog(): string;
     _setLog(fn: string, last_id: string, size: number): void;
     _constructRelationships(allSchemas: Schema<any>[]): void;
-    _validate(data: any, type?: string): Record<string, any>;
-    _select_(query: QueryType): Promise<Msg>;
-    _trx_runner(query: QueryType, tableDir: string): Promise<Msg | void | Msgs | number | undefined> | number | void;
-    _run(query: QueryType | QueryType[], r: (value: any) => void, type: "m" | "nm"): Promise<void>;
+    _validate(data: any, update?: boolean): Record<string, any>;
+    _select(query: QueryType): Promise<Msg | Msgs>;
+    _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void>;
+    _runMany(query: QueryType[], r: (value: any) => void): Promise<void>;
+    _run(query: QueryType, r: (value: any) => void): Promise<void>;
 }
 declare class XNode {
     constructor(keys?: {
@@ -215,13 +221,10 @@ export declare class XTree {
     searchBase(_id: string): number | undefined;
     count(search: Msg): number;
     confirmLength(size: number): boolean;
-    manage(trx: Msg | Msgs): Promise<void> | undefined;
+    manage(trx: Msg, flag: Xtree_flag): Promise<void> | undefined;
     insert(data: Msg, bulk?: boolean): Promise<void>;
     disert(data: Msg, bulk?: boolean): Promise<void>;
     upsert(data: Msg, bulk?: boolean): Promise<void>;
-    bulkInsert(dataset: Msgs): Promise<void>;
-    bulkDisert(dataset: Msgs): Promise<void>;
-    bulkUpsert(dataset: Msgs): Promise<void>;
     private persit;
     static restore(persitKey: string): any[];
 }

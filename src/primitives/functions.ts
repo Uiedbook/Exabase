@@ -1,7 +1,24 @@
+import {
+  unlinkSync,
+  realpath,
+  stat,
+  open,
+  write,
+  fsync,
+  close,
+  chown as _chown,
+  chmod,
+  rename,
+  unlink,
+} from "fs";
+// @ts-ignore
+import MurmurHash3 from "imurmurhash";
+import { onExit } from "signal-exit";
+import { resolve as _resolve } from "path";
+import { promisify } from "util";
 import { randomBytes } from "node:crypto";
-import { readFile, writeFile } from "node:fs/promises";
-import { existsSync, readFileSync } from "node:fs";
-import { copyFile, rename, unlink } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import { freemem } from "node:os";
 //
@@ -9,31 +26,22 @@ import {
   type Msg,
   type Msgs,
   type SchemaColumnOptions,
+  type Xtree_flag,
   type columnValidationType,
   type fTable,
   type iTable,
 } from "./types";
 import { Utils, ExabaseError } from "./classes";
 
-export const readDataFromFile = async (RCT_KEY: string, filePath: string) => {
-  if (Utils.RCT[RCT_KEY]) {
-    if ((Utils.RCT[RCT_KEY] as Record<string, Msgs>)[filePath]) {
-      return (Utils.RCT[RCT_KEY] as Record<string, Msgs>)[filePath]!;
-    }
-  }
+export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
-    const d = (Utils.packr.decode(data) || []) as Msgs;
-    if (Utils.RCT[RCT_KEY] !== false) {
-      (Utils.RCT[RCT_KEY] as Record<string, Msgs>)[filePath] = d;
-    }
-    return d;
+    return (Utils.packr.decode(data) || []) as Msgs;
   } catch (error) {
-    // console.log(error, filePath);
     return [] as Msgs;
   }
 };
-export const readDataFromFileSync = (filePath: string) => {
+export const loadLogSync = (filePath: string) => {
   try {
     const data = readFileSync(filePath);
     const d = Utils.packr.decode(data) || [];
@@ -42,15 +50,6 @@ export const readDataFromFileSync = (filePath: string) => {
     // console.log(error, filePath);
     return [];
   }
-};
-
-export const writeDataToFile = (
-  filePath: string,
-  data: Record<string, any>
-) => {
-  console.log(filePath);
-
-  return writeFile(filePath, Utils.packr.encode(data));
 };
 
 export async function updateMessage(
@@ -76,10 +75,9 @@ export async function updateMessage(
   if (_unique_field) {
     await updateIndex(dir, _unique_field, message as any);
   }
-  message._wal_flag = "u";
   return message;
 }
-export async function insertMessage(
+export async function prepareMessage(
   dir: string,
   _unique_field: Record<string, true> | undefined,
   message: Msg
@@ -99,7 +97,6 @@ export async function insertMessage(
     }
   }
   message._id = generate_id();
-  message._wal_flag = "i";
   if (_unique_field) {
     await updateIndex(dir, _unique_field, message);
   }
@@ -111,23 +108,26 @@ export async function deleteMessage(
   dir: string,
   _unique_field: Record<string, true> | undefined,
   _foreign_field: boolean,
-  RCT_KEY: string,
-  fn: string
+  fn: string,
+  RCTiedlog: any
 ) {
-  const message = await findMessage(RCT_KEY, dir + fn, {
-    select: _id,
-  });
+  const message =
+    RCTiedlog ||
+    ((await findMessage(
+      fn,
+      {
+        select: _id,
+      },
+      RCTiedlog
+    )) as Msg);
   if (message) {
     if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
     if (_foreign_field) await dropForeignKeys(dir + "FINDEX", _id);
-    message._wal_flag = "d";
   }
-
   return message || ({ _wal_ignore_flag: true } as unknown as Msg);
 }
 
 export async function findMessages(
-  RCT_KEY: string,
   fileName: string,
   fo: {
     select: string;
@@ -137,7 +137,7 @@ export async function findMessages(
   }
 ) {
   const { select, take, skip, populate } = fo;
-  let messages = await readDataFromFile(RCT_KEY, fileName);
+  let messages = await loadLog(fileName);
   if (select === "*") {
     if (skip) {
       //? remove skip
@@ -192,23 +192,21 @@ export async function findMessages(
   return;
 }
 export async function findMessage(
-  RCT_KEY: string,
   fileName: string,
   fo: {
     select: string;
     populate?: Record<string, string>;
-  }
+  },
+  RCTiedlog: any
 ) {
   const { select, populate } = fo;
-  let messages = await readDataFromFile(RCT_KEY, fileName);
+  const messages = RCTiedlog || (await loadLog(fileName));
   //? binary search it
   let left = 0;
   let right = messages.length - 1;
-  let mid = Math.floor((left + right) / 2);
-  let midId = messages[mid]?._id;
   while (left <= right) {
-    mid = Math.floor((left + right) / 2);
-    midId = messages[mid]._id;
+    const mid = Math.floor((left + right) / 2);
+    const midId = messages[mid]?._id;
     if (midId === select) {
       const message = messages[mid];
       if (populate) {
@@ -230,11 +228,9 @@ export async function findMessage(
       right = mid - 1;
     }
   }
-  return;
 }
 
 export const addForeignKeys = async (
-  RCT_KEY: string,
   fileName: string,
   reference: {
     _id: string;
@@ -242,15 +238,20 @@ export const addForeignKeys = async (
     foreign_id: string;
     type: "MANY" | "ONE";
     relationship: string;
-  }
+  },
+  RCTiedlog: any
 ) => {
-  const message = await findMessage(RCT_KEY, fileName, {
-    select: reference._id,
-  });
+  const message = await findMessage(
+    fileName,
+    {
+      select: reference._id,
+    },
+    RCTiedlog
+  );
   if (!message) {
     throw new ExabaseError(
       "Adding relation on table :",
-      RCT_KEY,
+
       " aborted, reason - item _id '",
       reference._id,
       "' not found!"
@@ -264,7 +265,7 @@ export const addForeignKeys = async (
   if (!foreign_message) {
     throw new ExabaseError(
       "Adding relation on table :",
-      RCT_KEY,
+
       " aborted, reason - foreign_id '",
       reference.foreign_id,
       "' from foreign table '",
@@ -276,10 +277,7 @@ export const addForeignKeys = async (
   }
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
   //? update foreign key table
-  let messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as fTable;
+  let messages = (await loadLog(fileName)) as unknown as fTable;
 
   if (Array.isArray(messages)) {
     messages = {};
@@ -307,7 +305,7 @@ export const addForeignKeys = async (
   }
   //? over-writting the structure
   messages[reference._id] = messageX;
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 
 export const populateForeignKeys = async (
@@ -318,10 +316,7 @@ export const populateForeignKeys = async (
 ) => {
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
   //? get foreign keys from table
-  let messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as fTable;
+  let messages = (await loadLog(fileName)) as unknown as fTable;
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -363,10 +358,7 @@ export const removeForeignKeys = async (
 ) => {
   //? update foreign key table
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  const messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as fTable;
+  const messages = (await loadLog(fileName)) as unknown as fTable;
   if (messages[reference._id]) {
     if (Array.isArray(messages[reference._id][reference.relationship])) {
       messages[reference._id][reference.relationship] = (
@@ -375,19 +367,16 @@ export const removeForeignKeys = async (
     } else {
       delete messages[reference._id][reference.relationship];
     }
-    await FileLockTable.write(fileName, messages);
+    await Twritter(fileName, Utils.packr.encode(messages));
   }
 };
 const dropForeignKeys = async (fileName: string, _id: string) => {
   //? update foreign key table
-  const messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as fTable;
+  const messages = (await loadLog(fileName)) as unknown as fTable;
   if (messages[_id]) {
     delete messages[_id];
   }
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 const updateIndex = async (
   fileName: string,
@@ -395,10 +384,7 @@ const updateIndex = async (
   message: Msg
 ) => {
   fileName = fileName.split("/").slice(0, 2).join("/") + "/UINDEX";
-  let messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as iTable;
+  let messages = (await loadLog(fileName)) as unknown as iTable;
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -409,7 +395,7 @@ const updateIndex = async (
     messages[type][message[type as keyof Msg]] = message._id;
   }
 
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 
 const findIndex = async (
@@ -417,10 +403,7 @@ const findIndex = async (
   _unique_field: Record<string, true>,
   data: Record<string, any>
 ) => {
-  let messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as iTable;
+  let messages = (await loadLog(fileName)) as unknown as iTable;
 
   if (Array.isArray(messages)) {
     return false;
@@ -450,10 +433,7 @@ export const findMessageByUnique = async (
   _unique_field: Record<string, true>,
   data: Record<string, any>
 ) => {
-  let messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as iTable;
+  let messages = (await loadLog(fileName)) as unknown as iTable;
 
   if (Array.isArray(messages)) {
     return undefined;
@@ -476,10 +456,7 @@ const dropIndex = async (
   if (!_unique_field) {
     return;
   }
-  let messages = (await readDataFromFile(
-    "none",
-    fileName
-  )) as unknown as iTable;
+  let messages = (await loadLog(fileName)) as unknown as iTable;
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -489,7 +466,7 @@ const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 
 //? binary search it
@@ -510,7 +487,11 @@ export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   return undefined;
 };
 //? binary search and mutate it
-export const binarysearch_mutate = async (message: Msg, messages: Msgs) => {
+export const binarysearch_mutate = async (
+  message: Msg,
+  messages: Msgs,
+  flag: Xtree_flag
+) => {
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
@@ -519,12 +500,12 @@ export const binarysearch_mutate = async (message: Msg, messages: Msgs) => {
     const midId = messages[mid]._id;
     if (midId === _id) {
       //? run mutation
-      if (message._wal_flag === "u") {
+      if (flag === "u") {
         //? remove the exabase flag
         delete (message as { _id: string; _wal_flag?: string })._wal_flag;
         messages[mid] = message;
       }
-      if (message._wal_flag === "d") {
+      if (flag === "d") {
         messages.splice(mid, 1);
       }
       break;
@@ -537,7 +518,12 @@ export const binarysearch_mutate = async (message: Msg, messages: Msgs) => {
   return messages;
 };
 //? binary sort insert it
-export const binarysorted_insert = async (message: Msg, messages: Msgs) => {
+export const binarysorted_insert = async (
+  message: Msg,
+  fn: string,
+  RCTiedlog: Msgs
+) => {
+  const messages = RCTiedlog || (await loadLog(fn));
   const _id = message._id;
   let low = 0;
   let high = messages.length - 1;
@@ -589,58 +575,6 @@ export const encode_timestamp = (timestamp: string): string => {
   buffer[1] = (time >> 16) & 0xff;
   buffer[0] = (time >> 24) & 0xff;
   return buffer.toString("hex");
-};
-
-/** 
-
-// ? FILE LOCK TABLE
-
-Writes and reads to the LOG(n) files and WAL directory
-are designed to be concurent.
-
-but we cannot gurantee the changes to some certain files
-
-like the 
-- FINDEX key table 
-- XINDEX key table and the 
-- UINDEX key table files
-
-the below data structure allows to synchronise these file accesses
-*/
-
-export const FileLockTable = {
-  table: {} as Record<string, boolean>,
-  async write(fileName: string, content: any) {
-    if (this.table[fileName] === true) {
-      setImmediate(() => {
-        this.write(fileName, content);
-      });
-    } else {
-      //? acquire lock access to the file
-      this.table[fileName] = true;
-      // ? do the writting
-      await this._run(fileName, content);
-      //? release lock
-      this.table[fileName] = false;
-    }
-  },
-  async _run(fileName: string, content: any) {
-    const fcpn = fileName + "_COPY";
-    //? create a copy of the file and write to it.
-    if (existsSync(fileName)) {
-      await copyFile(fileName, fcpn);
-      await writeDataToFile(fcpn, content);
-    } else {
-      if (existsSync(fcpn)) {
-        // ? delete file-copy
-        await unlink(fcpn);
-      }
-      // ? create a file-copy
-      await writeDataToFile(fcpn, content);
-    }
-    //? rename the file-copy to the file
-    await rename(fcpn, fileName);
-  },
 };
 
 // Schema validator
@@ -724,59 +658,145 @@ export const getComputedUsage = (
   const usableManagerGB = usableGB / (schemaLength || 1);
   return usableManagerGB;
 };
+export function resizeRCT(data: Record<string, any>) {
+  const keys = Object.keys(data);
+  //! 99 should caculated memory capacity
+  if (keys.length > 99) {
+    const a = keys.slice(0, 50);
+    for (let i = 0; i < 50; i++) {
+      data[a[i]] = undefined;
+    }
+  }
+}
 
-// async function ResizeLogFiles(
-//   sources: string[],
-//   length: number,
-//   tableDir: string
-// ) {
-//   let leftovers: any[] = [];
-//   let current_index = 1;
-//   let logged = false;
-//   for (const src of sources) {
-//     const data = await readDataFromFile("", src);
-//     if (data.length === length) {
-//       return;
-//     }
-//     if (!logged) {
-//       console.log("Resizing Log files due to change ");
-//       logged = true;
-//     }
-//     leftovers.push(...data);
-//     // @ts-ignore
-//     [leftovers, current_index] = await ResizeLeftOvers(
-//       leftovers,
-//       current_index,
-//       length,
-//       false
-//     );
-//   }
-//   // ? save leftovers last
-//   // ? write point
-//   if (leftovers.length) {
-//     ResizeLeftOvers(leftovers, current_index, length, true, tableDir);
-//   }
-// }
+// Twritter tree
+const activeFiles: Record<string, ((value: unknown) => void)[]> = {};
 
-// async function ResizeLeftOvers(
-//   leftovers: any[],
-//   current_index: number,
-//   length = 1_000,
-//   last = false,
-//   tableDir: string
-// ) {
-//   while (leftovers.length >= length) {
-//     // ? > length
-//     // ? keep leftovers
-//     const data = [...leftovers.splice(0, length)];
-//     // ? write point
-//     await writeDataToFile(tableDir + "SCALE-" + current_index, data);
-//     current_index += 1;
-//   }
-//   // ? save leftovers last
-//   // ? write point
-//   if (leftovers.length && last) {
-//     await writeDataToFile(tableDir + "SCALE-" + current_index, leftovers);
-//   }
-//   return [leftovers, current_index];
-// }
+let invocations = 0;
+function getTmpname(filename: string) {
+  return (
+    filename +
+    "." +
+    MurmurHash3(__filename)
+      .hash(String(process.pid))
+      .hash(String(++invocations))
+      .result()
+  );
+}
+
+function cleanupOnExit(tmpfile: () => string) {
+  return () => {
+    try {
+      unlinkSync(typeof tmpfile === "function" ? tmpfile() : tmpfile);
+    } catch {
+      // ignore errors
+    }
+  };
+}
+
+function serializeActiveFile(absoluteName: string) {
+  return new Promise((resolve) => {
+    // make a queue if it doesn't already exist
+    if (!activeFiles[absoluteName]) {
+      activeFiles[absoluteName] = [];
+    }
+
+    activeFiles[absoluteName].push(resolve); // add this job to the queue
+    if (activeFiles[absoluteName].length === 1) {
+      resolve(undefined);
+    } // kick off the first one
+  });
+}
+
+// https://github.com/isaacs/node-graceful-fs/blob/master/polyfills.js#L315-L342
+function isChownErrOk(err: any) {
+  if (err.code === "ENOSYS") {
+    return true;
+  }
+
+  const nonroot = !process.getuid || process.getuid() !== 0;
+  if (nonroot) {
+    if (err.code === "EINVAL" || err.code === "EPERM") {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+export async function Twritter(filename: string, data: Buffer) {
+  let fd;
+  let tmpfile = "";
+  let mode;
+  let chown;
+  /* istanbul ignore next -- The closure only gets called when onExit triggers */
+  const removeOnExitHandler = onExit(cleanupOnExit(() => tmpfile));
+  const absoluteName = _resolve(filename);
+
+  try {
+    await serializeActiveFile(absoluteName);
+    const truename = await promisify(realpath)(filename).catch(() => filename);
+    tmpfile = getTmpname(truename);
+
+    // Either mode or chown is not explicitly set
+    // Default behavior is to copy it from original file
+    const stats = await promisify(stat)(truename).catch(() => {});
+    if (stats) {
+      if (mode == null) {
+        mode = stats.mode;
+      }
+
+      if (chown == null && process.getuid) {
+        chown = { uid: stats.uid, gid: stats.gid };
+      }
+    }
+
+    fd = await promisify(open)(tmpfile, "w", mode);
+
+    if (ArrayBuffer.isView(data)) {
+      await promisify(write)(fd, data, 0, data.length, 0);
+    } else if (data != null) {
+      await promisify(write)(fd, String(data), 0, "utf8");
+    }
+
+    await promisify(fsync)(fd);
+
+    await promisify(close)(fd);
+
+    fd = null;
+
+    if (chown) {
+      await promisify(_chown)(tmpfile, chown.uid, chown.gid).catch((err) => {
+        if (!isChownErrOk(err)) {
+          throw err;
+        }
+      });
+    }
+
+    if (mode) {
+      await promisify(chmod)(tmpfile, mode).catch((err) => {
+        if (!isChownErrOk(err)) {
+          throw err;
+        }
+      });
+    }
+
+    await promisify(rename)(tmpfile, truename);
+  } finally {
+    if (fd) {
+      await promisify(close)(fd).catch(
+        /* istanbul ignore next */
+        () => {}
+      );
+    }
+    removeOnExitHandler();
+    await promisify(unlink)(tmpfile).catch(() => {});
+    activeFiles[absoluteName].shift(); // remove the element added by serializeSameFile
+    if (activeFiles[absoluteName].length > 0) {
+      activeFiles[absoluteName][0](undefined); // start next job if one is pending
+      console.log({ activeFiles });
+    } else {
+      delete activeFiles[absoluteName];
+    }
+  }
+}

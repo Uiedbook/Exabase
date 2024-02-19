@@ -44,18 +44,24 @@ const ExabaseR = new Exabase({
 
 await ExabaseR.connect();
 const trx = Employee.query;
-const d = await trx.count();
+let d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();
+console.log({ c });
+
 console.log("Exabase item count", d);
 console.log("sqlite item count", c.length);
 
-if (!d) {
+if (d !== c.length) {
   console.time("|");
-  await trx.batch(c as any[], "INSERT");
-  await trx.exec();
+  await trx.insertBatch(c as any[]);
   console.timeEnd("|");
   console.log("sqlite data inserted into Exabase");
+}
+d = await trx.count();
+if (d !== c.length) {
+  console.log(d, await trx.findMany());
+  throw new Error("Exabase is not consistent");
 }
 console.log(
   "read Exabase item count to ensure it's consistent ofc it is",

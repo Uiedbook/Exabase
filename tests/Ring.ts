@@ -11,10 +11,12 @@ class Ring {
   broadcast() {}
   send_state() {}
   new_sync_data() {}
-  login() {}
+  login(ringConfig: {}) {
+    console.log("boohoo")
+  }
   static encode_timestamp = (timestamp: string): string => {
     const time = ~~(new Date(timestamp).getTime() / 1000);
-    const buffer = Buffer.alloc(4);
+    
     buffer[3] = time & 0xff;
     buffer[2] = (time >> 8) & 0xff;
     buffer[1] = (time >> 16) & 0xff;

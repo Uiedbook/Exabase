@@ -1,7 +1,22 @@
-var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
-var __require = (id) => {
-  return import.meta.require(id);
+import {createRequire} from "node:module";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getProtoOf = Object.getPrototypeOf;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __toESM = (mod, isNodeMode, target) => {
+  target = mod != null ? __create(__getProtoOf(mod)) : {};
+  const to = isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target;
+  for (let key of __getOwnPropNames(mod))
+    if (!__hasOwnProp.call(to, key))
+      __defProp(to, key, {
+        get: () => mod[key],
+        enumerable: true
+      });
+  return to;
 };
+var __commonJS = (cb, mod) => () => (mod || cb((mod = { exports: {} }).exports, mod), mod.exports);
+var __require = createRequire(import.meta.url);
 
 // node_modules/node-gyp-build-optional-packages/index.js
 var require_node_gyp_build_optional_packages = __commonJS((exports, module) => {
@@ -9,7 +24,7 @@ var require_node_gyp_build_optional_packages = __commonJS((exports, module) => {
     if (typeof __webpack_require__ === "function")
       return __non_webpack_require__(load.path(dir));
     else
-      return require(load.path(dir));
+      return __require(load.path(dir));
   };
   var readdirSync = function(dir) {
     try {
@@ -145,7 +160,7 @@ var require_node_gyp_build_optional_packages = __commonJS((exports, module) => {
       if (typeof __webpack_require__ === "function")
         packageName = __non_webpack_require__(path.join(dir, "package.json")).name;
       else
-        packageName = require(path.join(dir, "package.json")).name;
+        packageName = __require(path.join(dir, "package.json")).name;
       var varName = packageName.toUpperCase().replace(/-/g, "_") + "_PREBUILD";
       if (process.env[varName])
         dir = process.env[varName];
@@ -213,12 +228,107 @@ var require_msgpackr_extract = __commonJS((exports, module) => {
   module.exports = require_node_gyp_build_optional_packages()(__dirname);
 });
 
+// node_modules/imurmurhash/imurmurhash.js
+var require_imurmurhash = __commonJS((exports, module) => {
+  (function() {
+    var cache;
+    function MurmurHash3(key, seed) {
+      var m = this instanceof MurmurHash3 ? this : cache;
+      m.reset(seed);
+      if (typeof key === "string" && key.length > 0) {
+        m.hash(key);
+      }
+      if (m !== this) {
+        return m;
+      }
+    }
+    MurmurHash3.prototype.hash = function(key) {
+      var h1, k1, i, top, len;
+      len = key.length;
+      this.len += len;
+      k1 = this.k1;
+      i = 0;
+      switch (this.rem) {
+        case 0:
+          k1 ^= len > i ? key.charCodeAt(i++) & 65535 : 0;
+        case 1:
+          k1 ^= len > i ? (key.charCodeAt(i++) & 65535) << 8 : 0;
+        case 2:
+          k1 ^= len > i ? (key.charCodeAt(i++) & 65535) << 16 : 0;
+        case 3:
+          k1 ^= len > i ? (key.charCodeAt(i) & 255) << 24 : 0;
+          k1 ^= len > i ? (key.charCodeAt(i++) & 65280) >> 8 : 0;
+      }
+      this.rem = len + this.rem & 3;
+      len -= this.rem;
+      if (len > 0) {
+        h1 = this.h1;
+        while (true) {
+          k1 = k1 * 11601 + (k1 & 65535) * 3432906752 & 4294967295;
+          k1 = k1 << 15 | k1 >>> 17;
+          k1 = k1 * 13715 + (k1 & 65535) * 461832192 & 4294967295;
+          h1 ^= k1;
+          h1 = h1 << 13 | h1 >>> 19;
+          h1 = h1 * 5 + 3864292196 & 4294967295;
+          if (i >= len) {
+            break;
+          }
+          k1 = key.charCodeAt(i++) & 65535 ^ (key.charCodeAt(i++) & 65535) << 8 ^ (key.charCodeAt(i++) & 65535) << 16;
+          top = key.charCodeAt(i++);
+          k1 ^= (top & 255) << 24 ^ (top & 65280) >> 8;
+        }
+        k1 = 0;
+        switch (this.rem) {
+          case 3:
+            k1 ^= (key.charCodeAt(i + 2) & 65535) << 16;
+          case 2:
+            k1 ^= (key.charCodeAt(i + 1) & 65535) << 8;
+          case 1:
+            k1 ^= key.charCodeAt(i) & 65535;
+        }
+        this.h1 = h1;
+      }
+      this.k1 = k1;
+      return this;
+    };
+    MurmurHash3.prototype.result = function() {
+      var k1, h1;
+      k1 = this.k1;
+      h1 = this.h1;
+      if (k1 > 0) {
+        k1 = k1 * 11601 + (k1 & 65535) * 3432906752 & 4294967295;
+        k1 = k1 << 15 | k1 >>> 17;
+        k1 = k1 * 13715 + (k1 & 65535) * 461832192 & 4294967295;
+        h1 ^= k1;
+      }
+      h1 ^= this.len;
+      h1 ^= h1 >>> 16;
+      h1 = h1 * 51819 + (h1 & 65535) * 2246770688 & 4294967295;
+      h1 ^= h1 >>> 13;
+      h1 = h1 * 44597 + (h1 & 65535) * 3266445312 & 4294967295;
+      h1 ^= h1 >>> 16;
+      return h1 >>> 0;
+    };
+    MurmurHash3.prototype.reset = function(seed) {
+      this.h1 = typeof seed === "number" ? seed : 0;
+      this.rem = this.k1 = this.len = 0;
+      return this;
+    };
+    cache = new MurmurHash3;
+    if (typeof module != "undefined") {
+      module.exports = MurmurHash3;
+    } else {
+      this.MurmurHash3 = MurmurHash3;
+    }
+  })();
+});
+
 // src/index.ts
 import {mkdirSync as mkdirSync2} from "node:fs";
 
 // src/primitives/classes.ts
-import {copyFile as copyFile2, opendir, rename as rename2, unlink as unlink2} from "node:fs/promises";
-import {existsSync as existsSync2, mkdirSync} from "node:fs";
+import {opendir, unlink as unlink2} from "node:fs/promises";
+import {existsSync, mkdirSync} from "node:fs";
 
 // node_modules/msgpackr/unpack.js
 function checkedRead(options) {
@@ -2995,19 +3105,16 @@ var PARENT = Symbol("parent");
 setWriteStructSlots(writeStruct, prepareStructures2);
 var sourceSymbol = Symbol.for("source");
 setReadStruct(readStruct2, onLoadedStructures2, saveState2);
-
-// node_modules/msgpackr/stream.js
-import {Transform} from "stream";
 // node_modules/msgpackr/node-index.js
-import {createRequire} from "module";
+import {createRequire as createRequire2} from "module";
 var nativeAccelerationDisabled = process.env.MSGPACKR_NATIVE_ACCELERATION_DISABLED !== undefined && process.env.MSGPACKR_NATIVE_ACCELERATION_DISABLED.toLowerCase() === "true";
 if (!nativeAccelerationDisabled) {
   let extractor;
   try {
-    if (typeof require == "function")
+    if (typeof __require == "function")
       extractor = require_msgpackr_extract();
     else
-      extractor = createRequire(import.meta.url)("msgpackr-extract");
+      extractor = createRequire2(import.meta.url)("msgpackr-extract");
     if (extractor)
       setExtractor(extractor.extractStrings);
   } catch (error) {
@@ -3015,12 +3122,242 @@ if (!nativeAccelerationDisabled) {
 }
 
 // src/primitives/functions.ts
+var import_imurmurhash = __toESM(require_imurmurhash(), 1);
+import {
+unlinkSync,
+realpath,
+stat,
+open,
+write,
+fsync,
+close,
+chown as _chown,
+chmod,
+rename,
+unlink
+} from "fs";
+
+// node_modules/signal-exit/dist/mjs/signals.js
+var signals = [];
+signals.push("SIGHUP", "SIGINT", "SIGTERM");
+if (process.platform !== "win32") {
+  signals.push("SIGALRM", "SIGABRT", "SIGVTALRM", "SIGXCPU", "SIGXFSZ", "SIGUSR2", "SIGTRAP", "SIGSYS", "SIGQUIT", "SIGIOT");
+}
+if (process.platform === "linux") {
+  signals.push("SIGIO", "SIGPOLL", "SIGPWR", "SIGSTKFLT");
+}
+
+// node_modules/signal-exit/dist/mjs/index.js
+var processOk = (process2) => !!process2 && typeof process2 === "object" && typeof process2.removeListener === "function" && typeof process2.emit === "function" && typeof process2.reallyExit === "function" && typeof process2.listeners === "function" && typeof process2.kill === "function" && typeof process2.pid === "number" && typeof process2.on === "function";
+var kExitEmitter = Symbol.for("signal-exit emitter");
+var global = globalThis;
+var ObjectDefineProperty = Object.defineProperty.bind(Object);
+
+class Emitter {
+  emitted = {
+    afterExit: false,
+    exit: false
+  };
+  listeners = {
+    afterExit: [],
+    exit: []
+  };
+  count = 0;
+  id = Math.random();
+  constructor() {
+    if (global[kExitEmitter]) {
+      return global[kExitEmitter];
+    }
+    ObjectDefineProperty(global, kExitEmitter, {
+      value: this,
+      writable: false,
+      enumerable: false,
+      configurable: false
+    });
+  }
+  on(ev, fn) {
+    this.listeners[ev].push(fn);
+  }
+  removeListener(ev, fn) {
+    const list = this.listeners[ev];
+    const i = list.indexOf(fn);
+    if (i === -1) {
+      return;
+    }
+    if (i === 0 && list.length === 1) {
+      list.length = 0;
+    } else {
+      list.splice(i, 1);
+    }
+  }
+  emit(ev, code, signal) {
+    if (this.emitted[ev]) {
+      return false;
+    }
+    this.emitted[ev] = true;
+    let ret = false;
+    for (const fn of this.listeners[ev]) {
+      ret = fn(code, signal) === true || ret;
+    }
+    if (ev === "exit") {
+      ret = this.emit("afterExit", code, signal) || ret;
+    }
+    return ret;
+  }
+}
+
+class SignalExitBase {
+}
+var signalExitWrap = (handler) => {
+  return {
+    onExit(cb, opts) {
+      return handler.onExit(cb, opts);
+    },
+    load() {
+      return handler.load();
+    },
+    unload() {
+      return handler.unload();
+    }
+  };
+};
+
+class SignalExitFallback extends SignalExitBase {
+  onExit() {
+    return () => {
+    };
+  }
+  load() {
+  }
+  unload() {
+  }
+}
+
+class SignalExit extends SignalExitBase {
+  #hupSig = process2.platform === "win32" ? "SIGINT" : "SIGHUP";
+  #emitter = new Emitter;
+  #process;
+  #originalProcessEmit;
+  #originalProcessReallyExit;
+  #sigListeners = {};
+  #loaded = false;
+  constructor(process2) {
+    super();
+    this.#process = process2;
+    this.#sigListeners = {};
+    for (const sig of signals) {
+      this.#sigListeners[sig] = () => {
+        const listeners = this.#process.listeners(sig);
+        let { count } = this.#emitter;
+        const p = process2;
+        if (typeof p.__signal_exit_emitter__ === "object" && typeof p.__signal_exit_emitter__.count === "number") {
+          count += p.__signal_exit_emitter__.count;
+        }
+        if (listeners.length === count) {
+          this.unload();
+          const ret = this.#emitter.emit("exit", null, sig);
+          const s = sig === "SIGHUP" ? this.#hupSig : sig;
+          if (!ret)
+            process2.kill(process2.pid, s);
+        }
+      };
+    }
+    this.#originalProcessReallyExit = process2.reallyExit;
+    this.#originalProcessEmit = process2.emit;
+  }
+  onExit(cb, opts) {
+    if (!processOk(this.#process)) {
+      return () => {
+      };
+    }
+    if (this.#loaded === false) {
+      this.load();
+    }
+    const ev = opts?.alwaysLast ? "afterExit" : "exit";
+    this.#emitter.on(ev, cb);
+    return () => {
+      this.#emitter.removeListener(ev, cb);
+      if (this.#emitter.listeners["exit"].length === 0 && this.#emitter.listeners["afterExit"].length === 0) {
+        this.unload();
+      }
+    };
+  }
+  load() {
+    if (this.#loaded) {
+      return;
+    }
+    this.#loaded = true;
+    this.#emitter.count += 1;
+    for (const sig of signals) {
+      try {
+        const fn = this.#sigListeners[sig];
+        if (fn)
+          this.#process.on(sig, fn);
+      } catch (_) {
+      }
+    }
+    this.#process.emit = (ev, ...a) => {
+      return this.#processEmit(ev, ...a);
+    };
+    this.#process.reallyExit = (code) => {
+      return this.#processReallyExit(code);
+    };
+  }
+  unload() {
+    if (!this.#loaded) {
+      return;
+    }
+    this.#loaded = false;
+    signals.forEach((sig) => {
+      const listener = this.#sigListeners[sig];
+      if (!listener) {
+        throw new Error("Listener not defined for signal: " + sig);
+      }
+      try {
+        this.#process.removeListener(sig, listener);
+      } catch (_) {
+      }
+    });
+    this.#process.emit = this.#originalProcessEmit;
+    this.#process.reallyExit = this.#originalProcessReallyExit;
+    this.#emitter.count -= 1;
+  }
+  #processReallyExit(code) {
+    if (!processOk(this.#process)) {
+      return 0;
+    }
+    this.#process.exitCode = code || 0;
+    this.#emitter.emit("exit", this.#process.exitCode, null);
+    return this.#originalProcessReallyExit.call(this.#process, this.#process.exitCode);
+  }
+  #processEmit(ev, ...args) {
+    const og = this.#originalProcessEmit;
+    if (ev === "exit" && processOk(this.#process)) {
+      if (typeof args[0] === "number") {
+        this.#process.exitCode = args[0];
+      }
+      const ret = og.call(this.#process, ev, ...args);
+      this.#emitter.emit("exit", this.#process.exitCode, null);
+      return ret;
+    } else {
+      return og.call(this.#process, ev, ...args);
+    }
+  }
+}
+var process2 = globalThis.process;
+var {
+  onExit,
+  load,
+  unload
+} = signalExitWrap(processOk(process2) ? new SignalExit(process2) : new SignalExitFallback);
+
+// src/primitives/functions.ts
+import {resolve as _resolve} from "path";
+import {promisify} from "util";
 import {randomBytes} from "node:crypto";
-import {readFile, writeFile} from "node:fs/promises";
-import {existsSync, readFileSync} from "node:fs";
-import {copyFile, rename, unlink} from "node:fs/promises";
+import {readFile} from "node:fs/promises";
+import {readFileSync} from "node:fs";
 import {Buffer as Buffer2} from "node:buffer";
-import {freemem} from "node:os";
 async function updateMessage(dir, _unique_field, message) {
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
@@ -3031,10 +3368,9 @@ async function updateMessage(dir, _unique_field, message) {
   if (_unique_field) {
     await updateIndex(dir, _unique_field, message);
   }
-  message._wal_flag = "u";
   return message;
 }
-async function insertMessage(dir, _unique_field, message) {
+async function prepareMessage(dir, _unique_field, message) {
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     if (Array.isArray(someIdex)) {
@@ -3042,83 +3378,31 @@ async function insertMessage(dir, _unique_field, message) {
     }
   }
   message._id = generate_id();
-  message._wal_flag = "i";
   if (_unique_field) {
     await updateIndex(dir, _unique_field, message);
   }
   return message;
 }
-async function deleteMessage(_id, dir, _unique_field, _foreign_field, RCT_KEY, fn) {
-  const message = await findMessage(RCT_KEY, dir + fn, {
+async function deleteMessage(_id, dir, _unique_field, _foreign_field, fn, RCTiedlog) {
+  const message = RCTiedlog || await findMessage(fn, {
     select: _id
-  });
+  }, RCTiedlog);
   if (message) {
     if (_unique_field)
       await dropIndex(dir + "UINDEX", message, _unique_field);
     if (_foreign_field)
       await dropForeignKeys(dir + "FINDEX", _id);
-    message._wal_flag = "d";
   }
   return message || { _wal_ignore_flag: true };
 }
-async function findMessages(RCT_KEY, fileName, fo) {
-  const { select, take, skip, populate } = fo;
-  let messages = await readDataFromFile(RCT_KEY, fileName);
-  if (select === "*") {
-    if (skip) {
-      messages.splice(0, skip);
-    }
-    if (take) {
-      messages = messages.slice(0, take);
-    }
-    if (populate) {
-      const _med = messages.map(async (m) => {
-        const _foreign = await populateForeignKeys(fileName, m._id, populate);
-        for (const key in _foreign) {
-          m[key] = _foreign[key];
-        }
-        return m;
-      });
-      messages = await Promise.all(_med);
-    }
-    return messages;
-  }
-  let left = 0;
-  let right = messages.length - 1;
-  let mid = Math.floor((left + right) / 2);
-  let midId = messages[mid]?._id;
-  while (left <= right) {
-    mid = Math.floor((left + right) / 2);
-    midId = messages[mid]._id;
-    if (midId === select) {
-      const message = messages[mid];
-      if (populate) {
-        const _foreign = await populateForeignKeys(fileName, message._id, populate);
-        for (const key in _foreign) {
-          message[key] = _foreign[key];
-        }
-      }
-      return message;
-    } else if (midId < select) {
-      left = mid + 1;
-    } else if (midId === undefined) {
-      return;
-    } else {
-      right = mid - 1;
-    }
-  }
-  return;
-}
-async function findMessage(RCT_KEY, fileName, fo) {
+async function findMessage(fileName, fo, RCTiedlog) {
   const { select, populate } = fo;
-  let messages = await readDataFromFile(RCT_KEY, fileName);
+  const messages = RCTiedlog || await loadLog(fileName);
   let left = 0;
   let right = messages.length - 1;
-  let mid = Math.floor((left + right) / 2);
-  let midId = messages[mid]?._id;
   while (left <= right) {
-    mid = Math.floor((left + right) / 2);
-    midId = messages[mid]._id;
+    const mid = Math.floor((left + right) / 2);
+    const midId = messages[mid]?._id;
     if (midId === select) {
       const message = messages[mid];
       if (populate) {
@@ -3136,7 +3420,6 @@ async function findMessage(RCT_KEY, fileName, fo) {
       right = mid - 1;
     }
   }
-  return;
 }
 function validateData(data = {}, schema = {}) {
   let info = {};
@@ -3178,24 +3461,122 @@ function validateData(data = {}, schema = {}) {
   }
   return info;
 }
-var readDataFromFile = async (RCT_KEY, filePath) => {
-  if (Utils.RCT[RCT_KEY]) {
-    if (Utils.RCT[RCT_KEY][filePath]) {
-      return Utils.RCT[RCT_KEY][filePath];
+function resizeRCT(data) {
+  const keys = Object.keys(data);
+  //! 99 should caculated memory capacity
+  if (keys.length > 99) {
+    const a = keys.slice(0, 50);
+    for (let i = 0;i < 50; i++) {
+      data[a[i]] = undefined;
     }
   }
+}
+var getTmpname = function(filename) {
+  return filename + "." + import_imurmurhash.default(__filename).hash(String(process.pid)).hash(String(++invocations)).result();
+};
+var cleanupOnExit = function(tmpfile) {
+  return () => {
+    try {
+      unlinkSync(typeof tmpfile === "function" ? tmpfile() : tmpfile);
+    } catch {
+    }
+  };
+};
+var serializeActiveFile = function(absoluteName) {
+  return new Promise((resolve) => {
+    if (!activeFiles[absoluteName]) {
+      activeFiles[absoluteName] = [];
+    }
+    activeFiles[absoluteName].push(resolve);
+    if (activeFiles[absoluteName].length === 1) {
+      resolve(undefined);
+    }
+  });
+};
+var isChownErrOk = function(err) {
+  if (err.code === "ENOSYS") {
+    return true;
+  }
+  const nonroot = !process.getuid || process.getuid() !== 0;
+  if (nonroot) {
+    if (err.code === "EINVAL" || err.code === "EPERM") {
+      return true;
+    }
+  }
+  return false;
+};
+async function Twritter(filename, data) {
+  let fd;
+  let tmpfile = "";
+  let mode;
+  let chown;
+  const removeOnExitHandler = onExit(cleanupOnExit(() => tmpfile));
+  const absoluteName = _resolve(filename);
+  try {
+    await serializeActiveFile(absoluteName);
+    const truename = await promisify(realpath)(filename).catch(() => filename);
+    tmpfile = getTmpname(truename);
+    const stats = await promisify(stat)(truename).catch(() => {
+    });
+    if (stats) {
+      if (mode == null) {
+        mode = stats.mode;
+      }
+      if (chown == null && process.getuid) {
+        chown = { uid: stats.uid, gid: stats.gid };
+      }
+    }
+    fd = await promisify(open)(tmpfile, "w", mode);
+    if (ArrayBuffer.isView(data)) {
+      await promisify(write)(fd, data, 0, data.length, 0);
+    } else if (data != null) {
+      await promisify(write)(fd, String(data), 0, "utf8");
+    }
+    await promisify(fsync)(fd);
+    await promisify(close)(fd);
+    fd = null;
+    if (chown) {
+      await promisify(_chown)(tmpfile, chown.uid, chown.gid).catch((err) => {
+        if (!isChownErrOk(err)) {
+          throw err;
+        }
+      });
+    }
+    if (mode) {
+      await promisify(chmod)(tmpfile, mode).catch((err) => {
+        if (!isChownErrOk(err)) {
+          throw err;
+        }
+      });
+    }
+    await promisify(rename)(tmpfile, truename);
+  } finally {
+    if (fd) {
+      await promisify(close)(fd).catch(() => {
+      });
+    }
+    removeOnExitHandler();
+    await promisify(unlink)(tmpfile).catch(() => {
+    });
+    activeFiles[absoluteName].shift();
+    if (activeFiles[absoluteName].length > 0) {
+      activeFiles[absoluteName][0](undefined);
+      console.log({ activeFiles });
+    } else {
+      delete activeFiles[absoluteName];
+    }
+  }
+}
+var __filename = "/home/friday/dev/Exabase/src/primitives/functions.ts";
+var loadLog = async (filePath) => {
   try {
     const data = await readFile(filePath);
-    const d = Utils.packr.decode(data) || [];
-    if (Utils.RCT[RCT_KEY] !== false) {
-      Utils.RCT[RCT_KEY][filePath] = d;
-    }
-    return d;
+    return Utils.packr.decode(data) || [];
   } catch (error) {
     return [];
   }
 };
-var readDataFromFileSync = (filePath) => {
+var loadLogSync = (filePath) => {
   try {
     const data = readFileSync(filePath);
     const d = Utils.packr.decode(data) || [];
@@ -3204,23 +3585,19 @@ var readDataFromFileSync = (filePath) => {
     return [];
   }
 };
-var writeDataToFile = (filePath, data) => {
-  console.log(filePath);
-  return writeFile(filePath, Utils.packr.encode(data));
-};
-var addForeignKeys = async (RCT_KEY, fileName, reference) => {
-  const message = await findMessage(RCT_KEY, fileName, {
+var addForeignKeys = async (fileName, reference, RCTiedlog) => {
+  const message = await findMessage(fileName, {
     select: reference._id
-  });
+  }, RCTiedlog);
   if (!message) {
-    throw new ExabaseError("Adding relation on table :", RCT_KEY, " aborted, reason - item _id '", reference._id, "' not found!");
+    throw new ExabaseError("Adding relation on table :", " aborted, reason - item _id '", reference._id, "' not found!");
   }
   const foreign_message = await Utils.EXABASE_MANAGERS[reference.foreign_table.toUpperCase()]._query.findOne(reference.foreign_id);
   if (!foreign_message) {
-    throw new ExabaseError("Adding relation on table :", RCT_KEY, " aborted, reason - foreign_id '", reference.foreign_id, "' from foreign table '", reference.foreign_table, "' via it's relationship '", reference.relationship, "' not found!");
+    throw new ExabaseError("Adding relation on table :", " aborted, reason - foreign_id '", reference.foreign_id, "' from foreign table '", reference.foreign_table, "' via it's relationship '", reference.relationship, "' not found!");
   }
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  let messages = await readDataFromFile("none", fileName);
+  let messages = await loadLog(fileName);
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -3240,11 +3617,11 @@ var addForeignKeys = async (RCT_KEY, fileName, reference) => {
     }
   }
   messages[reference._id] = messageX;
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 var populateForeignKeys = async (fileName, _id, relationships) => {
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  let messages = await readDataFromFile("none", fileName);
+  let messages = await loadLog(fileName);
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -3272,26 +3649,26 @@ var populateForeignKeys = async (fileName, _id, relationships) => {
 };
 var removeForeignKeys = async (fileName, reference) => {
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  const messages = await readDataFromFile("none", fileName);
+  const messages = await loadLog(fileName);
   if (messages[reference._id]) {
     if (Array.isArray(messages[reference._id][reference.relationship])) {
       messages[reference._id][reference.relationship] = messages[reference._id][reference.relationship].filter((item) => item !== reference.foreign_id);
     } else {
       delete messages[reference._id][reference.relationship];
     }
-    await FileLockTable.write(fileName, messages);
+    await Twritter(fileName, Utils.packr.encode(messages));
   }
 };
 var dropForeignKeys = async (fileName, _id) => {
-  const messages = await readDataFromFile("none", fileName);
+  const messages = await loadLog(fileName);
   if (messages[_id]) {
     delete messages[_id];
   }
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 var updateIndex = async (fileName, _unique_field, message) => {
   fileName = fileName.split("/").slice(0, 2).join("/") + "/UINDEX";
-  let messages = await readDataFromFile("none", fileName);
+  let messages = await loadLog(fileName);
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -3301,10 +3678,10 @@ var updateIndex = async (fileName, _unique_field, message) => {
     }
     messages[type][message[type]] = message._id;
   }
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
 var findIndex = async (fileName, _unique_field, data) => {
-  let messages = await readDataFromFile("none", fileName);
+  let messages = await loadLog(fileName);
   if (Array.isArray(messages)) {
     return false;
   }
@@ -3319,7 +3696,7 @@ var findIndex = async (fileName, _unique_field, data) => {
   return false;
 };
 var findMessageByUnique = async (fileName, _unique_field, data) => {
-  let messages = await readDataFromFile("none", fileName);
+  let messages = await loadLog(fileName);
   if (Array.isArray(messages)) {
     return;
   }
@@ -3337,7 +3714,7 @@ var dropIndex = async (fileName, data, _unique_field) => {
   if (!_unique_field) {
     return;
   }
-  let messages = await readDataFromFile("none", fileName);
+  let messages = await loadLog(fileName);
   if (Array.isArray(messages)) {
     messages = {};
   }
@@ -3347,9 +3724,9 @@ var dropIndex = async (fileName, data, _unique_field) => {
     }
     delete messages[key][data[key]];
   }
-  await FileLockTable.write(fileName, messages);
+  await Twritter(fileName, Utils.packr.encode(messages));
 };
-var binarysearch_mutate = async (message, messages) => {
+var binarysearch_mutate = async (message, messages, flag) => {
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
@@ -3357,11 +3734,11 @@ var binarysearch_mutate = async (message, messages) => {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
-      if (message._wal_flag === "u") {
+      if (flag === "u") {
         delete message._wal_flag;
         messages[mid] = message;
       }
-      if (message._wal_flag === "d") {
+      if (flag === "d") {
         messages.splice(mid, 1);
       }
       break;
@@ -3373,7 +3750,8 @@ var binarysearch_mutate = async (message, messages) => {
   }
   return messages;
 };
-var binarysorted_insert = async (message, messages) => {
+var binarysorted_insert = async (message, fn, RCTiedlog) => {
+  const messages = RCTiedlog || await loadLog(fn);
   const _id = message._id;
   let low = 0;
   let high = messages.length - 1;
@@ -3410,39 +3788,8 @@ var generate_id = () => {
   buffer[9] = inc >> 16 & 255;
   return buffer.toString("hex");
 };
-var FileLockTable = {
-  table: {},
-  async write(fileName, content) {
-    if (this.table[fileName] === true) {
-      setImmediate(() => {
-        this.write(fileName, content);
-      });
-    } else {
-      this.table[fileName] = true;
-      await this._run(fileName, content);
-      this.table[fileName] = false;
-    }
-  },
-  async _run(fileName, content) {
-    const fcpn = fileName + "_COPY";
-    if (existsSync(fileName)) {
-      await copyFile(fileName, fcpn);
-      await writeDataToFile(fcpn, content);
-    } else {
-      if (existsSync(fcpn)) {
-        await unlink(fcpn);
-      }
-      await writeDataToFile(fcpn, content);
-    }
-    await rename(fcpn, fileName);
-  }
-};
-var getComputedUsage = (allowedUsagePercent, schemaLength) => {
-  const nuPerc = (p) => p / 1500;
-  const usableGB = freemem() * nuPerc(allowedUsagePercent || 10);
-  const usableManagerGB = usableGB / (schemaLength || 1);
-  return usableManagerGB;
-};
+var activeFiles = {};
+var invocations = 0;
 
 // src/primitives/classes.ts
 class Utils {
@@ -3523,14 +3870,13 @@ class Schema {
       return this._trx;
     throw new ExabaseError("Schema - " + this.tableName + " is not yet connected to an Exabase Instance");
   }
-  static getTimestamp(data) {
-    return data._id && new Date(parseInt(this.toString().slice(0, 8), 16) * 1000);
+  static getTimestamp(_id) {
+    return new Date(parseInt(_id.slice(0, 8), 16) * 1000);
   }
 }
 
 class Query {
   _Manager;
-  _query = [];
   premature = true;
   constructor(Manager) {
     this._Manager = Manager;
@@ -3583,7 +3929,7 @@ class Query {
       }
     }
     return new Promise((r) => {
-      this._Manager._run(query, r, "nm");
+      this._Manager._run(query, r);
     });
   }
   findOne(field, options) {
@@ -3628,7 +3974,7 @@ class Query {
       }
     }
     return new Promise((r) => {
-      this._Manager._run(query, r, "nm");
+      this._Manager._run(query, r);
     });
   }
   search(searchQuery, options) {
@@ -3659,22 +4005,16 @@ class Query {
       }
     }
     return new Promise((r) => {
-      this._Manager._run(query, r, "nm");
+      this._Manager._run(query, r);
     });
   }
   save(data) {
-    let query;
-    if (data._id) {
-      query = {
-        update: this._Manager._validate(data, "UPDATE")
-      };
-    } else {
-      query = {
-        insert: this._Manager._validate(data, "INSERT")
-      };
-    }
+    const hasid = typeof data?._id === "string";
+    const query = {
+      [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid)
+    };
     return new Promise((r) => {
-      this._Manager._run(query, r, "m");
+      this._Manager._run(query, r);
     });
   }
   delete(_id) {
@@ -3685,7 +4025,7 @@ class Query {
       delete: _id
     };
     return new Promise((r) => {
-      this._Manager._run(query, r, "m");
+      this._Manager._run(query, r);
     });
   }
   count(pops) {
@@ -3693,12 +4033,8 @@ class Query {
       count: pops || true
     };
     return new Promise((r) => {
-      this._Manager._run(query, r, "nm");
+      this._Manager._run(query, r);
     });
-  }
-  flush() {
-    //! this guy has a bug gonna fix that later
-    return this._Manager._partition_wal_compiler();
   }
   addRelation(options) {
     const rela = this._Manager._schema.relationship[options.relationship];
@@ -3719,7 +4055,7 @@ class Query {
       }
     };
     return new Promise((r) => {
-      this._Manager._run(query, r, "nm");
+      this._Manager._run(query, r);
     });
   }
   removeRelation(options) {
@@ -3738,79 +4074,107 @@ class Query {
       }
     };
     return new Promise((r) => {
-      this._Manager._run(query, r, "nm");
+      this._Manager._run(query, r);
     });
   }
-  batch(data, type) {
-    if (Array.isArray(data) && "INSERT-UPDATE-DELETE".includes(type)) {
-      return this._prepare_for(data, type);
+  insertBatch(data) {
+    if (Array.isArray(data)) {
+      const q = this._prepare_for(data, false);
+      return new Promise((r) => {
+        this._Manager._runMany(q, r);
+      });
     } else {
-      throw new ExabaseError(`Invalid inputs for .batch method, data should be array and type should be any of  "INSERT", "UPDATE",  "DELETE" .`);
+      throw new ExabaseError(`Invalid inputs for .insertBatch method, data should be array.`);
     }
   }
-  _prepare_for(data, type) {
+  updateBatch(data) {
+    if (Array.isArray(data)) {
+      const q = this._prepare_for(data, false);
+      return new Promise((r) => {
+        this._Manager._runMany(q, r);
+      });
+    } else {
+      throw new ExabaseError(`Invalid inputs for .updateBatch method, data should be array.`);
+    }
+  }
+  deleteBatch(data) {
+    if (Array.isArray(data)) {
+      const q = this._prepare_for(data, true);
+      return new Promise((r) => {
+        this._Manager._runMany(q, r);
+      });
+    } else {
+      throw new ExabaseError(`Invalid inputs for .deleteBatch method, data should be array.`);
+    }
+  }
+  _prepare_for(data, del) {
+    const query = [];
     for (let i = 0;i < data.length; i++) {
-      let item = data[i];
-      if (type === "DELETE") {
-        if (item._id) {
-          item = item._id;
-          if (typeof item !== "string") {
-            throw new ExabaseError("cannot continue with delete query '", item, "' is not a valid Exabase _id value");
-          }
-          this._query.push({
-            [type.toLowerCase()]: item
+      const item = data[i];
+      if (del) {
+        if (typeof item._id === "string") {
+          query.push({
+            delete: item._id
           });
+        } else {
+          throw new ExabaseError("cannot continue with delete query '", item._id, "' is not a valid Exabase _id value");
         }
       } else {
-        this._query.push({
-          [type.toLowerCase()]: this._Manager._validate(item, type)
+        const hasid = item?._id && true;
+        query.push({
+          [hasid ? "update" : "insert"]: this._Manager._validate(item, hasid)
         });
       }
     }
-  }
-  exec() {
-    if (this._query.length !== 0) {
-      return new Promise((r) => {
-        this._Manager._run(this._query.splice(0), r, "m");
-      });
-    }
-    return [];
+    return query;
   }
 }
 
 class Manager {
   _schema;
+  _name;
   _query;
-  wQueue = [];
-  wDir;
   tableDir = "";
-  RCT_KEY;
-  _full_lv_bytesize;
+  RCTied = true;
+  RCT = {};
   _LogFiles = {};
-  _LsLogFile;
+  _topLogFile;
   _search;
+  waiters = {};
   logging = false;
-  constructor(schema, usablemManagerMem) {
+  constructor(schema) {
     this._schema = schema;
+    this._name = schema.tableName;
     this._search = new XTree({ persitKey: "" });
     this._query = new Query(this);
     schema._trx = this._query;
-    this._full_lv_bytesize = Math.round(usablemManagerMem / (Object.keys(schema.columns || []).length * 20));
-    this.RCT_KEY = this._schema.tableName;
+    this.RCTied = schema.RCT || false;
   }
   _setup(init) {
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
-    this.wDir = this.tableDir + "WAL/";
     this.logging = init.logging;
     this._search = new XTree({ persitKey: this.tableDir + "XINDEX" });
-    Utils.RCT[this.RCT_KEY] = this._schema.RCT ? {} : false;
     this._constructRelationships(init.schemas);
-    if (!existsSync2(this.tableDir)) {
+    if (!existsSync(this.tableDir)) {
       mkdirSync(this.tableDir);
-      mkdirSync(this.wDir);
     } else {
       return this._sync_logs();
     }
+  }
+  async write(file, message, flag) {
+    let messages = await loadLog(file);
+    if (flag === "i") {
+      messages = await binarysorted_insert(message, file, this.RCT[file]);
+    } else {
+      messages = await binarysearch_mutate(message, this.RCT[file], flag);
+    }
+    if (this.RCTied) {
+      this.RCT[file] = messages;
+    }
+    await Twritter(file, Utils.packr.encode(messages));
+    await this._search.manage(message, flag);
+    resizeRCT(this.RCT);
+    return message;
   }
   async _sync_logs() {
     const dir = await opendir(this.tableDir);
@@ -3827,43 +4191,20 @@ class Manager {
         if ("FINDEX-UINDEX-XINDEX".includes(fn)) {
           continue;
         }
-        const LOG = await readDataFromFile(this.RCT_KEY, this.tableDir + dirent.name);
+        const LOG = await loadLog(this.tableDir + dirent.name);
         const last_id = LOG.at(-1)?._id || "";
         this._LogFiles[fn] = { last_id, size: LOG.length };
         size += LOG.length;
-        if (!this._LsLogFile) {
-          this._LsLogFile = fn;
+        if (!this._topLogFile) {
+          this._topLogFile = fn;
         } else {
-          if (Number(fn.split("-")[1]) > Number(this._LsLogFile.split("-")[1])) {
-            this._LsLogFile = fn;
+          if (Number(fn.split("-")[1]) > Number(this._topLogFile.split("-")[1])) {
+            this._topLogFile = fn;
           }
         }
       }
     }
-    //! wal dir wal merger logic
-    await this._startup_run_wal_sync();
     await this._sync_searchindex(size);
-  }
-  async _startup_run_wal_sync() {
-    if (!existsSync2(this.wDir)) {
-      mkdirSync(this.wDir);
-      return;
-    }
-    const dir = await opendir(this.wDir);
-    let isThereSomeThingToFlush = false;
-    for await (const dirent of dir) {
-      if (dirent.isFile()) {
-        if (!isThereSomeThingToFlush) {
-          isThereSomeThingToFlush = true;
-          console.log("Exabase is flushing uncommitted querys after last shutdown");
-        }
-        const trs = await readDataFromFile(this.RCT_KEY, this.wDir + dirent.name);
-        this.wQueue.push([dirent.name, trs]);
-      }
-    }
-    if (isThereSomeThingToFlush) {
-      await this._partition_wal_compiler();
-    }
   }
   async _sync_searchindex(size) {
     const sindexes = [];
@@ -3882,121 +4223,45 @@ class Manager {
       console.log("Re-calculating search index due to changes in log size");
       this._search.restart();
       for (const file in this._LogFiles) {
-        const LOG = await readDataFromFile(this.RCT_KEY, this.tableDir + file);
-        this._search.bulkInsert(LOG);
-      }
-    }
-  }
-  async _run_wal_sync(querys) {
-    const degrees = {};
-    const usedWalFiles = [];
-    const walers = querys.map(async ([key, query]) => {
-      usedWalFiles.push(key);
-      if (Array.isArray(query)) {
-        for (let i = 0;i < query.length; i++) {
-          const d = query[i];
-          if (!d._wal_flag) {
-            if (d._wal_ignore_flag) {
-              continue;
-            }
-            console.error({ item: d });
-            throw new ExabaseError("element has not wal flag");
-          }
-          const fn = this._getLog(d._id);
-          if (!degrees[fn]) {
-            degrees[fn] = await readDataFromFile(this.RCT_KEY, this.tableDir + fn);
-          }
-          if (d._wal_flag === "i") {
-            degrees[fn] = await binarysorted_insert(d, degrees[fn]);
-          } else {
-            degrees[fn] = await binarysearch_mutate(d, degrees[fn]);
-          }
-        }
-      } else {
-        const fn = this._getLog(query._id);
-        if (!degrees[fn]) {
-          degrees[fn] = await readDataFromFile(this.RCT_KEY, this.tableDir + fn);
-        }
-        if (query._wal_flag === "i") {
-          degrees[fn] = await binarysorted_insert(query, degrees[fn]);
-        } else {
-          degrees[fn] = await binarysearch_mutate(query, degrees[fn]);
-        }
-      }
-    });
-    await Promise.all(walers);
-    await Promise.all(Object.keys(degrees).map((key) => this._commit(key, degrees[key])));
-    await Promise.all(usedWalFiles.map((file) => unlink2(this.wDir + file)));
-  }
-  async _commit(fn, messages) {
-    this._setLog(fn, messages.at(-1)?._id, messages.length);
-    if (Utils.RCT[this.RCT_KEY] !== false) {
-      Utils.RCT[this.RCT_KEY][fn] = messages;
-    }
-    const fnl = this.tableDir + fn;
-    const sylog = fnl + "-SYNC";
-    if (existsSync2(fnl)) {
-      await copyFile2(fnl, sylog);
-    }
-    this._setLog(fn, messages.at(-1)?._id, messages.length);
-    await writeDataToFile(sylog, messages);
-    if (await rename2(sylog, fnl) !== undefined) {
-    }
-  }
-  async _partition_wal_compiler() {
-    if (this.wQueue.length === 0) {
-      return;
-    }
-    const querys = [];
-    const trxQ = [];
-    for (;this.wQueue.length !== 0; ) {
-      const query = this.wQueue.shift();
-      if (Array.isArray(query[1])) {
-        querys.push([query]);
-      } else {
-        trxQ.push(query);
-        if (trxQ.length === 10) {
-          querys.push([...trxQ.splice(0)]);
+        const LOG = await loadLog(this.tableDir + file);
+        const ln = LOG.length;
+        for (let i = 0;i < ln; i++) {
+          this._search.insert(LOG[i]);
         }
       }
     }
-    if (trxQ.length) {
-      querys.push([...trxQ.splice(0)]);
-    }
-    let i = 0;
-    const runner = async () => {
-      await this._run_wal_sync(querys[i]);
-      i += 1;
-      if (i === querys.length) {
-        return;
-      }
-      setImmediate(runner);
-    };
-    await runner();
   }
-  _getLog(logId) {
-    const size = this._full_lv_bytesize;
+  _getReadingLog(logId) {
     if (logId === "*") {
-      return "LOG-1";
+      return this.tableDir + this._topLogFile;
     }
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
       if (logFile.last_id > logId || logFile.last_id === logId) {
-        return filename;
+        return this.tableDir + filename;
       }
       if (!logFile.last_id) {
-        return filename;
+        return this.tableDir + filename;
       }
-      if (logFile.size < size) {
-        return filename;
+      if (logFile.size < 32768) {
+        return this.tableDir + filename;
       }
     }
-    const cln = Number((this._LsLogFile || "LOG-0").split("-")[1]);
+    throw new ExabaseError("Invalid key range for read operation");
+  }
+  _getInsertLog() {
+    for (const filename in this._LogFiles) {
+      const logFile = this._LogFiles[filename];
+      if (logFile.size < 32768) {
+        return this.tableDir + filename;
+      }
+    }
+    const cln = Number((this._topLogFile || "LOG-0").split("-")[1]);
     const nln = cln + 1;
     const lfid = "LOG-" + nln;
     this._LogFiles[lfid] = { last_id: lfid, size: 0 };
-    this._LsLogFile = lfid;
-    return lfid;
+    this._topLogFile = lfid;
+    return this.tableDir + lfid;
   }
   _setLog(fn, last_id, size) {
     this._LogFiles[fn] = { last_id, size };
@@ -4021,17 +4286,17 @@ class Manager {
       }
     }
   }
-  _validate(data, type) {
+  _validate(data, update) {
     const v = validateData(data, this._schema.columns);
     if (typeof v === "string") {
-      throw new ExabaseError(type, " on table :", this._schema.tableName, " aborted, reason - ", v);
+      throw new ExabaseError(update ? "insert" : "update", " on table :", this._schema.tableName, " aborted, reason - ", v);
     }
-    if (!data._id && type === "UPDATE") {
-      throw new ExabaseError(type + " on table :", this._schema.tableName, " aborted, reason - _id is required");
+    if (!data._id && update) {
+      throw new ExabaseError("update on table :", this._schema.tableName, " aborted, reason - _id is required");
     }
     return v;
   }
-  _select_(query) {
+  async _select(query) {
     if (Array.isArray(query.select.relationship)) {
       const rela = {};
       for (let i = 0;i < query.select.relationship.length; i++) {
@@ -4040,54 +4305,44 @@ class Manager {
       }
       query.select.relationship = rela;
     }
-    const file = this._getLog(query.select);
-    return findMessage(this.RCT_KEY, this.tableDir + file, query);
+    const file = this._getReadingLog(query.select);
+    if (query.select === "*")
+      return this.RCT[file] || await loadLog(file);
+    return findMessage(file, query, this.RCT[file]);
   }
-  _trx_runner(query, tableDir) {
+  async _trx_runner(query) {
     if (query["select"]) {
-      if (Array.isArray(query.select.relationship)) {
-        const rela = {};
-        for (let i = 0;i < query.select.relationship.length; i++) {
-          const r = query.select.relationship;
-          rela[r] = this._schema.relationship[r].target;
-        }
-        query.select.relationship = rela;
-      }
-      const file = this._getLog(query.select);
-      return findMessages(this.RCT_KEY, tableDir + file, query);
+      return this._select(query);
     }
     if (query["insert"]) {
-      return insertMessage(tableDir, this._schema._unique_field, query.insert);
+      const message = await prepareMessage(this.tableDir, this._schema._unique_field, query.insert);
+      const file = this._getInsertLog();
+      return this.write(file, message, "i");
     }
     if (query["update"]) {
-      return updateMessage(tableDir, this._schema._unique_field, query.update);
+      const message = await updateMessage(this.tableDir, this._schema._unique_field, query.update);
+      const file = this._getReadingLog(message._id);
+      return this.write(file, message, "u");
     }
     if (query["search"]) {
       const indexes = this._search.search(query.search, query.take);
-      if (!indexes.length) {
-        console.log({
-          query: query.search,
-          indexes,
-          base: this._search.base,
-          tree: this._search.tree["ticket"].keys
-        });
-      }
-      const searches = indexes.map((_id) => this._select_({ select: _id, populate: query.populate }));
+      const searches = indexes.map((_id) => this._select({
+        select: _id,
+        populate: query.populate
+      }));
       return Promise.all(searches);
     }
     if (query["unique"]) {
-      return new Promise(async (r) => {
-        const select = await findMessageByUnique(tableDir + "UINDEX", this._schema._unique_field, query.unique);
-        if (select) {
-          const file = this._getLog(select);
-          r(await findMessage(this.RCT_KEY, tableDir + file, {
-            select,
-            populate: query.populate
-          }));
-        } else {
-          r([]);
-        }
-      });
+      const select = await findMessageByUnique(this.tableDir + "UINDEX", this._schema._unique_field, query.unique);
+      if (select) {
+        const file = this._getReadingLog(select);
+        return findMessage(file, {
+          select,
+          populate: query.populate
+        }, this.RCT[file]);
+      } else {
+        return [];
+      }
     }
     if (query["count"]) {
       if (query["count"] === true) {
@@ -4103,42 +4358,30 @@ class Manager {
       }
     }
     if (query["delete"]) {
-      const file = this._getLog(query.delete);
-      return deleteMessage(query.delete, tableDir, this._schema._unique_field, this._schema.relationship ? true : false, this.RCT_KEY, file);
+      const file = this._getReadingLog(query.delete);
+      const message = await deleteMessage(query.delete, this.tableDir, this._schema._unique_field, this._schema.relationship ? true : false, file, this.RCT[file]);
+      return this.write(file, message, "d");
     }
     if (query["reference"] && query["reference"]._new) {
-      const file = this._getLog(query.reference._id);
-      return addForeignKeys(this.RCT_KEY, tableDir + file, query.reference);
+      const file = this._getReadingLog(query.reference._id);
+      return addForeignKeys(file, query.reference, this.RCT[file]);
     }
     if (query["reference"]) {
-      const file = this._getLog(query.reference._id);
-      return removeForeignKeys(tableDir + file, query.reference);
+      const file = this._getReadingLog(query.reference._id);
+      return removeForeignKeys(file, query.reference);
     }
   }
-  async _run(query, r, type) {
-    const trx = async () => {
-      let trs;
-      if (!Array.isArray(query)) {
-        trs = await this._trx_runner(query, this.tableDir);
-      } else {
-        trs = await Promise.all(query.map((q) => this._trx_runner(q, this.tableDir)));
-      }
-      if (type !== "nm" && typeof trs === "object") {
-        const wid = generate_id();
-        await writeDataToFile(this.wDir + wid, trs);
-        this.wQueue.push([wid, trs]);
-        await this._search.manage(trs);
-      }
-      return trs;
-    };
-    if (type === "nm") {
-      await this._partition_wal_compiler();
-    }
-    r(await trx());
-    console.log({ query });
-    if (this.logging) {
-      console.log({ query, table: this._schema.tableName, type });
-    }
+  async _runMany(query, r) {
+    const trs = await Promise.all(query.map((q) => this._trx_runner(q)));
+    if (this.logging)
+      console.log({ query, table: this._name });
+    r(trs);
+  }
+  async _run(query, r) {
+    const trs = await this._trx_runner(query);
+    if (this.logging)
+      console.log({ query, table: this._name });
+    r(trs);
   }
 }
 
@@ -4266,29 +4509,18 @@ class XTree {
   confirmLength(size) {
     return this.base.length === size;
   }
-  manage(trx) {
-    if (Array.isArray(trx)) {
-      switch (trx[0]._wal_flag) {
-        case "i":
-          return this.bulkInsert(trx);
-        case "u":
-          return this.bulkUpsert(trx);
-        case "d":
-          return this.bulkDisert(trx);
-        default:
-          return;
-      }
-    } else {
-      switch (trx._wal_flag) {
-        case "i":
-          return this.insert(trx);
-        case "u":
-          return this.upsert(trx);
-        case "d":
-          return this.disert(trx);
-        default:
-          return;
-      }
+  manage(trx, flag) {
+    switch (flag) {
+      case "i":
+        return this.insert(trx);
+      case "u":
+        return this.upsert(trx);
+      case "d":
+      case "n":
+        return;
+      default:
+        console.error("boohoo", { trx });
+        return;
     }
   }
   async insert(data, bulk = false) {
@@ -4304,7 +4536,7 @@ class XTree {
     }
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
-        if (key === "_id" || key === "_wal_flag" || key === "_wal_ignore_flag")
+        if ("_wal_ignore_flag-_id-_wal_flag".includes(key))
           continue;
         if (!this.tree[key]) {
           this.tree[key] = new XNode;
@@ -4371,43 +4603,19 @@ class XTree {
       await this.persit();
     this.mutatingBase = false;
   }
-  async bulkInsert(dataset) {
-    if (Array.isArray(dataset)) {
-      for (let i = 0;i < dataset.length; i++) {
-        this.insert(dataset[i], true);
-      }
-      await this.persit();
-    }
-  }
-  async bulkDisert(dataset) {
-    if (Array.isArray(dataset)) {
-      for (let i = 0;i < dataset.length; i++) {
-        this.disert(dataset[i], true);
-      }
-      await this.persit();
-    }
-  }
-  async bulkUpsert(dataset) {
-    if (Array.isArray(dataset)) {
-      for (let i = 0;i < dataset.length; i++) {
-        this.upsert(dataset[i], true);
-      }
-      await this.persit();
-    }
-  }
   persit() {
     const obj = {};
     const keys = Object.keys(this.tree);
     for (let index = 0;index < keys.length; index++) {
       obj[keys[index]] = this.tree[keys[index]].keys;
     }
-    return FileLockTable.write(this.persitKey, {
+    return Twritter(this.persitKey, Utils.packr.encode({
       base: this.base,
       tree: obj
-    });
+    }));
   }
   static restore(persitKey) {
-    const data = readDataFromFileSync(persitKey);
+    const data = loadLogSync(persitKey);
     const tree = {};
     if (data.tree) {
       for (const key in data.tree) {
@@ -4484,7 +4692,6 @@ class Exabase {
   _exabaseDirectory;
   constructor(init) {
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
-    const usableManagerGB = getComputedUsage(init.EXABASE_MEMORY_PERCENT, init.schemas.length);
     try {
       mkdirSync2(this._exabaseDirectory);
       Object.assign(Utils.MANIFEST, {
@@ -4516,7 +4723,7 @@ class Exabase {
       }
     }
     init.schemas.forEach((schema) => {
-      Utils.EXABASE_MANAGERS[schema?.tableName] = new Manager(schema, usableManagerGB);
+      Utils.EXABASE_MANAGERS[schema?.tableName] = new Manager(schema);
     });
     Promise.allSettled(Object.values(Utils.EXABASE_MANAGERS).map((manager) => manager._setup({
       _exabaseDirectory: this._exabaseDirectory,

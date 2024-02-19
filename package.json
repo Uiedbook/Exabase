@@ -26,16 +26,17 @@
     "javascript"
   ],
   "scripts": {
-    "compile": "bun bundle.ts",
-    "rebuild-test": "run compile && rm -rf ./EXABASE_DB && bun test",
-    "test": "rm -rf ./EXABASE_DB && bun test",
-    "build": " bun bundle.ts",
+    "compile": "rm -rf ./EXABASE_DB && bun bundle.ts",
+    "test": "bun test",
+    "build": "bun bundle.ts",
     "bench": "bun ./tests/benchmark.ts"
   },
   "author": "Friday Candour",
   "license": "Apache",
   "dependencies": {
-    "msgpackr": "^1.10.1"
+    "imurmurhash": "^0.1.4",
+    "msgpackr": "^1.10.1",
+    "signal-exit": "^4.1.0"
   },
   "devDependencies": {
     "@types/bun": "^1.0.1",
