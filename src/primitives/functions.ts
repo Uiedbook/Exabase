@@ -1,19 +1,13 @@
 import {
-  unlinkSync,
   realpath,
-  stat,
   open,
   write,
   fsync,
   close,
   chown as _chown,
-  chmod,
   rename,
   unlink,
 } from "fs";
-// @ts-ignore
-import MurmurHash3 from "imurmurhash";
-import { onExit } from "signal-exit";
 import { resolve as _resolve } from "path";
 import { promisify } from "util";
 import { randomBytes } from "node:crypto";
@@ -111,15 +105,13 @@ export async function deleteMessage(
   fn: string,
   RCTiedlog: any
 ) {
-  const message =
-    RCTiedlog ||
-    ((await findMessage(
-      fn,
-      {
-        select: _id,
-      },
-      RCTiedlog
-    )) as Msg);
+  const message = (await findMessage(
+    fn,
+    {
+      select: _id,
+    },
+    RCTiedlog
+  )) as Msg;
   if (message) {
     if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
     if (_foreign_field) await dropForeignKeys(dir + "FINDEX", _id);
@@ -197,10 +189,10 @@ export async function findMessage(
     select: string;
     populate?: Record<string, string>;
   },
-  RCTiedlog: any
+  messages: Msgs
 ) {
   const { select, populate } = fo;
-  const messages = RCTiedlog || (await loadLog(fileName));
+
   //? binary search it
   let left = 0;
   let right = messages.length - 1;
@@ -305,10 +297,11 @@ export const addForeignKeys = async (
   }
   //? over-writting the structure
   messages[reference._id] = messageX;
-  await Twritter(fileName, Utils.packr.encode(messages));
+  await SynFileWrit(fileName, Utils.packr.encode(messages));
 };
 
 export const populateForeignKeys = async (
+  // ! looks like a bug
   fileName: string,
   _id: string,
   relationships: Record<string, string>
@@ -367,7 +360,7 @@ export const removeForeignKeys = async (
     } else {
       delete messages[reference._id][reference.relationship];
     }
-    await Twritter(fileName, Utils.packr.encode(messages));
+    await SynFileWrit(fileName, Utils.packr.encode(messages));
   }
 };
 const dropForeignKeys = async (fileName: string, _id: string) => {
@@ -376,7 +369,7 @@ const dropForeignKeys = async (fileName: string, _id: string) => {
   if (messages[_id]) {
     delete messages[_id];
   }
-  await Twritter(fileName, Utils.packr.encode(messages));
+  await SynFileWrit(fileName, Utils.packr.encode(messages));
 };
 const updateIndex = async (
   fileName: string,
@@ -395,7 +388,7 @@ const updateIndex = async (
     messages[type][message[type as keyof Msg]] = message._id;
   }
 
-  await Twritter(fileName, Utils.packr.encode(messages));
+  await SynFileWrit(fileName, Utils.packr.encode(messages));
 };
 
 const findIndex = async (
@@ -466,7 +459,7 @@ const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-  await Twritter(fileName, Utils.packr.encode(messages));
+  await SynFileWrit(fileName, Utils.packr.encode(messages));
 };
 
 //? binary search it
@@ -492,6 +485,16 @@ export const binarysearch_mutate = async (
   messages: Msgs,
   flag: Xtree_flag
 ) => {
+  if (messages.length === 1) {
+    if (message._id === messages[0]._id) {
+      if (flag === "d") {
+        messages.pop();
+      } else {
+        messages[0] = message;
+      }
+    }
+  }
+
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
@@ -501,12 +504,9 @@ export const binarysearch_mutate = async (
     if (midId === _id) {
       //? run mutation
       if (flag === "u") {
-        //? remove the exabase flag
-        delete (message as { _id: string; _wal_flag?: string })._wal_flag;
         messages[mid] = message;
       }
-      if (flag === "d") {
-        messages.splice(mid, 1);
+      if (flag === "d") { 
       }
       break;
     } else if (midId < _id) {
@@ -518,12 +518,7 @@ export const binarysearch_mutate = async (
   return messages;
 };
 //? binary sort insert it
-export const binarysorted_insert = async (
-  message: Msg,
-  fn: string,
-  RCTiedlog: Msgs
-) => {
-  const messages = RCTiedlog || (await loadLog(fn));
+export const binarysorted_insert = async (message: Msg, messages: Msgs) => {
   const _id = message._id;
   let low = 0;
   let high = messages.length - 1;
@@ -536,10 +531,9 @@ export const binarysorted_insert = async (
       high = mid - 1;
     }
   }
-  //? remove the exabase flag
-  delete (message as { _id: string; _wal_flag?: string })._wal_flag;
   //? insert message
   messages.splice(low, 0, message);
+
   return messages;
 };
 
@@ -669,134 +663,21 @@ export function resizeRCT(data: Record<string, any>) {
   }
 }
 
-// Twritter tree
-const activeFiles: Record<string, ((value: unknown) => void)[]> = {};
-
-let invocations = 0;
-function getTmpname(filename: string) {
-  return (
-    filename +
-    "." +
-    MurmurHash3(__filename)
-      .hash(String(process.pid))
-      .hash(String(++invocations))
-      .result()
-  );
-}
-
-function cleanupOnExit(tmpfile: () => string) {
-  return () => {
-    try {
-      unlinkSync(typeof tmpfile === "function" ? tmpfile() : tmpfile);
-    } catch {
-      // ignore errors
-    }
-  };
-}
-
-function serializeActiveFile(absoluteName: string) {
-  return new Promise((resolve) => {
-    // make a queue if it doesn't already exist
-    if (!activeFiles[absoluteName]) {
-      activeFiles[absoluteName] = [];
-    }
-
-    activeFiles[absoluteName].push(resolve); // add this job to the queue
-    if (activeFiles[absoluteName].length === 1) {
-      resolve(undefined);
-    } // kick off the first one
-  });
-}
-
-// https://github.com/isaacs/node-graceful-fs/blob/master/polyfills.js#L315-L342
-function isChownErrOk(err: any) {
-  if (err.code === "ENOSYS") {
-    return true;
-  }
-
-  const nonroot = !process.getuid || process.getuid() !== 0;
-  if (nonroot) {
-    if (err.code === "EINVAL" || err.code === "EPERM") {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export async function Twritter(filename: string, data: Buffer) {
+//? SynFileWrit tree
+export async function SynFileWrit(filename: string, data: Buffer) {
   let fd;
   let tmpfile = "";
-  let mode;
-  let chown;
-  /* istanbul ignore next -- The closure only gets called when onExit triggers */
-  const removeOnExitHandler = onExit(cleanupOnExit(() => tmpfile));
-  const absoluteName = _resolve(filename);
-
   try {
-    await serializeActiveFile(absoluteName);
     const truename = await promisify(realpath)(filename).catch(() => filename);
-    tmpfile = getTmpname(truename);
-
-    // Either mode or chown is not explicitly set
-    // Default behavior is to copy it from original file
-    const stats = await promisify(stat)(truename).catch(() => {});
-    if (stats) {
-      if (mode == null) {
-        mode = stats.mode;
-      }
-
-      if (chown == null && process.getuid) {
-        chown = { uid: stats.uid, gid: stats.gid };
-      }
-    }
-
-    fd = await promisify(open)(tmpfile, "w", mode);
-
-    if (ArrayBuffer.isView(data)) {
-      await promisify(write)(fd, data, 0, data.length, 0);
-    } else if (data != null) {
-      await promisify(write)(fd, String(data), 0, "utf8");
-    }
-
+    tmpfile = generate_id() + "-SYNC";
+    fd = await promisify(open)(tmpfile, "w");
+    await promisify(write)(fd, data, 0, data.length, 0);
     await promisify(fsync)(fd);
-
-    await promisify(close)(fd);
-
-    fd = null;
-
-    if (chown) {
-      await promisify(_chown)(tmpfile, chown.uid, chown.gid).catch((err) => {
-        if (!isChownErrOk(err)) {
-          throw err;
-        }
-      });
-    }
-
-    if (mode) {
-      await promisify(chmod)(tmpfile, mode).catch((err) => {
-        if (!isChownErrOk(err)) {
-          throw err;
-        }
-      });
-    }
-
     await promisify(rename)(tmpfile, truename);
   } finally {
     if (fd) {
-      await promisify(close)(fd).catch(
-        /* istanbul ignore next */
-        () => {}
-      );
+      await promisify(close)(fd).catch(() => {});
     }
-    removeOnExitHandler();
     await promisify(unlink)(tmpfile).catch(() => {});
-    activeFiles[absoluteName].shift(); // remove the element added by serializeSameFile
-    if (activeFiles[absoluteName].length > 0) {
-      activeFiles[absoluteName][0](undefined); // start next job if one is pending
-      console.log({ activeFiles });
-    } else {
-      delete activeFiles[absoluteName];
-    }
   }
 }

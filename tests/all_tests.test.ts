@@ -32,78 +32,87 @@ const OrderTRX = Order.query;
 
 //? tests
 describe("queries", () => {
+  it("wipe all", async () => {
+    const users = await userTRX.findMany();
+    const orders = await OrderTRX.findMany();
+    await userTRX.deleteBatch(users);
+    await OrderTRX.deleteBatch(orders);
+    const usersCount = await userTRX.count();
+    const ordersCount = await OrderTRX.count();
+    expect(usersCount).toBe(0);
+    expect(ordersCount).toBe(0);
+  });
   it("basic query", async () => {
     const userin = await userTRX.save({ name: "james bond" });
     const userout = await userTRX.findOne(userin._id);
     const users = await userTRX.search({ name: userin.name });
-    // expect(users[0]._id).toBe(userout._id);
-    // expect(userin._id).toBe(userout._id);
-    // expect(userin.name).toBe("james bond");
+    expect(users[0]._id).toBe(userout._id);
+    expect(userin._id).toBe(userout._id);
+    expect(userin.name).toBe("james bond");
     await userTRX.delete(userin._id);
     const userd = await userTRX.findOne(userin._id);
-    // expect(userd).toBe(undefined as any);
+    expect(userd).toBe(undefined as any);
   });
   it("large inset", async () => {
-    const users = Array(5).fill({ name: "saul" });
+    const users = Array(2).fill({ name: "saul" });
     userTRX.saveBatch(users);
     const usersCount = await userTRX.count();
-    // expect(usersCount).toBe(5);
+    expect(usersCount).toBe(2);
   });
   it("large update", async () => {
     const users = await userTRX.findMany();
-    // expect(users[1].name).toBe("saul");
+    expect(users[1].name).toBe("saul");
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
     }
     userTRX.saveBatch(users);
     const updatedUsers = await userTRX.findMany();
-    // expect(updatedUsers[0].name).toBe("paul");
+    expect(updatedUsers[0].name).toBe("paul");
   });
   it("basic search query", async () => {
     const userin = await userTRX.save({ name: "sara" });
     const userout = await userTRX.search({ name: "sara" });
-    // expect(userin._id).toBe(userout[0]?._id);
+    expect(userin._id).toBe(userout[0]?._id);
   });
   it("basic query (relationships) ", async () => {
     const userin = await userTRX.save({ name: "james bond" });
     const orderin = await OrderTRX.save({ ticket: String(Date.now()) });
-    // await userTRX.addRelation({
-    //   _id: userin._id,
-    //   foreign_id: orderin._id,
-    //   relationship: "requestedOrders",
-    // });
+    await userTRX.addRelation({
+      _id: userin._id,
+      foreign_id: orderin._id,
+      relationship: "requestedOrders",
+    });
 
-    // const populateRelationship = await userTRX.findOne(userin._id, {
-    //   populate: true,
-    // });
-    // expect(populateRelationship.requestedOrders[0]._id).toBe(orderin._id);
-    // await userTRX.removeRelation({
-    //   _id: userin._id,
-    //   foreign_id: orderin._id,
-    //   relationship: "requestedOrders",
-    // });
+    const populateRelationship = await userTRX.findOne(userin._id, {
+      populate: true,
+    });
+    expect(populateRelationship.requestedOrders[0]._id).toBe(orderin._id);
+    await userTRX.removeRelation({
+      _id: userin._id,
+      foreign_id: orderin._id,
+      relationship: "requestedOrders",
+    });
     // ? check that the relationship is empty
-    // expect(
-    //   (await userTRX.findOne(userin._id, { populate: true })).requestedOrders
-    //     .length
-    // ).toBe(0);
+    expect(
+      (await userTRX.findOne(userin._id, { populate: true })).requestedOrders
+        .length
+    ).toBe(0);
   });
   it("unique field queries ", async () => {
     const orderin = await OrderTRX.save({ ticket: String(Date.now()) });
     const orderout = await OrderTRX.findOne({
       ticket: orderin.ticket,
     });
-    // expect(orderin._id).toBe(orderout._id);
+    expect(orderin._id).toBe(orderout._id);
   });
   it("clean up", async () => {
     const users = await userTRX.findMany();
     const orders = await OrderTRX.findMany();
-    console.log({ users, orders });
     await userTRX.deleteBatch(users);
     await OrderTRX.deleteBatch(orders);
     const usersCount = await userTRX.count();
     const ordersCount = await OrderTRX.count();
-    // expect(usersCount).toBe(0);
-    // expect(ordersCount).toBe(0);
+    expect(usersCount).toBe(0);
+    expect(ordersCount).toBe(0);
   });
 });

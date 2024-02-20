@@ -34,9 +34,7 @@
   "author": "Friday Candour",
   "license": "Apache",
   "dependencies": {
-    "imurmurhash": "^0.1.4",
-    "msgpackr": "^1.10.1",
-    "signal-exit": "^4.1.0"
+    "msgpackr": "^1.10.1"
   },
   "devDependencies": {
     "@types/bun": "^1.0.1",

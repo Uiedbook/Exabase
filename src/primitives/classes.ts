@@ -27,7 +27,7 @@ import {
   validateData,
   resizeRCT,
   prepareMessage,
-  Twritter,
+  SynFileWrit,
 } from "./functions";
 import { Sign, Verify } from "node:crypto";
 
@@ -245,9 +245,7 @@ export class Query<Model> {
       }
     }
 
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    }) as Promise<ExaDoc<Model>[]>;
+    return this._Manager._run(query) as Promise<ExaDoc<Model>[]>;
   }
   /**
    * Exabase query
@@ -312,9 +310,7 @@ export class Query<Model> {
       }
     }
 
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    }) as Promise<ExaDoc<Model>>;
+    return this._Manager._run(query) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -360,9 +356,7 @@ export class Query<Model> {
         }
       }
     }
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    }) as Promise<ExaDoc<Model>[]>;
+    return this._Manager._run(query) as Promise<ExaDoc<Model>[]>;
   }
   /**
    * Exabase query
@@ -375,9 +369,7 @@ export class Query<Model> {
     const query: QueryType = {
       [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid),
     };
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    }) as Promise<ExaDoc<Model>>;
+    return this._Manager._run(query) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -396,9 +388,7 @@ export class Query<Model> {
     const query: QueryType = {
       delete: _id,
     };
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    }) as Promise<ExaDoc<Model>>;
+    return this._Manager._run(query) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -409,9 +399,7 @@ export class Query<Model> {
     const query: QueryType = {
       count: pops || true,
     };
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    }) as Promise<number>;
+    return this._Manager._run(query) as Promise<number>;
   }
   /**
    * Exabase query
@@ -449,9 +437,7 @@ export class Query<Model> {
         foreign_table: rela.target,
       },
     };
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    });
+    return this._Manager._run(query) as Promise<void>;
   }
   /**
    * Exabase query
@@ -484,9 +470,7 @@ export class Query<Model> {
         foreign_table: rela.target,
       },
     };
-    return new Promise((r) => {
-      this._Manager._run(query, r);
-    });
+    return this._Manager._run(query) as Promise<void>;
   }
   /**
    * Exabase query
@@ -494,66 +478,20 @@ export class Query<Model> {
    * @param data
    * @param type
    */
-  insertBatch(data: Partial<Model>[]) {
+  saveBatch(data: Partial<Model>[]) {
     if (Array.isArray(data)) {
       const q = this._prepare_for(data, false);
-      return new Promise((r) => {
-        this._Manager._runMany(q, r);
-      }) as Promise<Model[]>;
+      return this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
     } else {
       throw new ExabaseError(
-        `Invalid inputs for .insertBatch method, data should be array.`
+        `Invalid inputs for .saveBatch method, data should be array.`
       );
     }
   }
-  /**
-   * Exabase query
-   * insert or update many items on the database
-   * @param data
-   * @param type
-   */
-  updateBatch(data: Partial<Model>[]) {
-    if (Array.isArray(data)) {
-      const q = this._prepare_for(data, false);
-      return new Promise((r) => {
-        this._Manager._runMany(q, r);
-      }) as Promise<Model[]>;
-    } else {
-      throw new ExabaseError(
-        `Invalid inputs for .updateBatch method, data should be array.`
-      );
-    }
-  }
-  /**
-   * Exabase query
-   * batch write operations on the database
-   * @param data
-   * @param type
-   */
-  // updatebatch(data: Partial<Model>[]) {
-  //   if (Array.isArray(data)) {
-  //     const q = this._prepare_for(data, "UPDATE");
-  //     return new Promise((r) => {
-  //       this._Manager._runMany(q, r, "m");
-  //     }) as Promise<Model[]>;
-  //   } else {
-  //     throw new ExabaseError(
-  //       `Invalid inputs for .updateBatch method, data should be array.`
-  //     );
-  //   }
-  // }
-  /**
-   * Exabase query
-   * batch write operations on the database
-   * @param data
-   * @param type
-   */
   deleteBatch(data: Partial<Model>[]) {
     if (Array.isArray(data)) {
       const q = this._prepare_for(data, true);
-      return new Promise((r) => {
-        this._Manager._runMany(q, r);
-      }) as Promise<Model[]>;
+      return this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
     } else {
       throw new ExabaseError(
         `Invalid inputs for .deleteBatch method, data should be array.`
@@ -598,7 +536,7 @@ export class Manager {
   private _LogFiles: LOG_file_type = {};
   private _topLogFile?: string;
   private _search: XTree;
-  public waiters: Record<string, (() => void)[]> = {};
+  // public waiters: Record<string, (() => void)[]> = {};
   public logging: boolean = false;
   // private clock_vector = { x0: null, xn: null };
   constructor(schema: Schema<any>) {
@@ -633,25 +571,50 @@ export class Manager {
       return this._sync_logs();
     }
   }
-
+  public waiters: Record<string, ((value: unknown) => void)[]> = {};
+  acquireWrite(file: string) {
+    return new Promise((resolve) => {
+      if (!this.waiters[file]) {
+        this.waiters[file] = [];
+      }
+      this.waiters[file].push(resolve);
+      if (this.waiters[file].length === 1) {
+        resolve(undefined);
+      }
+    });
+  }
   async write(file: string, message: Msg, flag: Xtree_flag) {
+    await this.acquireWrite(file);
     // ? do the writting by
-    let messages = await loadLog(file);
+    let messages = this.RCT[file] || (await loadLog(file));
     if (flag === "i") {
-      messages = await binarysorted_insert(message, file, this.RCT[file]);
+      messages = await binarysorted_insert(message, messages);
+      this._setLog(file, message._id, messages.length);
     } else {
-      messages = await binarysearch_mutate(message, this.RCT[file], flag);
+      messages = await binarysearch_mutate(message, messages, flag);
+      console.log({
+        file,
+        last_id: messages.at(-1)?._id || null,
+        len: messages.length,
+      });
+
+      this._setLog(file, messages.at(-1)?._id || null, messages.length);
     }
     // ? update this active RCT
     if (this.RCTied) {
       this.RCT[file] = messages;
     }
     // ? synchronise writter
-    await Twritter(file, Utils.packr.encode(messages));
+    await SynFileWrit(file, Utils.packr.encode(messages));
     // ? update search index
     await this._search.manage(message, flag);
     //? resize RCT
     resizeRCT(this.RCT);
+    // ? adjusting the wait list
+    this.waiters[file].shift();
+    if (this.waiters[file].length > 0) {
+      this.waiters[file][0](undefined);
+    }
     return message;
   }
   async _sync_logs() {
@@ -663,7 +626,7 @@ export class Manager {
       // ? signifies an application crash stopping exabase from completing a commit
       // ? the commit operation can then be restarted from the wal files still in the wal directory
       if (dirent.name.includes("-SYNC")) {
-        await unlink(this.tableDir + dirent.name);
+        await unlink(this.tableDir + dirent.name).catch(() => {});
         continue;
       }
       if (dirent.isFile()) {
@@ -735,7 +698,7 @@ export class Manager {
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
       //? getting log file name for read operations
-      if (logFile.last_id > logId || logFile.last_id === logId) {
+      if (String(logFile.last_id) > logId || logFile.last_id === logId) {
         return this.tableDir + filename;
       }
       //? getting log file name for inset operation
@@ -765,7 +728,7 @@ export class Manager {
     this._topLogFile = lfid;
     return this.tableDir + lfid;
   }
-  _setLog(fn: string, last_id: string, size: number) {
+  _setLog(fn: string, last_id: string | null, size: number) {
     this._LogFiles[fn] = { last_id, size };
   }
 
@@ -834,8 +797,16 @@ export class Manager {
       query.select.relationship = rela;
     }
     const file = this._getReadingLog(query.select);
-    if (query.select === "*") return this.RCT[file] || (await loadLog(file));
-    return findMessage(file, query as any, this.RCT[file]) as Promise<Msg>;
+    let RCTied = this.RCT[file];
+    if (!RCTied) {
+      RCTied = await loadLog(file);
+      if (this.RCTied) {
+        this.RCT[file] = RCTied;
+      }
+    }
+
+    if (query.select === "*") return RCTied;
+    return findMessage(file, query as any, RCTied) as Promise<Msg>;
   }
   async _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void> {
     if (query["select"]) {
@@ -884,7 +855,7 @@ export class Manager {
             select,
             populate: query.populate,
           },
-          this.RCT[file]
+          this.RCT[file] || (await loadLog(file))
         );
       } else {
         return [];
@@ -912,9 +883,11 @@ export class Manager {
         this._schema._unique_field,
         this._schema.relationship ? true : false,
         file,
-        this.RCT[file]
+        this.RCT[file] || (await loadLog(file))
       );
-      return this.write(file, message, "d");
+      if (message) {
+        return this.write(file, message, "d");
+      }
     }
     if (query["reference"] && query["reference"]._new) {
       const file = this._getReadingLog(query.reference._id);
@@ -925,22 +898,16 @@ export class Manager {
       return removeForeignKeys(file, query.reference);
     }
   }
-  public async _runMany(query: QueryType[], r: (value: any) => void) {
-    //? create trx(s)
-    const trs = (await Promise.all(
-      query.map((q) => this._trx_runner(q))
-    )) as Msgs;
-
+  public _runMany(query: QueryType[]) {
     // ? log the query
     if (this.logging) console.log({ query, table: this._name });
-    r(trs);
+    //? create run trx(s)
+    return Promise.all(query.map((q) => this._trx_runner(q))) as Promise<Msgs>;
   }
-  public async _run(query: QueryType, r: (value: any) => void) {
-    //? create a trx
-    const trs = await this._trx_runner(query);
-    // ? log the query
+  public _run(query: QueryType) {
     if (this.logging) console.log({ query, table: this._name });
-    r(trs);
+    //? create and run TRX
+    return this._trx_runner(query);
   }
 }
 
@@ -1104,7 +1071,7 @@ export class XTree {
     // ? save keys in their corresponding nodes
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
-        if ("_wal_ignore_flag-_id-_wal_flag".includes(key)) continue;
+        if ("_wal_ignore_flag-_id".includes(key)) continue;
         if (!this.tree[key]) {
           this.tree[key] = new XNode();
         }
@@ -1168,7 +1135,7 @@ export class XTree {
     for (let index = 0; index < keys.length; index++) {
       obj[keys[index]] = this.tree[keys[index]].keys;
     }
-    return Twritter(
+    return SynFileWrit(
       this.persitKey,
       Utils.packr.encode({
         base: this.base,

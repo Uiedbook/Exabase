@@ -69,7 +69,7 @@ function isChownErrOk(err) {
   return false;
 }
 
-async function Twritter(filename: string, data?: any) {
+async function SynFileWrit(filename: string, data?: any) {
   let fd;
   let tmpfile;
   let mode;

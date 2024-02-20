@@ -193,7 +193,10 @@ export interface iTable {
   [x: string]: { [x: string]: string };
 }
 
-export type LOG_file_type = Record<string, { last_id: string; size: number }>;
+export type LOG_file_type = Record<
+  string,
+  { last_id: string | null; size: number }
+>;
 /**
  * Document type
  */

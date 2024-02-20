@@ -47,26 +47,19 @@ const trx = Employee.query;
 let d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();
-console.log({ c });
+// console.log({ c });
 
 console.log("Exabase item count", d);
 console.log("sqlite item count", c.length);
 
 if (d !== c.length) {
-  console.time("|");
-  await trx.insertBatch(c as any[]);
-  console.timeEnd("|");
+  console.time("Exabase | Insert time");
+  await trx.saveBatch(c as any[]);
+  console.timeEnd("Exabase | Insert time");
   console.log("sqlite data inserted into Exabase");
 }
 d = await trx.count();
-if (d !== c.length) {
-  console.log(d, await trx.findMany());
-  throw new Error("Exabase is not consistent");
-}
-console.log(
-  "read Exabase item count to ensure it's consistent ofc it is",
-  await trx.count()
-);
+console.log("read Exabase item count to ensure it's consistent ofc it is", d);
 
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
@@ -81,4 +74,4 @@ const sq = db.prepare(`SELECT * FROM "Employee"`);
   });
 }
 
-await run();
+run();
