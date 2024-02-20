@@ -479,14 +479,20 @@ export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   }
   return undefined;
 };
+let cunt = 0;
+console.log();
+
 //? binary search and mutate it
 export const binarysearch_mutate = async (
   message: Msg,
   messages: Msgs,
   flag: Xtree_flag
 ) => {
+  cunt += 1;
+  console.log({ cunt }, "in");
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
+      console.log({ cunt }, "out");
       if (flag === "d") {
         messages.pop();
       } else {
@@ -501,12 +507,13 @@ export const binarysearch_mutate = async (
   for (; left <= right; ) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
-    if (midId === _id) {
+    if (midId === _id) { 
       //? run mutation
       if (flag === "u") {
         messages[mid] = message;
       }
-      if (flag === "d") { 
+      if (flag === "d") {
+        messages = 
       }
       break;
     } else if (midId < _id) {

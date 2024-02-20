@@ -592,12 +592,11 @@ export class Manager {
       this._setLog(file, message._id, messages.length);
     } else {
       messages = await binarysearch_mutate(message, messages, flag);
-      console.log({
-        file,
-        last_id: messages.at(-1)?._id || null,
-        len: messages.length,
-      });
-
+      // console.log({
+      //   file,
+      //   last_id: messages.at(-1)?._id || null,
+      //   len: messages.length,
+      // });
       this._setLog(file, messages.at(-1)?._id || null, messages.length);
     }
     // ? update this active RCT

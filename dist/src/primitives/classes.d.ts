@@ -162,7 +162,7 @@ export declare class Manager {
         schemas: Schema<any>[];
     }): Promise<void> | undefined;
     waiters: Record<string, ((value: unknown) => void)[]>;
-    acquireWritter(file: string): Promise<unknown>;
+    acquireWrite(file: string): Promise<unknown>;
     write(file: string, message: Msg, flag: Xtree_flag): Promise<Msg>;
     _sync_logs(): Promise<void>;
     _sync_searchindex(size: number): Promise<void>;

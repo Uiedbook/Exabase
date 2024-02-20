@@ -3314,9 +3314,14 @@ var dropIndex = async (fileName, data, _unique_field) => {
   }
   await SynFileWrit(fileName, Utils.packr.encode(messages));
 };
+var cunt = 0;
+console.log();
 var binarysearch_mutate = async (message, messages, flag) => {
+  cunt += 1;
+  console.log({ cunt }, "in");
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
+      console.log({ cunt }, "out");
       if (flag === "d") {
         messages.pop();
       } else {
@@ -3331,6 +3336,7 @@ var binarysearch_mutate = async (message, messages, flag) => {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
+      console.log({ cunt }, "out");
       if (flag === "u") {
         messages[mid] = message;
       }
@@ -3722,7 +3728,7 @@ class Manager {
     }
   }
   waiters = {};
-  acquireWritter(file) {
+  acquireWrite(file) {
     return new Promise((resolve) => {
       if (!this.waiters[file]) {
         this.waiters[file] = [];
@@ -3734,18 +3740,13 @@ class Manager {
     });
   }
   async write(file, message, flag) {
-    await this.acquireWritter(file);
+    await this.acquireWrite(file);
     let messages = this.RCT[file] || await loadLog(file);
     if (flag === "i") {
       messages = await binarysorted_insert(message, messages);
       this._setLog(file, message._id, messages.length);
     } else {
       messages = await binarysearch_mutate(message, messages, flag);
-      console.log({
-        file,
-        last_id: messages.at(-1)?._id || null,
-        len: messages.length
-      });
       this._setLog(file, messages.at(-1)?._id || null, messages.length);
     }
     if (this.RCTied) {
