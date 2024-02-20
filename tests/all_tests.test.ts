@@ -30,18 +30,17 @@ await db.connect();
 const userTRX = User.query;
 const OrderTRX = Order.query;
 
+const users = await userTRX.findMany();
+const orders = await OrderTRX.findMany();
+await userTRX.deleteBatch(users);
+await OrderTRX.deleteBatch(orders);
+const usersCount = await userTRX.count();
+const ordersCount = await OrderTRX.count();
+expect(usersCount).toBe(0);
+expect(ordersCount).toBe(0);
+
 //? tests
 describe("queries", () => {
-  it("wipe all", async () => {
-    const users = await userTRX.findMany();
-    const orders = await OrderTRX.findMany();
-    await userTRX.deleteBatch(users);
-    await OrderTRX.deleteBatch(orders);
-    const usersCount = await userTRX.count();
-    const ordersCount = await OrderTRX.count();
-    expect(usersCount).toBe(0);
-    expect(ordersCount).toBe(0);
-  });
   it("basic query", async () => {
     const userin = await userTRX.save({ name: "james bond" });
     const userout = await userTRX.findOne(userin._id);

@@ -479,20 +479,14 @@ export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   }
   return undefined;
 };
-let cunt = 0;
-console.log();
-
 //? binary search and mutate it
 export const binarysearch_mutate = async (
   message: Msg,
   messages: Msgs,
   flag: Xtree_flag
 ) => {
-  cunt += 1;
-  console.log({ cunt }, "in");
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
-      console.log({ cunt }, "out");
       if (flag === "d") {
         messages.pop();
       } else {
@@ -507,13 +501,13 @@ export const binarysearch_mutate = async (
   for (; left <= right; ) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
-    if (midId === _id) { 
+    if (midId === _id) {
       //? run mutation
       if (flag === "u") {
         messages[mid] = message;
       }
       if (flag === "d") {
-        messages = 
+        messages.splice(mid, 1);
       }
       break;
     } else if (midId < _id) {
@@ -688,3 +682,43 @@ export async function SynFileWrit(filename: string, data: Buffer) {
     await promisify(unlink)(tmpfile).catch(() => {});
   }
 }
+
+//? SynFileWrit tree
+export const SynFileWritWithWaitList = {
+  waiters: {} as Record<string, ((value: unknown) => void)[]>,
+  acquireWrite(file: string) {
+    return new Promise((resolve) => {
+      if (!this.waiters[file]) {
+        this.waiters[file] = [];
+      }
+      this.waiters[file].push(resolve);
+      if (this.waiters[file].length === 1) {
+        resolve(undefined);
+      }
+    });
+  },
+  async write(file: string, data: Buffer) {
+    await this.acquireWrite();
+    let fd;
+    let tmpfile = "";
+    try {
+      const truename = await promisify(realpath)(file).catch(() => file);
+      tmpfile = generate_id() + "-SYNC";
+      fd = await promisify(open)(tmpfile, "w");
+      await promisify(write)(fd, data, 0, data.length, 0);
+      await promisify(fsync)(fd);
+      await promisify(rename)(tmpfile, truename);
+    } finally {
+      if (fd) {
+        await promisify(close)(fd).catch(() => {});
+      }
+      await promisify(unlink)(tmpfile).catch(() => {});
+    }
+
+    // ? adjusting the wait list
+    this.waiters[file].shift();
+    if (this.waiters[file].length > 0) {
+      this.waiters[file][0](undefined);
+    }
+  },
+};

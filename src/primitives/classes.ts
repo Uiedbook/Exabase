@@ -534,7 +534,6 @@ export class Manager {
   //? Regularity Cache Tank or whatever.
   public RCT: Record<string, Msgs> = {};
   private _LogFiles: LOG_file_type = {};
-  private _topLogFile?: string;
   private _search: XTree;
   // public waiters: Record<string, (() => void)[]> = {};
   public logging: boolean = false;
@@ -584,6 +583,8 @@ export class Manager {
     });
   }
   async write(file: string, message: Msg, flag: Xtree_flag) {
+    console.log({ file });
+
     await this.acquireWrite(file);
     // ? do the writting by
     let messages = this.RCT[file] || (await loadLog(file));
@@ -592,11 +593,7 @@ export class Manager {
       this._setLog(file, message._id, messages.length);
     } else {
       messages = await binarysearch_mutate(message, messages, flag);
-      // console.log({
-      //   file,
-      //   last_id: messages.at(-1)?._id || null,
-      //   len: messages.length,
-      // });
+
       this._setLog(file, messages.at(-1)?._id || null, messages.length);
     }
     // ? update this active RCT
@@ -609,16 +606,12 @@ export class Manager {
     await this._search.manage(message, flag);
     //? resize RCT
     resizeRCT(this.RCT);
-    // ? adjusting the wait list
-    this.waiters[file].shift();
-    if (this.waiters[file].length > 0) {
-      this.waiters[file][0](undefined);
-    }
+
     return message;
   }
   async _sync_logs() {
     const dir = await opendir(this.tableDir!);
-    const logfiles = [];
+    const logfiles: string[] = [];
     let size = 0;
     for await (const dirent of dir) {
       // ? here we destroy invalid sync files, availability of such files
@@ -640,15 +633,6 @@ export class Manager {
         const last_id = LOG.at(-1)?._id || "";
         this._LogFiles[fn] = { last_id, size: LOG.length };
         size += LOG.length;
-        if (!this._topLogFile) {
-          this._topLogFile = fn;
-        } else {
-          if (
-            Number(fn.split("-")[1]) > Number(this._topLogFile.split("-")[1])
-          ) {
-            this._topLogFile = fn;
-          }
-        }
       }
     }
     await this._sync_searchindex(size);
@@ -656,7 +640,7 @@ export class Manager {
 
   async _sync_searchindex(size: number) {
     // ? search index columns checks
-    const sindexes = [];
+    const sindexes: string[] = [];
     if (this._schema.tableName) {
       //? keep a easy track of relationships
       if (this._schema.searchIndexOptions) {
@@ -692,22 +676,23 @@ export class Manager {
 
   _getReadingLog(logId: string) {
     if (logId === "*") {
-      return this.tableDir + this._topLogFile!;
+      return "LOG-" + (Object.keys(this._LogFiles).length + 1);
     }
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
       //? getting log file name for read operations
       if (String(logFile.last_id) > logId || logFile.last_id === logId) {
-        return this.tableDir + filename;
+        return filename;
       }
       //? getting log file name for inset operation
       if (!logFile.last_id) {
-        return this.tableDir + filename;
+        return filename;
       }
       if (logFile.size < 32768 /*size check is for inserts*/) {
-        return this.tableDir + filename;
+        return filename;
       }
     }
+    console.log({ logId, logs: this._LogFiles });
     // ! this should never occur
     throw new ExabaseError("Invalid key range for read operation");
   }
@@ -716,16 +701,14 @@ export class Manager {
       const logFile = this._LogFiles[filename];
       //? size check is for inserts
       if (logFile.size < 32768) {
-        return this.tableDir + filename;
+        return filename;
       }
     }
     //? Create a new log file with an incremented number of LOGn filename
-    const cln = Number((this._topLogFile || "LOG-0").split("-")[1]);
-    const nln = cln + 1;
+    const nln = Object.keys(this._LogFiles).length + 1;
     const lfid = "LOG-" + nln;
     this._LogFiles[lfid] = { last_id: lfid, size: 0 };
-    this._topLogFile = lfid;
-    return this.tableDir + lfid;
+    return lfid;
   }
   _setLog(fn: string, last_id: string | null, size: number) {
     this._LogFiles[fn] = { last_id, size };
@@ -867,7 +850,7 @@ export class Manager {
         const obj = Object.values(this._LogFiles);
         for (let c = 0; c < obj.length; c++) {
           const element = obj[c];
-          size += element.size || 0;
+          size += element.size;
         }
         return size;
       } else {
@@ -901,11 +884,19 @@ export class Manager {
     // ? log the query
     if (this.logging) console.log({ query, table: this._name });
     //? create run trx(s)
-    return Promise.all(query.map((q) => this._trx_runner(q))) as Promise<Msgs>;
+    if (query.length) {
+      // console.log({ logs: this._LogFiles, rcts: this.RCT, query });
+      // console.log("-------------------------------------------------- >>>");
+      return Promise.all(
+        query.map((q) => this._trx_runner(q))
+      ) as Promise<Msgs>;
+    }
   }
   public _run(query: QueryType) {
     if (this.logging) console.log({ query, table: this._name });
     //? create and run TRX
+    // console.log({ logs: this._LogFiles, rcts: this.RCT, query });
+    // console.log("-------------------------------------------------- >>>");
     return this._trx_runner(query);
   }
 }

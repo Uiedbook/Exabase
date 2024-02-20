@@ -3314,14 +3314,9 @@ var dropIndex = async (fileName, data, _unique_field) => {
   }
   await SynFileWrit(fileName, Utils.packr.encode(messages));
 };
-var cunt = 0;
-console.log();
 var binarysearch_mutate = async (message, messages, flag) => {
-  cunt += 1;
-  console.log({ cunt }, "in");
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
-      console.log({ cunt }, "out");
       if (flag === "d") {
         messages.pop();
       } else {
@@ -3336,11 +3331,11 @@ var binarysearch_mutate = async (message, messages, flag) => {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
-      console.log({ cunt }, "out");
       if (flag === "u") {
         messages[mid] = message;
       }
       if (flag === "d") {
+        messages.splice(mid, 1);
       }
       break;
     } else if (midId < _id) {
@@ -3705,7 +3700,6 @@ class Manager {
   RCTied = true;
   RCT = {};
   _LogFiles = {};
-  _topLogFile;
   _search;
   logging = false;
   constructor(schema) {
@@ -3740,6 +3734,7 @@ class Manager {
     });
   }
   async write(file, message, flag) {
+    console.log({ file });
     await this.acquireWrite(file);
     let messages = this.RCT[file] || await loadLog(file);
     if (flag === "i") {
@@ -3755,10 +3750,6 @@ class Manager {
     await SynFileWrit(file, Utils.packr.encode(messages));
     await this._search.manage(message, flag);
     resizeRCT(this.RCT);
-    this.waiters[file].shift();
-    if (this.waiters[file].length > 0) {
-      this.waiters[file][0](undefined);
-    }
     return message;
   }
   async _sync_logs() {
@@ -3781,13 +3772,6 @@ class Manager {
         const last_id = LOG.at(-1)?._id || "";
         this._LogFiles[fn] = { last_id, size: LOG.length };
         size += LOG.length;
-        if (!this._topLogFile) {
-          this._topLogFile = fn;
-        } else {
-          if (Number(fn.split("-")[1]) > Number(this._topLogFile.split("-")[1])) {
-            this._topLogFile = fn;
-          }
-        }
       }
     }
     await this._sync_searchindex(size);
@@ -3819,35 +3803,34 @@ class Manager {
   }
   _getReadingLog(logId) {
     if (logId === "*") {
-      return this.tableDir + this._topLogFile;
+      return "LOG-" + (Object.keys(this._LogFiles).length + 1);
     }
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
       if (String(logFile.last_id) > logId || logFile.last_id === logId) {
-        return this.tableDir + filename;
+        return filename;
       }
       if (!logFile.last_id) {
-        return this.tableDir + filename;
+        return filename;
       }
       if (logFile.size < 32768) {
-        return this.tableDir + filename;
+        return filename;
       }
     }
+    console.log({ logId, logs: this._LogFiles });
     throw new ExabaseError("Invalid key range for read operation");
   }
   _getInsertLog() {
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
       if (logFile.size < 32768) {
-        return this.tableDir + filename;
+        return filename;
       }
     }
-    const cln = Number((this._topLogFile || "LOG-0").split("-")[1]);
-    const nln = cln + 1;
+    const nln = Object.keys(this._LogFiles).length + 1;
     const lfid = "LOG-" + nln;
     this._LogFiles[lfid] = { last_id: lfid, size: 0 };
-    this._topLogFile = lfid;
-    return this.tableDir + lfid;
+    return lfid;
   }
   _setLog(fn, last_id, size) {
     this._LogFiles[fn] = { last_id, size };
@@ -3943,7 +3926,7 @@ class Manager {
         const obj = Object.values(this._LogFiles);
         for (let c = 0;c < obj.length; c++) {
           const element = obj[c];
-          size += element.size || 0;
+          size += element.size;
         }
         return size;
       } else {
@@ -3969,7 +3952,9 @@ class Manager {
   _runMany(query) {
     if (this.logging)
       console.log({ query, table: this._name });
-    return Promise.all(query.map((q) => this._trx_runner(q)));
+    if (query.length) {
+      return Promise.all(query.map((q) => this._trx_runner(q)));
+    }
   }
   _run(query) {
     if (this.logging)

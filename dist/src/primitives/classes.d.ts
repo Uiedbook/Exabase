@@ -152,7 +152,6 @@ export declare class Manager {
     RCTied: boolean;
     RCT: Record<string, Msgs>;
     private _LogFiles;
-    private _topLogFile?;
     private _search;
     logging: boolean;
     constructor(schema: Schema<any>);
@@ -173,7 +172,7 @@ export declare class Manager {
     _validate(data: any, update?: boolean): Record<string, any>;
     _select(query: QueryType): Promise<Msg | Msgs>;
     _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void>;
-    _runMany(query: QueryType[]): Promise<Msgs>;
+    _runMany(query: QueryType[]): Promise<Msgs> | undefined;
     _run(query: QueryType): Promise<number | void | Msg | Msgs>;
 }
 declare class XNode {

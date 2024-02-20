@@ -42,3 +42,8 @@ export declare function validateData(data?: Record<string, Record<string, any>>,
 export declare const getComputedUsage: (allowedUsagePercent: number, schemaLength: number) => number;
 export declare function resizeRCT(data: Record<string, any>): void;
 export declare function SynFileWrit(filename: string, data: Buffer): Promise<void>;
+export declare const SynFileWritWithWaitList: {
+    waiters: Record<string, ((value: unknown) => void)[]>;
+    acquireWrite(file: string): Promise<unknown>;
+    write(file: string, data: Buffer): Promise<void>;
+};
