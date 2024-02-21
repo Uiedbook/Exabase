@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { Packr } from "msgpackr";
-import { type Msg, type Msgs, type QueryType, type SchemaOptions, type SchemaColumnOptions, type ExaDoc, type Xtree_flag, type SchemaRelation } from "./types";
+import { type Msg, type Msgs, type QueryType, type SchemaOptions, type SchemaColumnOptions, type ExaDoc, type Xtree_flag, type SchemaRelation } from "./types.js";
 import { Sign, Verify } from "node:crypto";
 export declare class Utils {
     static MANIFEST: {

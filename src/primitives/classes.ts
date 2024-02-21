@@ -12,7 +12,8 @@ import {
   type ExaDoc,
   type Xtree_flag,
   type SchemaRelation,
-} from "./types";
+} from "./types.js";
+import { Sign, Verify } from "node:crypto";
 import {
   findMessage,
   updateMessage,
@@ -29,8 +30,7 @@ import {
   prepareMessage,
   SynFileWrit,
   SynFileWritWithWaitList,
-} from "./functions";
-import { Sign, Verify } from "node:crypto";
+} from "./functions.js";
 
 export class Utils {
   static MANIFEST: {

@@ -1,14 +1,14 @@
-import { realpath, open, write, fsync, close, chown as _chown, rename, unlink, } from "fs";
-import { resolve as _resolve } from "path";
-import { promisify } from "util";
+import { realpath, open, write, fsync, close, chown as _chown, rename, unlink, } from "node:fs";
+import { resolve as _resolve } from "node:path";
+import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import { freemem } from "node:os";
 //
-import {} from "./types";
-import { Utils, ExabaseError } from "./classes";
+import {} from "./types.js";
+import { Utils, ExabaseError } from "./classes.js";
 export const loadLog = async (filePath) => {
     try {
         const data = await readFile(filePath);

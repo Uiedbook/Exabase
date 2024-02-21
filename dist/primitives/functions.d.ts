@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { Buffer } from "node:buffer";
-import { type Msg, type Msgs, type SchemaColumnOptions, type Xtree_flag } from "./types";
+import { type Msg, type Msgs, type SchemaColumnOptions, type Xtree_flag } from "./types.js";
 export declare const loadLog: (filePath: string) => Promise<Msgs>;
 export declare const loadLogSync: (filePath: string) => any;
 export declare function updateMessage(dir: string, _unique_field: Record<string, true> | undefined, message: Msg): Promise<Msg>;

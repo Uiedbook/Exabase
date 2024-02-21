@@ -1,9 +1,9 @@
 import { opendir, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { Packr } from "msgpackr";
-import {} from "./types";
-import { findMessage, updateMessage, deleteMessage, addForeignKeys, loadLog, binarysorted_insert, removeForeignKeys, binarysearch_mutate, findMessageByUnique, loadLogSync, validateData, resizeRCT, prepareMessage, SynFileWrit, SynFileWritWithWaitList, } from "./functions";
+import {} from "./types.js";
 import { Sign, Verify } from "node:crypto";
+import { findMessage, updateMessage, deleteMessage, addForeignKeys, loadLog, binarysorted_insert, removeForeignKeys, binarysearch_mutate, findMessageByUnique, loadLogSync, validateData, resizeRCT, prepareMessage, SynFileWrit, SynFileWritWithWaitList, } from "./functions.js";
 export class Utils {
     static MANIFEST = {
         schemas: [],

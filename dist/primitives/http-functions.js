@@ -1,5 +1,5 @@
 //
-import { ExabaseError, Utils } from "./classes";
+import { ExabaseError, Utils } from "./classes.js";
 export const _ExabaseRingInterface = async (ctx) => {
     const data = await ctx.json();
     switch (data["type"]) {
