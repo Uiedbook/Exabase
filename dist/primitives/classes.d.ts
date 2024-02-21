@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { Packr } from "msgpackr";
-import { type Msg, type Msgs, type QueryType, type SchemaRelationOptions, type SchemaOptions, type SchemaColumnOptions, type SearchIndexOptions, type ExaDoc, type Xtree_flag } from "./types";
+import { type Msg, type Msgs, type QueryType, type SchemaOptions, type SchemaColumnOptions, type ExaDoc, type Xtree_flag, type SchemaRelation } from "./types";
 import { Sign, Verify } from "node:crypto";
 export declare class Utils {
     static MANIFEST: {
@@ -30,8 +30,7 @@ export declare class Schema<Model> {
     columns: {
         [x: string]: SchemaColumnOptions;
     };
-    searchIndexOptions?: SearchIndexOptions;
-    relationship?: Record<string, SchemaRelationOptions>;
+    relationship: SchemaRelation;
     _unique_field?: Record<string, true>;
     _foreign_field?: Record<string, string>;
     migrationFN: ((data: Record<string, string>) => true | Record<string, string>) | undefined;
@@ -151,18 +150,18 @@ export declare class Manager {
     tableDir: string;
     RCTied: boolean;
     RCT: Record<string, Msgs>;
+    rct_level: number;
     private _LogFiles;
-    private _topLogFile?;
     private _search;
     logging: boolean;
-    constructor(schema: Schema<any>);
+    constructor(schema: Schema<any>, level: number);
     _setup(init: {
         _exabaseDirectory: string;
         logging: boolean;
         schemas: Schema<any>[];
     }): Promise<void> | undefined;
     waiters: Record<string, ((value: unknown) => void)[]>;
-    acquireWritter(file: string): Promise<unknown>;
+    acquireWrite(file: string): Promise<unknown>;
     write(file: string, message: Msg, flag: Xtree_flag): Promise<Msg>;
     _sync_logs(): Promise<void>;
     _sync_searchindex(size: number): Promise<void>;
@@ -173,7 +172,7 @@ export declare class Manager {
     _validate(data: any, update?: boolean): Record<string, any>;
     _select(query: QueryType): Promise<Msg | Msgs>;
     _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void>;
-    _runMany(query: QueryType[]): Promise<Msgs>;
+    _runMany(query: QueryType[]): Promise<Msgs> | undefined;
     _run(query: QueryType): Promise<number | void | Msg | Msgs>;
 }
 declare class XNode {

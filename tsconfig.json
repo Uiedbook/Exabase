@@ -25,5 +25,5 @@
     "noPropertyAccessFromIndexSignature": true,
     "outDir": "./dist"
   },
-  "include": ["src", "tests/all_tests.test.ts"]
+  "include": ["src/*"]
 }

@@ -14,21 +14,28 @@ import {
   Manager,
   Query as TRX,
 } from "./primitives/classes.js";
-// import { getComputedUsage } from "./primitives/functions.js";
+import { getComputedUsage } from "./primitives/functions.js";
 
-export class Exabase<EaxbaseInit extends ExabaseOptions> {
+export class Exabase {
   private _announced = false;
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
-  constructor(init: EaxbaseInit) {
+  constructor(init: ExabaseOptions) {
     //? initialisations
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
     // ? setting up memory allocation for RCT enabled cache managers
-    // const usableManagerGB = getComputedUsage(
-    //   init.EXABASE_MEMORY_PERCENT!,
-    //   init.schemas.length
-    // );
+    const usableManagerGB = getComputedUsage(
+      init.EXABASE_MEMORY_PERCENT!,
+      (init.schemas || []).length
+    );
+
+    // ? get the number of schemas using RCT
+    const RCTiedSchema = (init.schemas || []).filter((a) => a.RCT);
+    const BEST_RCT_LEVEL_PER_MANAGER = Math.round(
+      usableManagerGB / 32768 / (RCTiedSchema || []).length
+    );
+
     try {
       // ? create dirs
       mkdirSync(this._exabaseDirectory);
@@ -68,8 +75,11 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
     }
 
     //? setup managers
-    init.schemas.forEach((schema) => {
-      Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(schema);
+    (init.schemas || []).forEach((schema) => {
+      Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
+        schema,
+        BEST_RCT_LEVEL_PER_MANAGER
+      );
     });
     // ? setup relationships
     Promise.allSettled(
@@ -77,7 +87,7 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
         manager._setup({
           _exabaseDirectory: this._exabaseDirectory,
           logging: init.logging || false,
-          schemas: init.schemas,
+          schemas: init.schemas || [],
         })
       )
     )
@@ -86,7 +96,7 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
         this._announced = true;
         console.log("Exabase: connected!");
         //? setup query makers
-        init.schemas.forEach((schema) => {
+        (init.schemas || []).forEach((schema) => {
           schema._premature = false;
         });
         this._conn && this._conn(true);
@@ -122,7 +132,7 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
     }
     return undefined;
   }
-  async executeQuery<Model = unknown>(query: string) {
+  async executeQuery(query: string) {
     if (!this._announced) {
       throw new ExabaseError("Exabase not ready!");
     }
@@ -132,9 +142,7 @@ export class Exabase<EaxbaseInit extends ExabaseOptions> {
       const parsedQuery = JSON.parse(query);
       const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
       if (!table) throw new Error();
-      return new Promise((r) => {
-        table._run(parsedQuery.query, r, parsedQuery.type || "nm");
-      }) as Promise<Model[]>;
+      return table._run(parsedQuery.query);
     } catch (error) {
       throw new ExabaseError("Invalid query: ", query);
     }

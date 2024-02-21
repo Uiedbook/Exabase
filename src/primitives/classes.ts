@@ -9,9 +9,9 @@ import {
   type SchemaRelationOptions,
   type SchemaOptions,
   type SchemaColumnOptions,
-  type SearchIndexOptions,
   type ExaDoc,
   type Xtree_flag,
+  type SchemaRelation,
 } from "./types";
 import {
   findMessage,
@@ -28,6 +28,7 @@ import {
   resizeRCT,
   prepareMessage,
   SynFileWrit,
+  SynFileWritWithWaitList,
 } from "./functions";
 import { Sign, Verify } from "node:crypto";
 
@@ -73,23 +74,20 @@ export class Schema<Model> {
   columns: {
     [x: string]: SchemaColumnOptions;
   } = {};
-  searchIndexOptions?: SearchIndexOptions;
-  relationship?: Record<string, SchemaRelationOptions>;
+  relationship: SchemaRelation = {};
   _unique_field?: Record<string, true> = undefined;
   _foreign_field?: Record<string, string> = {};
   migrationFN:
     | ((data: Record<string, string>) => true | Record<string, string>)
     | undefined;
   _premature: boolean = true;
-  //! maybe add pre & post processing hooks
   constructor(options: SchemaOptions<Model>) {
     //? mock query
     this._trx = new Query({} as any);
-    this.tableName = options.tableName.trim().toUpperCase();
-    if (options.tableName) {
+    this.tableName = options?.tableName?.trim()?.toUpperCase();
+    // ? parse definitions
+    if (this.tableName) {
       this._unique_field = {};
-      //? keep a easy track of relationships
-      this.searchIndexOptions = options.searchIndexOptions;
       this.RCT = options.RCT;
       this.migrationFN = options.migrationFN;
       this.columns = { ...(options?.columns || {}) };
@@ -97,21 +95,35 @@ export class Schema<Model> {
       (this.columns as any)._id = { type: String };
       //? setting up secondary types on initialisation
       //? Date
-      for (const key in options.columns) {
-        if (options.columns[key].type === Date) {
-          options.columns[key].type = ((d: string | number | Date) =>
+      for (const key in this.columns) {
+        //? keep a easy track of relationships
+        if (this.columns[key].RelationType) {
+          this.relationship[key] = this.columns[key] as SchemaRelationOptions;
+          delete this.columns[key];
+          continue;
+        }
+        //? adding vitual types validators for JSON, Date and likes
+
+        // ? Date
+        if (this.columns[key].type === Date) {
+          this.columns[key].type = ((d: string | number | Date) =>
             new Date(d).toString().includes("Inval") === false) as any;
         }
+        //? JSON
+        if (this.columns[key].type === JSON) {
+          this.columns[key].type = ((d: string) =>
+            typeof d === "string") as any;
+        }
         //? validating default values
-        if (options.columns[key].default) {
+        if (this.columns[key].default) {
           // ? check for type
           if (
-            typeof options.columns[key].default !==
-            typeof (options.columns[key].type as StringConstructor)()
+            typeof this.columns[key].default !==
+            typeof (this.columns[key].type as StringConstructor)()
           ) {
             throw new ExabaseError(
               " schema property default value '",
-              options.columns[key].default,
+              this.columns[key].default,
               "' for ",
               key,
               " on the ",
@@ -120,14 +132,10 @@ export class Schema<Model> {
             );
           }
         }
-        //? JSON
-        if (options.columns[key].type === JSON) {
-          options.columns[key].type = ((d: string) =>
-            typeof d === "string") as any;
-        }
+
         //? more later
         //? let's keep a record of the unique fields we currectly have
-        if (options.columns[key].unique) {
+        if (this.columns[key].unique) {
           this._unique_field[key] = true;
         }
       }
@@ -135,11 +143,8 @@ export class Schema<Model> {
       if (Object.keys(this._unique_field).length === 0) {
         this._unique_field = undefined;
       }
-      //? keep a easy track of relationships
-      if (options.relationship) {
-        this.relationship = options.relationship;
-      }
     }
+    // ? parse definitions end
   }
   /**
    * Exabase
@@ -244,7 +249,6 @@ export class Query<Model> {
         }
       }
     }
-
     return this._Manager._run(query) as Promise<ExaDoc<Model>[]>;
   }
   /**
@@ -431,7 +435,7 @@ export class Query<Model> {
       reference: {
         _id: options._id,
         _new: true,
-        type: rela.type,
+        type: rela.RelationType,
         foreign_id: options.foreign_id,
         relationship: options.relationship,
         foreign_table: rela.target,
@@ -464,7 +468,7 @@ export class Query<Model> {
       reference: {
         _id: options._id,
         _new: false,
-        type: rela.type,
+        type: rela.RelationType,
         foreign_id: options.foreign_id,
         relationship: options.relationship,
         foreign_table: rela.target,
@@ -533,12 +537,14 @@ export class Manager {
   public RCTied: boolean = true;
   //? Regularity Cache Tank or whatever.
   public RCT: Record<string, Msgs> = {};
+  //? number of RCTied log files
+  public rct_level: number;
   private _LogFiles: LOG_file_type = {};
   private _search: XTree;
   // public waiters: Record<string, (() => void)[]> = {};
   public logging: boolean = false;
   // private clock_vector = { x0: null, xn: null };
-  constructor(schema: Schema<any>) {
+  constructor(schema: Schema<any>, level: number) {
     this._schema = schema;
     this._name = schema.tableName;
     this._search = new XTree({ persitKey: "" });
@@ -546,6 +552,7 @@ export class Manager {
     schema._trx = this._query;
     //? set RCT key
     this.RCTied = schema.RCT || false;
+    this.rct_level = level;
   }
   _setup(init: {
     _exabaseDirectory: string;
@@ -583,17 +590,14 @@ export class Manager {
     });
   }
   async write(file: string, message: Msg, flag: Xtree_flag) {
-    console.log({ file });
-
     await this.acquireWrite(file);
     // ? do the writting by
-    let messages = this.RCT[file] || (await loadLog(file));
+    let messages = this.RCT[file] ?? (await loadLog(this.tableDir + file));
     if (flag === "i") {
       messages = await binarysorted_insert(message, messages);
       this._setLog(file, message._id, messages.length);
     } else {
       messages = await binarysearch_mutate(message, messages, flag);
-
       this._setLog(file, messages.at(-1)?._id || null, messages.length);
     }
     // ? update this active RCT
@@ -601,12 +605,16 @@ export class Manager {
       this.RCT[file] = messages;
     }
     // ? synchronise writter
-    await SynFileWrit(file, Utils.packr.encode(messages));
+    await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
     // ? update search index
     await this._search.manage(message, flag);
     //? resize RCT
-    resizeRCT(this.RCT);
-
+    this.RCTied && resizeRCT(this.rct_level, this.RCT);
+    // ? adjusting the wait list
+    this.waiters[file].shift();
+    if (this.waiters[file].length > 0) {
+      this.waiters[file][0](undefined);
+    }
     return message;
   }
   async _sync_logs() {
@@ -640,25 +648,7 @@ export class Manager {
 
   async _sync_searchindex(size: number) {
     // ? search index columns checks
-    const sindexes: string[] = [];
-    if (this._schema.tableName) {
-      //? keep a easy track of relationships
-      if (this._schema.searchIndexOptions) {
-        for (const key in this._schema.searchIndexOptions) {
-          if (!this._schema.columns[key]) {
-            throw new ExabaseError(
-              " tableName:",
-              key,
-              " not found on table",
-              this._schema.tableName,
-              ", please recheck the defined columns!"
-            );
-          } else {
-            sindexes.push(key);
-          }
-        }
-      }
-    }
+
     // ? index  validation
     if (!this._search.confirmLength(size)) {
       console.log("Re-calculating search index due to changes in log size");
@@ -676,7 +666,7 @@ export class Manager {
 
   _getReadingLog(logId: string) {
     if (logId === "*") {
-      return "LOG-" + (Object.keys(this._LogFiles).length + 1);
+      return "LOG-" + Object.keys(this._LogFiles).length;
     }
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
@@ -692,9 +682,7 @@ export class Manager {
         return filename;
       }
     }
-    console.log({ logId, logs: this._LogFiles });
-    // ! this should never occur
-    throw new ExabaseError("Invalid key range for read operation");
+    return "LOG-" + Object.keys(this._LogFiles).length;
   }
   _getInsertLog(): string {
     for (const filename in this._LogFiles) {
@@ -751,6 +739,7 @@ export class Manager {
   _validate(data: any, update?: boolean) {
     const v = validateData(data, this._schema.columns);
     if (typeof v === "string") {
+      console.log({ data, cols: this._schema.columns });
       throw new ExabaseError(
         update ? "insert" : "update",
         " on table :",
@@ -759,6 +748,7 @@ export class Manager {
         v
       );
     }
+
     if (!data._id && update) {
       throw new ExabaseError(
         "update on table :",
@@ -781,14 +771,14 @@ export class Manager {
     const file = this._getReadingLog(query.select);
     let RCTied = this.RCT[file];
     if (!RCTied) {
-      RCTied = await loadLog(file);
+      RCTied = await loadLog(this.tableDir + file);
       if (this.RCTied) {
         this.RCT[file] = RCTied;
       }
     }
 
     if (query.select === "*") return RCTied;
-    return findMessage(file, query as any, RCTied) as Promise<Msg>;
+    return findMessage(this.tableDir, query as any, RCTied) as Promise<Msg>;
   }
   async _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void> {
     if (query["select"]) {
@@ -832,12 +822,12 @@ export class Manager {
       if (select) {
         const file = this._getReadingLog(select!);
         return findMessage(
-          file,
+          this.tableDir,
           {
             select,
             populate: query.populate,
           },
-          this.RCT[file] || (await loadLog(file))
+          this.RCT[file] ?? (await loadLog(this.tableDir + file))
         );
       } else {
         return [];
@@ -864,8 +854,8 @@ export class Manager {
         this.tableDir,
         this._schema._unique_field,
         this._schema.relationship ? true : false,
-        file,
-        this.RCT[file] || (await loadLog(file))
+        this.tableDir + file,
+        this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
       if (message) {
         return this.write(file, message, "d");
@@ -873,11 +863,15 @@ export class Manager {
     }
     if (query["reference"] && query["reference"]._new) {
       const file = this._getReadingLog(query.reference._id);
-      return addForeignKeys(file, query.reference, this.RCT[file]);
+      return addForeignKeys(
+        this.tableDir + file,
+        query.reference,
+        this.RCT[file]
+      );
     }
     if (query["reference"]) {
       const file = this._getReadingLog(query.reference._id);
-      return removeForeignKeys(file, query.reference);
+      return removeForeignKeys(this.tableDir + file, query.reference);
     }
   }
   public _runMany(query: QueryType[]) {
@@ -1125,7 +1119,7 @@ export class XTree {
     for (let index = 0; index < keys.length; index++) {
       obj[keys[index]] = this.tree[keys[index]].keys;
     }
-    return SynFileWrit(
+    return SynFileWritWithWaitList.write(
       this.persitKey,
       Utils.packr.encode({
         base: this.base,

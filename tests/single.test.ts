@@ -15,7 +15,7 @@ test("example setup, schema setup, inset and find, search, update, and delete op
   // ? operations
   const create_order = await OrderTRX.save({ ticket: Date.now().toString() });
   const find_order = await OrderTRX.findOne(create_order._id);
-  // expect(create_order._id).toBe(find_order._id);
+  expect(create_order._id).toBe(find_order._id);
   const update_order = await OrderTRX.save({
     ...create_order,
     ticket: Date.now().toString(),
@@ -29,7 +29,7 @@ test("example setup, schema setup, inset and find, search, update, and delete op
   // console.log({ search_order, create_order, update_order });
   expect(create_order._id).toBe(find_order_by_unique_field._id);
   expect(create_order._id).toBe(search_order[0]?._id);
-  await OrderTRX.delete(create_order._id);
+  const delete_order = await OrderTRX.delete(create_order._id);
   const find_deleted_order = await OrderTRX.findOne(create_order._id);
   expect(find_deleted_order).toBe(undefined as any);
   // console.log({

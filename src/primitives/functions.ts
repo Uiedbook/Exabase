@@ -32,6 +32,8 @@ export const loadLog = async (filePath: string) => {
     const data = await readFile(filePath);
     return (Utils.packr.decode(data) || []) as Msgs;
   } catch (error) {
+    // console.log({ filePath, error });
+    // console.log({ filePath });
     return [] as Msgs;
   }
 };
@@ -119,70 +121,70 @@ export async function deleteMessage(
   return message || ({ _wal_ignore_flag: true } as unknown as Msg);
 }
 
-export async function findMessages(
-  fileName: string,
-  fo: {
-    select: string;
-    skip?: number;
-    populate?: Record<string, string>;
-    take?: number;
-  }
-) {
-  const { select, take, skip, populate } = fo;
-  let messages = await loadLog(fileName);
-  if (select === "*") {
-    if (skip) {
-      //? remove skip
-      messages.splice(0, skip);
-    }
-    if (take) {
-      //? reduce to take
-      messages = messages.slice(0, take);
-    }
-    if (populate) {
-      const _med = messages.map(async (m: Msg) => {
-        const _foreign = await populateForeignKeys(fileName, m._id, populate);
-        for (const key in _foreign) {
-          (m[key as keyof typeof m] as any) = _foreign[key] as Msgs;
-        }
-        return m;
-      });
-      messages = await Promise.all(_med);
-    }
-    return messages;
-  }
+// export async function findMessages(
+//   fileName: string,
+//   fo: {
+//     select: string;
+//     skip?: number;
+//     populate?: Record<string, string>;
+//     take?: number;
+//   }
+// ) {
+//   const { select, take, skip, populate } = fo;
+//   let messages = await loadLog(fileName);
+//   if (select === "*") {
+//     if (skip) {
+//       //? remove skip
+//       messages.splice(0, skip);
+//     }
+//     if (take) {
+//       //? reduce to take
+//       messages = messages.slice(0, take);
+//     }
+//     if (populate) {
+//       const _med = messages.map(async (m: Msg) => {
+//         const _foreign = await populateForeignKeys(fileName, m._id, populate);
+//         for (const key in _foreign) {
+//           (m[key as keyof typeof m] as any) = _foreign[key] as Msgs;
+//         }
+//         return m;
+//       });
+//       messages = await Promise.all(_med);
+//     }
+//     return messages;
+//   }
 
-  //? binary search it
-  let left = 0;
-  let right = messages.length - 1;
-  let mid = Math.floor((left + right) / 2);
-  let midId = messages[mid]?._id;
-  while (left <= right) {
-    mid = Math.floor((left + right) / 2);
-    midId = messages[mid]._id;
-    if (midId === select) {
-      const message = messages[mid];
-      if (populate) {
-        const _foreign = await populateForeignKeys(
-          fileName,
-          message._id,
-          populate
-        );
-        for (const key in _foreign) {
-          (message[key as keyof typeof message] as any) = _foreign[key];
-        }
-      }
-      return message;
-    } else if (midId < select) {
-      left = mid + 1;
-    } else if (midId === undefined) {
-      return undefined;
-    } else {
-      right = mid - 1;
-    }
-  }
-  return;
-}
+//   //? binary search it
+//   let left = 0;
+//   let right = messages.length - 1;
+//   let mid = Math.floor((left + right) / 2);
+//   let midId = messages[mid]?._id;
+//   while (left <= right) {
+//     mid = Math.floor((left + right) / 2);
+//     midId = messages[mid]._id;
+//     if (midId === select) {
+//       const message = messages[mid];
+//       if (populate) {
+//         const _foreign = await populateForeignKeys(
+//           fileName,
+//           message._id,
+//           populate
+//         );
+//         for (const key in _foreign) {
+//           (message[key as keyof typeof message] as any) = _foreign[key];
+//         }
+//       }
+//       return message;
+//     } else if (midId < select) {
+//       left = mid + 1;
+//     } else if (midId === undefined) {
+//       return undefined;
+//     } else {
+//       right = mid - 1;
+//     }
+//   }
+//   return;
+// }
 export async function findMessage(
   fileName: string,
   fo: {
@@ -297,7 +299,7 @@ export const addForeignKeys = async (
   }
   //? over-writting the structure
   messages[reference._id] = messageX;
-  await SynFileWrit(fileName, Utils.packr.encode(messages));
+  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
 };
 
 export const populateForeignKeys = async (
@@ -360,7 +362,7 @@ export const removeForeignKeys = async (
     } else {
       delete messages[reference._id][reference.relationship];
     }
-    await SynFileWrit(fileName, Utils.packr.encode(messages));
+    await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
   }
 };
 const dropForeignKeys = async (fileName: string, _id: string) => {
@@ -369,7 +371,7 @@ const dropForeignKeys = async (fileName: string, _id: string) => {
   if (messages[_id]) {
     delete messages[_id];
   }
-  await SynFileWrit(fileName, Utils.packr.encode(messages));
+  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
 };
 const updateIndex = async (
   fileName: string,
@@ -388,7 +390,7 @@ const updateIndex = async (
     messages[type][message[type as keyof Msg]] = message._id;
   }
 
-  await SynFileWrit(fileName, Utils.packr.encode(messages));
+  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
 };
 
 const findIndex = async (
@@ -459,7 +461,7 @@ const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-  await SynFileWrit(fileName, Utils.packr.encode(messages));
+  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
 };
 
 //? binary search it
@@ -611,7 +613,10 @@ export function validateData(
         break;
       }
       // ? check for type
-      if (typeof type === "function" && typeof data[prop] !== typeof type()) {
+      if (
+        typeof type === "function" &&
+        typeof data[prop] !== typeof (type as NumberConstructor)()
+      ) {
         info = `${prop} type is invalid ${typeof data[prop]}`;
         break;
       }
@@ -653,11 +658,11 @@ export const getComputedUsage = (
   const usableManagerGB = usableGB / (schemaLength || 1);
   return usableManagerGB;
 };
-export function resizeRCT(data: Record<string, any>) {
+export function resizeRCT(level: number, data: Record<string, any>) {
   const keys = Object.keys(data);
   //! 99 should caculated memory capacity
-  if (keys.length > 99) {
-    const a = keys.slice(0, 50);
+  if (keys.length > level) {
+    const a = keys.slice(0, level * 0.5);
     for (let i = 0; i < 50; i++) {
       data[a[i]] = undefined;
     }
@@ -665,16 +670,19 @@ export function resizeRCT(data: Record<string, any>) {
 }
 
 //? SynFileWrit tree
-export async function SynFileWrit(filename: string, data: Buffer) {
+export async function SynFileWrit(file: string, data: Buffer) {
   let fd;
   let tmpfile = "";
   try {
-    const truename = await promisify(realpath)(filename).catch(() => filename);
-    tmpfile = generate_id() + "-SYNC";
+    // const truename = await promisify(realpath)(file).catch(() => file);
+    tmpfile = file + generate_id() + "-SYNC";
     fd = await promisify(open)(tmpfile, "w");
     await promisify(write)(fd, data, 0, data.length, 0);
     await promisify(fsync)(fd);
-    await promisify(rename)(tmpfile, truename);
+    // await promisify(rename)(tmpfile, truename);
+    await promisify(rename)(tmpfile, file);
+  } catch (e) {
+    throw new ExabaseError(e);
   } finally {
     if (fd) {
       await promisify(close)(fd).catch(() => {});
@@ -698,7 +706,7 @@ export const SynFileWritWithWaitList = {
     });
   },
   async write(file: string, data: Buffer) {
-    await this.acquireWrite();
+    await this.acquireWrite(file);
     let fd;
     let tmpfile = "";
     try {
@@ -708,6 +716,7 @@ export const SynFileWritWithWaitList = {
       await promisify(write)(fd, data, 0, data.length, 0);
       await promisify(fsync)(fd);
       await promisify(rename)(tmpfile, truename);
+    } catch (e) {
     } finally {
       if (fd) {
         await promisify(close)(fd).catch(() => {});

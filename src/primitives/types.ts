@@ -44,9 +44,6 @@ export type ExabaseOptions = {
  * Interface for schema metadata mappings  */
 export interface SchemaOptions<Model> {
   /**
-   * Search index options  */
-  searchIndexOptions?: SearchIndexOptions;
-  /**
    * Table name.
    */
   tableName: string;
@@ -65,13 +62,12 @@ export interface SchemaOptions<Model> {
    */
   RCT?: boolean;
 
+  /**
+   * Indicates properties and  relationship definitions for the schema
+   */
   columns: {
     [x in keyof Partial<Model>]: SchemaColumnOptions;
   };
-  /**
-   * Indicates relationship definitions for the schema
-   */
-  relationship?: Record<relationship_name, SchemaRelationOptions>;
   /**
    * Exabase migrations
    * ---
@@ -91,13 +87,13 @@ export interface SchemaOptions<Model> {
 }
 
 /**
+ * Indicates the relationship
+ */
+export type SchemaRelation = Record<string, SchemaRelationOptions>;
+/**
  * Indicates the relationship name
  */
-export type relationship_name = string;
-
-/**
- * Interface for schema relations mappings  */
-export interface SchemaRelationOptions {
+export type SchemaRelationOptions = {
   /**
    * Indicates with which schema this relation is connected to.
    *
@@ -107,8 +103,8 @@ export interface SchemaRelationOptions {
   /**
    * Type of relation. Can be one of the value of the RelationTypes class.
    */
-  type: "MANY" | "ONE";
-}
+  RelationType: "MANY" | "ONE";
+};
 
 /**
  * Interface for schema column type mappings  */
@@ -139,13 +135,17 @@ export interface SchemaColumnOptions {
    * Indicates if column's value is unique
    */
   unique?: boolean;
+  /**
+   * Indicates with which schema this relation is connected to.
+   *
+   * the tableName of that schema
+   */
+  target?: string;
+  /**
+   * Type of relation. Can be one of the value of the RelationTypes class.
+   */
+  RelationType?: "MANY" | "ONE";
 }
-/**
- * Interface for search index type mappings  */
-export interface SearchIndexOptions {
-  [column: string]: boolean;
-}
-
 /**
  * All together
  */
@@ -155,6 +155,7 @@ export type ColumnType =
   | NumberConstructor
   | Date
   | JSON
+  | typeof Schema
   | StringConstructor;
 
 export type columnValidationType = {

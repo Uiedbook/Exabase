@@ -45,9 +45,6 @@ export type ExabaseOptions = {
  * Interface for schema metadata mappings  */
 export interface SchemaOptions<Model> {
     /**
-     * Search index options  */
-    searchIndexOptions?: SearchIndexOptions;
-    /**
      * Table name.
      */
     tableName: string;
@@ -65,13 +62,12 @@ export interface SchemaOptions<Model> {
      * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cach only
      */
     RCT?: boolean;
+    /**
+     * Indicates properties and  relationship definitions for the schema
+     */
     columns: {
         [x in keyof Partial<Model>]: SchemaColumnOptions;
     };
-    /**
-     * Indicates relationship definitions for the schema
-     */
-    relationship?: Record<relationship_name, SchemaRelationOptions>;
     /**
      * Exabase migrations
      * ---
@@ -90,12 +86,13 @@ export interface SchemaOptions<Model> {
     migrationFN?(data: Record<string, string>): Record<string, string> | true;
 }
 /**
+ * Indicates the relationship
+ */
+export type SchemaRelation = Record<string, SchemaRelationOptions>;
+/**
  * Indicates the relationship name
  */
-export type relationship_name = string;
-/**
- * Interface for schema relations mappings  */
-export interface SchemaRelationOptions {
+export type SchemaRelationOptions = {
     /**
      * Indicates with which schema this relation is connected to.
      *
@@ -105,8 +102,8 @@ export interface SchemaRelationOptions {
     /**
      * Type of relation. Can be one of the value of the RelationTypes class.
      */
-    type: "MANY" | "ONE";
-}
+    RelationType: "MANY" | "ONE";
+};
 /**
  * Interface for schema column type mappings  */
 export interface SchemaColumnOptions {
@@ -136,16 +133,21 @@ export interface SchemaColumnOptions {
      * Indicates if column's value is unique
      */
     unique?: boolean;
-}
-/**
- * Interface for search index type mappings  */
-export interface SearchIndexOptions {
-    [column: string]: boolean;
+    /**
+     * Indicates with which schema this relation is connected to.
+     *
+     * the tableName of that schema
+     */
+    target?: string;
+    /**
+     * Type of relation. Can be one of the value of the RelationTypes class.
+     */
+    RelationType?: "MANY" | "ONE";
 }
 /**
  * All together
  */
-export type ColumnType = BooleanConstructor | DateConstructor | NumberConstructor | Date | JSON | StringConstructor;
+export type ColumnType = BooleanConstructor | DateConstructor | NumberConstructor | Date | JSON | typeof Schema | StringConstructor;
 export type columnValidationType = {
     type?: ColumnType;
     width?: number;

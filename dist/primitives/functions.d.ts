@@ -6,12 +6,6 @@ export declare const loadLogSync: (filePath: string) => any;
 export declare function updateMessage(dir: string, _unique_field: Record<string, true> | undefined, message: Msg): Promise<Msg>;
 export declare function prepareMessage(dir: string, _unique_field: Record<string, true> | undefined, message: Msg): Promise<Msg>;
 export declare function deleteMessage(_id: string, dir: string, _unique_field: Record<string, true> | undefined, _foreign_field: boolean, fn: string, RCTiedlog: any): Promise<Msg>;
-export declare function findMessages(fileName: string, fo: {
-    select: string;
-    skip?: number;
-    populate?: Record<string, string>;
-    take?: number;
-}): Promise<Msg | Msgs | undefined>;
 export declare function findMessage(fileName: string, fo: {
     select: string;
     populate?: Record<string, string>;
@@ -40,5 +34,10 @@ export declare const generate_id: () => string;
 export declare const encode_timestamp: (timestamp: string) => string;
 export declare function validateData(data?: Record<string, Record<string, any>>, schema?: Record<string, SchemaColumnOptions>): string | Record<string, any>;
 export declare const getComputedUsage: (allowedUsagePercent: number, schemaLength: number) => number;
-export declare function resizeRCT(data: Record<string, any>): void;
-export declare function SynFileWrit(filename: string, data: Buffer): Promise<void>;
+export declare function resizeRCT(level: number, data: Record<string, any>): void;
+export declare function SynFileWrit(file: string, data: Buffer): Promise<void>;
+export declare const SynFileWritWithWaitList: {
+    waiters: Record<string, ((value: unknown) => void)[]>;
+    acquireWrite(file: string): Promise<unknown>;
+    write(file: string, data: Buffer): Promise<void>;
+};

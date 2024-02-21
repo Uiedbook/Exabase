@@ -14,11 +14,10 @@ const User = new Schema<{ name: string; requestedOrders: any[] }>({
   RCT: true,
   columns: {
     name: { type: String },
-  },
-  relationship: {
     requestedOrders: {
       target: "Order",
-      type: "MANY",
+      RelationType: "MANY",
+      type: Schema,
     },
   },
 });
@@ -36,6 +35,7 @@ await userTRX.deleteBatch(users);
 await OrderTRX.deleteBatch(orders);
 const usersCount = await userTRX.count();
 const ordersCount = await OrderTRX.count();
+console.log({ usersCount, ordersCount, users, orders });
 expect(usersCount).toBe(0);
 expect(ordersCount).toBe(0);
 
@@ -54,7 +54,7 @@ describe("queries", () => {
   });
   it("large inset", async () => {
     const users = Array(2).fill({ name: "saul" });
-    userTRX.saveBatch(users);
+    await userTRX.saveBatch(users);
     const usersCount = await userTRX.count();
     expect(usersCount).toBe(2);
   });
@@ -64,7 +64,7 @@ describe("queries", () => {
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
     }
-    userTRX.saveBatch(users);
+    await userTRX.saveBatch(users);
     const updatedUsers = await userTRX.findMany();
     expect(updatedUsers[0].name).toBe("paul");
   });
@@ -85,6 +85,7 @@ describe("queries", () => {
     const populateRelationship = await userTRX.findOne(userin._id, {
       populate: true,
     });
+    console.log({ populateRelationship });
     expect(populateRelationship.requestedOrders[0]._id).toBe(orderin._id);
     await userTRX.removeRelation({
       _id: userin._id,
