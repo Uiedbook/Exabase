@@ -1,4 +1,4 @@
-import { Schema } from "./classes";
+import { Schema } from "./classes.js";
 
 /**
  * Interface for Exabase init  */
