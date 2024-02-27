@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { Packr } from "msgpackr";
-import { type Msg, type Msgs, type QueryType, type SchemaOptions, type SchemaColumnOptions, type ExaDoc, type Xtree_flag, type SchemaRelation } from "./types.js";
+import { type Msg, type Msgs, type QueryType, type SchemaOptions, type SchemaColumnOptions, type ExaDoc, type Xtree_flag, type SchemaRelation, type wTrainType } from "./types.js";
 import { Sign, Verify } from "node:crypto";
 export declare class Utils {
     static MANIFEST: {
@@ -160,9 +160,10 @@ export declare class Manager {
         logging: boolean;
         schemas: Schema<any>[];
     }): Promise<void> | undefined;
-    waiters: Record<string, ((value: unknown) => void)[]>;
-    acquireWrite(file: string): Promise<unknown>;
-    write(file: string, message: Msg, flag: Xtree_flag): Promise<Msg>;
+    waiters: Record<string, wTrainType[]>;
+    runningQueue: boolean;
+    queue(file: string, message: Msg, flag: Xtree_flag): Promise<number | void | Msg | Msgs>;
+    write(queries: wTrainType[], file: string): Promise<void>;
     _sync_logs(): Promise<void>;
     _sync_searchindex(size: number): Promise<void>;
     _getReadingLog(logId: string): string;
@@ -202,11 +203,10 @@ export declare class XTree {
     searchBase(_id: string): number | undefined;
     count(search: Msg): number;
     confirmLength(size: number): boolean;
-    manage(trx: Msg, flag: Xtree_flag): Promise<void> | undefined;
-    insert(data: Msg, bulk?: boolean): Promise<void>;
-    disert(data: Msg, bulk?: boolean): Promise<void>;
-    upsert(data: Msg, bulk?: boolean): Promise<void>;
-    private persit;
+    insert(data: Msg): Promise<void>;
+    disert(data: Msg): Promise<void>;
+    upsert(data: Msg): Promise<void>;
+    persit(): Promise<void>;
     static restore(persitKey: string): any[];
 }
 export {};

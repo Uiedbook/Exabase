@@ -462,28 +462,49 @@ export class Manager {
         }
     }
     waiters = {};
-    acquireWrite(file) {
-        return new Promise((resolve) => {
-            if (!this.waiters[file]) {
-                this.waiters[file] = [];
-            }
-            this.waiters[file].push(resolve);
-            if (this.waiters[file].length === 1) {
-                resolve(undefined);
-            }
+    runningQueue = false;
+    queue(file, message, flag) {
+        let R = Promise.resolve;
+        const q = new Promise((resolve) => {
+            R = resolve;
         });
-    }
-    async write(file, message, flag) {
-        await this.acquireWrite(file);
-        // ? do the writting by
-        let messages = this.RCT[file] ?? (await loadLog(this.tableDir + file));
-        if (flag === "i") {
-            messages = await binarysorted_insert(message, messages);
-            this._setLog(file, message._id, messages.length);
+        if (!this.waiters[file]) {
+            this.waiters[file] = [[R, message, flag]];
         }
         else {
-            messages = await binarysearch_mutate(message, messages, flag);
-            this._setLog(file, messages.at(-1)?._id || null, messages.length);
+            this.waiters[file].push([R, message, flag]);
+        }
+        if (!this.runningQueue) {
+            this.write(this.waiters[file].splice(0), file);
+        }
+        return q;
+    }
+    async write(queries, file) {
+        this.runningQueue = true;
+        // console.log("Query length ----> " + queries.length);
+        const Rs = [];
+        // ? do the writting by
+        let messages = this.RCT[file] ?? (await loadLog(this.tableDir + file));
+        for (let i = 0; i < queries.length; i++) {
+            const [resolve, message, flag] = queries[i];
+            if (flag === "i") {
+                messages = await binarysorted_insert(message, messages);
+                this._setLog(file, message._id, messages.length);
+                // ? update search index
+                await this._search.insert(message);
+            }
+            else {
+                messages = await binarysearch_mutate(message, messages, flag);
+                this._setLog(file, messages.at(-1)?._id || null, messages.length);
+                // ? update search index
+                if (flag === "d") {
+                    await this._search.disert(message);
+                }
+                else {
+                    await this._search.upsert(message);
+                }
+            }
+            Rs.push(() => resolve(message));
         }
         // ? update this active RCT
         if (this.RCTied) {
@@ -491,16 +512,17 @@ export class Manager {
         }
         // ? synchronise writter
         await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
-        // ? update search index
-        await this._search.manage(message, flag);
         //? resize RCT
         this.RCTied && resizeRCT(this.rct_level, this.RCT);
-        // ? adjusting the wait list
-        this.waiters[file].shift();
-        if (this.waiters[file].length > 0) {
-            this.waiters[file][0](undefined);
+        this._search.persit();
+        Rs.map((a) => a());
+        // ? run awaiting queries
+        if (this.waiters[file].length) {
+            this.write(this.waiters[file].splice(0), file);
         }
-        return message;
+        else {
+            this.runningQueue = false;
+        }
     }
     async _sync_logs() {
         const dir = await opendir(this.tableDir);
@@ -541,9 +563,10 @@ export class Manager {
                 const LOG = await loadLog(this.tableDir + file);
                 const ln = LOG.length;
                 for (let i = 0; i < ln; i++) {
-                    this._search.insert(LOG[i]);
+                    await this._search.insert(LOG[i]);
                 }
             }
+            await this._search.persit();
         }
     }
     _getReadingLog(logId) {
@@ -646,12 +669,12 @@ export class Manager {
         if (query["insert"]) {
             const message = await prepareMessage(this.tableDir, this._schema._unique_field, query.insert);
             const file = this._getInsertLog();
-            return this.write(file, message, "i");
+            return this.queue(file, message, "i");
         }
         if (query["update"]) {
             const message = await updateMessage(this.tableDir, this._schema._unique_field, query.update);
             const file = this._getReadingLog(message._id);
-            return this.write(file, message, "u");
+            return this.queue(file, message, "u");
         }
         if (query["search"]) {
             const indexes = this._search.search(query.search, query.take);
@@ -693,7 +716,7 @@ export class Manager {
             const file = this._getReadingLog(query.delete);
             const message = await deleteMessage(query.delete, this.tableDir, this._schema._unique_field, this._schema.relationship ? true : false, this.tableDir + file, this.RCT[file] ?? (await loadLog(this.tableDir + file)));
             if (message) {
-                return this.write(file, message, "d");
+                return this.queue(file, message, "d");
             }
         }
         if (query["reference"] && query["reference"]._new) {
@@ -856,29 +879,14 @@ export class XTree {
     confirmLength(size) {
         return this.base.length === size;
     }
-    manage(trx, flag) {
-        switch (flag) {
-            case "i":
-                return this.insert(trx);
-            case "u":
-                return this.upsert(trx);
-            case "d":
-            case "n":
-                return;
-            default:
-                console.error("boohoo", { trx });
-                return;
-        }
-    }
-    async insert(data, bulk = false) {
-        if (!data["_id"])
-            throw new Error("bad insert");
+    async insert(data) {
+        // if (!data["_id"]) throw new Error("bad insert");
         if (!this.mutatingBase) {
             this.mutatingBase = true;
         }
         else {
             setImmediate(() => {
-                this.insert(data, bulk);
+                this.insert(data);
             });
             return;
         }
@@ -895,17 +903,14 @@ export class XTree {
             this.base.push(data["_id"]);
             this.mutatingBase = false;
         }
-        if (!bulk)
-            await this.persit();
     }
-    async disert(data, bulk = false) {
-        if (!data["_id"])
-            throw new Error("bad insert");
+    async disert(data) {
+        // if (!data["_id"]) throw new Error("bad insert");
         if (!this.mutatingBase) {
         }
         else {
             setImmediate(() => {
-                this.disert(data, bulk);
+                this.disert(data);
             });
             return;
         }
@@ -922,17 +927,14 @@ export class XTree {
             this.base.splice(index, 1);
             this.mutatingBase = false;
         }
-        if (!bulk)
-            await this.persit();
     }
-    async upsert(data, bulk = false) {
-        if (!data["_id"])
-            throw new Error("bad insert");
+    async upsert(data) {
+        // if (!data["_id"]) throw new Error("bad insert");
         if (!this.mutatingBase) {
         }
         else {
             setImmediate(() => {
-                this.upsert(data, bulk);
+                this.upsert(data);
             });
             return;
         }
@@ -950,8 +952,6 @@ export class XTree {
             }
         }
         this.mutatingBase = true;
-        if (!bulk)
-            await this.persit();
         this.mutatingBase = false;
     }
     persit() {

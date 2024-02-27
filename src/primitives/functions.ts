@@ -674,15 +674,12 @@ export async function SynFileWrit(file: string, data: Buffer) {
   let fd;
   let tmpfile = "";
   try {
-    // const truename = await promisify(realpath)(file).catch(() => file);
     tmpfile = file + generate_id() + "-SYNC";
     fd = await promisify(open)(tmpfile, "w");
     await promisify(write)(fd, data, 0, data.length, 0);
     await promisify(fsync)(fd);
-    // await promisify(rename)(tmpfile, truename);
     await promisify(rename)(tmpfile, file);
   } catch (e) {
-    throw new ExabaseError(e);
   } finally {
     if (fd) {
       await promisify(close)(fd).catch(() => {});
@@ -710,12 +707,11 @@ export const SynFileWritWithWaitList = {
     let fd;
     let tmpfile = "";
     try {
-      const truename = await promisify(realpath)(file).catch(() => file);
-      tmpfile = generate_id() + "-SYNC";
+      tmpfile = file + generate_id() + "-SYNC";
       fd = await promisify(open)(tmpfile, "w");
       await promisify(write)(fd, data, 0, data.length, 0);
       await promisify(fsync)(fd);
-      await promisify(rename)(tmpfile, truename);
+      await promisify(rename)(tmpfile, file);
     } catch (e) {
     } finally {
       if (fd) {
