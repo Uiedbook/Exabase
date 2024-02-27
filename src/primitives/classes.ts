@@ -607,15 +607,15 @@ export class Manager {
         messages = await binarysorted_insert(message, messages);
         this._setLog(file, message._id, messages.length);
         // ? update search index
-        await this._search.insert(message);
+        this._search.insert(message);
       } else {
         messages = await binarysearch_mutate(message, messages, flag);
         this._setLog(file, messages.at(-1)?._id || null, messages.length);
         // ? update search index
         if (flag === "d") {
-          await this._search.disert(message);
+          this._search.disert(message);
         } else {
-          await this._search.upsert(message);
+          this._search.upsert(message);
         }
       }
       Rs.push(() => resolve(message));
@@ -1048,7 +1048,7 @@ export class XTree {
   confirmLength(size: number) {
     return this.base.length === size;
   }
-  async insert(data: Msg) {
+  insert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
     if (!this.mutatingBase) {
       this.mutatingBase = true;
@@ -1071,7 +1071,7 @@ export class XTree {
       this.mutatingBase = false;
     }
   }
-  async disert(data: Msg) {
+  disert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
     if (!this.mutatingBase) {
     } else {
@@ -1092,7 +1092,7 @@ export class XTree {
       this.mutatingBase = false;
     }
   }
-  async upsert(data: Msg) {
+  upsert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
     if (!this.mutatingBase) {
     } else {

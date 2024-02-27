@@ -203,9 +203,9 @@ export declare class XTree {
     searchBase(_id: string): number | undefined;
     count(search: Msg): number;
     confirmLength(size: number): boolean;
-    insert(data: Msg): Promise<void>;
-    disert(data: Msg): Promise<void>;
-    upsert(data: Msg): Promise<void>;
+    insert(data: Msg): void;
+    disert(data: Msg): void;
+    upsert(data: Msg): void;
     persit(): Promise<void>;
     static restore(persitKey: string): any[];
 }

@@ -108,11 +108,11 @@ describe("queries", () => {
   it("clean up", async () => {
     const users = await userTRX.findMany();
     const orders = await OrderTRX.findMany();
-    // await userTRX.deleteBatch(users);
-    // await OrderTRX.deleteBatch(orders);
-    // const usersCount = await userTRX.count();
-    // const ordersCount = await OrderTRX.count();
-    // expect(usersCount).toBe(0);
-    // expect(ordersCount).toBe(0);
+    await userTRX.deleteBatch(users);
+    await OrderTRX.deleteBatch(orders);
+    const usersCount = await userTRX.count();
+    const ordersCount = await OrderTRX.count();
+    expect(usersCount).toBe(0);
+    expect(ordersCount).toBe(0);
   });
 });
