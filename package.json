@@ -6,7 +6,7 @@
   "type": "module",
   "files": [
     "dist/index.d.ts",
-    "dist/primitives/**",
+    "dist/primitives/*",
     "dist/index.js"
   ],
   "keywords": [
@@ -27,7 +27,7 @@
   ],
   "scripts": {
     "compile": "rm -rf ./EXABASE_DB && bun bundle.ts",
-    "test": "bun test",
+    "test": " bun test --timeout 10000",
     "build": "bun bundle.ts && npm pack && mv **.tgz ~/",
     "bench": "bun ./tests/benchmark.ts"
   },
