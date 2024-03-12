@@ -58,9 +58,9 @@ export async function prepareMessage(dir, _unique_field, message) {
     return message;
 }
 export async function deleteMessage(_id, dir, _unique_field, _foreign_field, fn, RCTiedlog) {
-    const message = (await findMessage(fn, {
+    const message = await findMessage(fn, {
         select: _id,
-    }, RCTiedlog));
+    }, RCTiedlog);
     if (message) {
         if (_unique_field)
             await dropIndex(dir + "UINDEX", message, _unique_field);

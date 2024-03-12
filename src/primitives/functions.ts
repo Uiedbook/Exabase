@@ -105,15 +105,15 @@ export async function deleteMessage(
   _unique_field: Record<string, true> | undefined,
   _foreign_field: boolean,
   fn: string,
-  RCTiedlog: any
+  RCTiedlog: Msgs
 ) {
-  const message = (await findMessage(
+  const message = await findMessage(
     fn,
     {
       select: _id,
     },
     RCTiedlog
-  )) as Msg;
+  );
   if (message) {
     if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
     if (_foreign_field) await dropForeignKeys(dir + "FINDEX", _id);

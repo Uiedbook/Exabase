@@ -464,7 +464,7 @@ export class Manager {
     waiters = {};
     runningQueue = false;
     queue(file, message, flag) {
-        let R = Promise.resolve;
+        let R;
         const q = new Promise((resolve) => {
             R = resolve;
         });
@@ -715,13 +715,14 @@ export class Manager {
         if (query["delete"]) {
             const file = this._getReadingLog(query.delete);
             const message = await deleteMessage(query.delete, this.tableDir, this._schema._unique_field, this._schema.relationship ? true : false, this.tableDir + file, this.RCT[file] ?? (await loadLog(this.tableDir + file)));
+            // console.log({ message, query });
             if (message) {
                 return this.queue(file, message, "d");
             }
             else {
-                console.log({ query: query });
                 throw new Error("bug");
             }
+            return;
         }
         if (query["reference"] && query["reference"]._new) {
             const file = this._getReadingLog(query.reference._id);

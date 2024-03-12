@@ -5,7 +5,7 @@ export declare const loadLog: (filePath: string) => Promise<Msgs>;
 export declare const loadLogSync: (filePath: string) => any;
 export declare function updateMessage(dir: string, _unique_field: Record<string, true> | undefined, message: Msg): Promise<Msg>;
 export declare function prepareMessage(dir: string, _unique_field: Record<string, true> | undefined, message: Msg): Promise<Msg>;
-export declare function deleteMessage(_id: string, dir: string, _unique_field: Record<string, true> | undefined, _foreign_field: boolean, fn: string, RCTiedlog: any): Promise<Msg>;
+export declare function deleteMessage(_id: string, dir: string, _unique_field: Record<string, true> | undefined, _foreign_field: boolean, fn: string, RCTiedlog: Msgs): Promise<Msg>;
 export declare function findMessage(fileName: string, fo: {
     select: string;
     populate?: Record<string, string>;

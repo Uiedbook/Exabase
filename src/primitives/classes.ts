@@ -581,7 +581,7 @@ export class Manager {
   public waiters: Record<string, wTrainType[]> = {};
   runningQueue: boolean = false;
   queue(file: string, message: Msg, flag: Xtree_flag) {
-    let R: ((value: unknown) => void) | undefined = Promise.resolve;
+    let R: ((value: unknown) => void) | undefined;
     const q = new Promise((resolve) => {
       R = resolve;
     });
@@ -878,13 +878,14 @@ export class Manager {
         this.tableDir + file,
         this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
+
+      // console.log({ message, query });
       if (message) {
         return this.queue(file, message, "d");
       } else {
-        console.log({ query: query });
-
         throw new Error("bug");
       }
+      return;
     }
     if (query["reference"] && query["reference"]._new) {
       const file = this._getReadingLog(query.reference._id);
