@@ -718,6 +718,10 @@ export class Manager {
             if (message) {
                 return this.queue(file, message, "d");
             }
+            else {
+                console.log({ query: query });
+                throw new Error("bug");
+            }
         }
         if (query["reference"] && query["reference"]._new) {
             const file = this._getReadingLog(query.reference._id);
