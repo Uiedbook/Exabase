@@ -8,12 +8,7 @@ import {
   _ExabaseRingInterface,
   _login_leader_ring,
 } from "./primitives/http-functions.js";
-import {
-  ExabaseError,
-  Utils,
-  Manager,
-  Query as TRX,
-} from "./primitives/classes.js";
+import { ExaError, Utils, Manager, Query } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
@@ -21,7 +16,7 @@ export class Exabase {
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
   constructor(init: ExabaseOptions) {
-    //? initialisations
+    //? initializations
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
     // ? setting up memory allocation for RCT enabled cache managers
@@ -52,7 +47,7 @@ export class Exabase {
         logging: init.logging,
         name: init.name,
       } as ExabaseOptions);
-      console.log("Exabase initialised!");
+      console.log("Exabase initialized!");
     } catch (e: any) {
       //? console.log(e);
       if ({ e }.e.code === "EEXIST") {
@@ -109,7 +104,7 @@ export class Exabase {
     // ? if jetpath is added
     if (app?.decorate) {
       if (!Utils.MANIFEST.EXABASE_KEYS.privateKey) {
-        throw new ExabaseError(
+        throw new ExaError(
           "Exabase public and private keys not provided for connection"
         );
       }
@@ -134,7 +129,7 @@ export class Exabase {
   }
   async executeQuery(query: string) {
     if (!this._announced) {
-      throw new ExabaseError("Exabase not ready!");
+      throw new ExaError("Exabase not ready!");
     }
     //? verify query validity
     try {
@@ -144,12 +139,12 @@ export class Exabase {
       if (!table) throw new Error();
       return table._run(parsedQuery.query);
     } catch (error) {
-      throw new ExabaseError("Invalid query: ", query);
+      throw new ExaError("Invalid query: ", query);
     }
   }
 }
 
 //? exports
-export { Schema, ExabaseError } from "./primitives/classes.js";
-export type { ExaDoc } from "./primitives/types.js";
-export type query<Model = ExaDoc<{}>> = TRX<Model>;
+export { ExaSchema, ExaError, ExaType } from "./primitives/classes.js";
+export { ExaId } from "./primitives/functions.js";
+export type { ExaDoc, ExaQuery } from "./primitives/types.js";

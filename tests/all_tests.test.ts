@@ -1,15 +1,15 @@
-import { Exabase, Schema } from "../dist/index.js";
+import { Exabase, ExaSchema } from "../dist/index.js";
 import { it, describe, expect } from "bun:test";
 
 // ? setup db
-const Order = new Schema<{ ticket: string }>({
+const Order = new ExaSchema<{ ticket: string }>({
   tableName: "order",
   RCT: true,
   columns: {
     ticket: { type: String, unique: true },
   },
 });
-const User = new Schema<{ name: string; requestedOrders: any[] }>({
+const User = new ExaSchema<{ name: string; requestedOrders: any[] }>({
   tableName: "user",
   RCT: true,
   columns: {
@@ -17,7 +17,7 @@ const User = new Schema<{ name: string; requestedOrders: any[] }>({
     requestedOrders: {
       target: "Order",
       RelationType: "MANY",
-      type: Schema,
+      type: ExaSchema,
     },
   },
 });

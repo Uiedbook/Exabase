@@ -1,4 +1,4 @@
-import { Schema } from "./classes.js";
+import { ExaType, ExaSchema, Query } from "./classes.js";
 
 /**
  * Interface for Exabase init  */
@@ -25,7 +25,7 @@ export type ExabaseOptions = {
    * ---
    * Data schemas
    */
-  schemas: Schema<any>[];
+  schemas: ExaSchema<any>[];
   /**
    * Exabase DBMS
    * ---
@@ -151,11 +151,9 @@ export interface SchemaColumnOptions {
  */
 export type ColumnType =
   | BooleanConstructor
-  | DateConstructor
   | NumberConstructor
-  | Date
-  | JSON
-  | typeof Schema
+  | ExaType
+  | typeof ExaSchema
   | StringConstructor;
 
 export type columnValidationType = {
@@ -213,5 +211,5 @@ export type connectOptions = {
 };
 
 export type Xtree_flag = "i" | "u" | "d" | "n";
-
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
+export type ExaQuery<Model = ExaDoc<{}>> = Query<Model>;

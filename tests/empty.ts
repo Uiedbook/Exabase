@@ -1,7 +1,7 @@
 import { Exabase } from "../dist/index.js";
-import { Schema } from "../dist/index.js";
+import { ExaSchema } from "../dist/index.js";
 
-const users = new Schema<{ age: number; name: string }>({
+const users = new ExaSchema<{ age: number; name: string }>({
   tableName: "user",
   columns: {
     age: { type: Number },

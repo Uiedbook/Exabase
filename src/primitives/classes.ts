@@ -35,7 +35,7 @@ import {
 
 export class Utils {
   static MANIFEST: {
-    schemas: Schema<any>[];
+    schemas: ExaSchema<any>[];
     bearer: string;
     rings: string[];
     EXABASE_KEYS: { privateKey: String; publicKey: String };
@@ -58,9 +58,9 @@ export class Utils {
   };
 }
 
-export class ExabaseError extends Error {
+export class ExaError extends Error {
   constructor(...err: any[]) {
-    const message = ExabaseError.geterr(err);
+    const message = ExaError.geterr(err);
     super(message);
   }
   private static geterr(err: string[]) {
@@ -68,7 +68,7 @@ export class ExabaseError extends Error {
   }
 }
 
-export class Schema<Model> {
+export class ExaSchema<Model> {
   tableName: string;
   RCT?: boolean;
   _trx: Query<Model>;
@@ -103,39 +103,26 @@ export class Schema<Model> {
           delete this.columns[key];
           continue;
         }
-        //? adding vitual types validators for JSON, Date and likes
 
-        // ? Date
-        if (this.columns[key].type === Date) {
-          this.columns[key].type = ((d: string | number | Date) =>
-            new Date(d).toString().includes("Inval") === false) as any;
-        }
-        //? JSON
-        if (this.columns[key].type === JSON) {
-          this.columns[key].type = ((d: string) =>
-            typeof d === "string") as any;
-        }
         //? validating default values
         if (this.columns[key].default) {
           // ? check for type
-          if (
-            typeof this.columns[key].default !==
-            typeof (this.columns[key].type as StringConstructor)()
-          ) {
-            throw new ExabaseError(
-              " schema property default value '",
-              this.columns[key].default,
-              "' for ",
-              key,
-              " on the ",
+          const v = validateData(
+            { [key]: this.columns[key].default },
+            { [key]: { ...this.columns[key], default: undefined } }
+          );
+          if (typeof v === "string") {
+            throw new ExaError(
+              "Error validating default value on ",
               this.tableName,
-              " tableName has a wrong type"
+              " ",
+              v
             );
           }
         }
 
         //? more later
-        //? let's keep a record of the unique fields we currectly have
+        //? let's keep a record of the unique fields we correctly have
         if (this.columns[key].unique) {
           this._unique_field[key] = true;
         }
@@ -155,8 +142,8 @@ export class Schema<Model> {
    */
   get query(): Query<Model> {
     if (!this._premature) return this._trx;
-    throw new ExabaseError(
-      "Schema - " +
+    throw new ExaError(
+      "ExaSchema - " +
         this.tableName +
         " is not yet connected to an Exabase Instance"
     );
@@ -172,6 +159,13 @@ export class Schema<Model> {
   }
 }
 
+// ? for declaring types
+export class ExaType {
+  v: (data: any) => boolean = () => false;
+  constructor(validator: (data: any) => boolean) {
+    this.v = validator;
+  }
+}
 //? this is okay because it's reusable
 export class Query<Model> {
   private _Manager: Manager;
@@ -203,7 +197,7 @@ export class Query<Model> {
     const query: QueryType = {
       select: typeof field === "string" ? field : "*",
     };
-    // ? inputing relationship payload
+    // ? imputing relationship payload
     if (typeof field === "object") {
       query.select = undefined;
       let key: string = "",
@@ -219,7 +213,7 @@ export class Query<Model> {
           [key]: value,
         };
       } else {
-        throw new ExabaseError(
+        throw new ExaError(
           `column field ${key} is not unique, please try searching instead`
         );
       }
@@ -242,9 +236,7 @@ export class Query<Model> {
             if (relaName) {
               query.populate[lab] = fields[lab];
             } else {
-              throw new ExabaseError(
-                "can't POPULATE missing realtionship " + lab
-              );
+              throw new ExaError("can't POPULATE missing realtionship " + lab);
             }
           }
         }
@@ -285,7 +277,7 @@ export class Query<Model> {
           [key]: value,
         };
       } else {
-        throw new ExabaseError(
+        throw new ExaError(
           `column field ${key} is not unique, please try searching instead`
         );
       }
@@ -306,9 +298,7 @@ export class Query<Model> {
             if (relaName) {
               query.populate[lab] = fields[lab];
             } else {
-              throw new ExabaseError(
-                "can't POPULATE missing realtionship " + lab
-              );
+              throw new ExaError("can't POPULATE missing realtionship " + lab);
             }
           }
         }
@@ -333,7 +323,7 @@ export class Query<Model> {
     }
   ) {
     if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
-      throw new ExabaseError("invalid search query ", searchQuery);
+      throw new ExaError("invalid search query ", searchQuery);
     let query: QueryType = { search: searchQuery };
     // ? populate options
     if (typeof options === "object") {
@@ -353,9 +343,7 @@ export class Query<Model> {
             if (relaName) {
               query.populate[lab] = fields[lab];
             } else {
-              throw new ExabaseError(
-                "can't POPULATE missing realtionship " + lab
-              );
+              throw new ExaError("can't POPULATE missing realtionship " + lab);
             }
           }
         }
@@ -384,7 +372,7 @@ export class Query<Model> {
    */
   delete(_id: string) {
     if (typeof _id !== "string") {
-      throw new ExabaseError(
+      throw new ExaError(
         "cannot continue with delete query '",
         _id,
         "' is not a valid Exabase _id value"
@@ -420,7 +408,7 @@ export class Query<Model> {
     const rela = this._Manager._schema.relationship![options.relationship];
 
     if (!rela) {
-      throw new ExabaseError(
+      throw new ExaError(
         "No relationship definition called ",
         options.relationship,
         " on ",
@@ -430,7 +418,7 @@ export class Query<Model> {
     }
 
     if (typeof options.foreign_id !== "string") {
-      throw new ExabaseError("foreign_id field is invalid.");
+      throw new ExaError("foreign_id field is invalid.");
     }
     const query: QueryType = {
       reference: {
@@ -457,7 +445,7 @@ export class Query<Model> {
   }) {
     const rela = this._Manager._schema.relationship![options.relationship];
     if (!rela) {
-      throw new ExabaseError(
+      throw new ExaError(
         "No relationship definition called ",
         options.relationship,
         " on ",
@@ -488,7 +476,7 @@ export class Query<Model> {
       const q = this._prepare_for(data, false);
       return this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
     } else {
-      throw new ExabaseError(
+      throw new ExaError(
         `Invalid inputs for .saveBatch method, data should be array.`
       );
     }
@@ -498,7 +486,7 @@ export class Query<Model> {
       const q = this._prepare_for(data, true);
       return this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
     } else {
-      throw new ExabaseError(
+      throw new ExaError(
         `Invalid inputs for .deleteBatch method, data should be array.`
       );
     }
@@ -513,7 +501,7 @@ export class Query<Model> {
             delete: (item as any)._id,
           });
         } else {
-          throw new ExabaseError(
+          throw new ExaError(
             "cannot continue with delete query '",
             (item as any)._id,
             "' is not a valid Exabase _id value"
@@ -531,7 +519,7 @@ export class Query<Model> {
 }
 
 export class Manager {
-  public _schema: Schema<any>;
+  public _schema: ExaSchema<any>;
   public _name: string;
   public _query: Query<any>;
   public tableDir: string = "";
@@ -545,7 +533,7 @@ export class Manager {
   // public waiters: Record<string, (() => void)[]> = {};
   public logging: boolean = false;
   // private clock_vector = { x0: null, xn: null };
-  constructor(schema: Schema<any>, level: number) {
+  constructor(schema: ExaSchema<any>, level: number) {
     this._schema = schema;
     this._name = schema.tableName;
     this._search = new XTree({ persitKey: "" });
@@ -558,7 +546,7 @@ export class Manager {
   _setup(init: {
     _exabaseDirectory: string;
     logging: boolean;
-    schemas: Schema<any>[];
+    schemas: ExaSchema<any>[];
   }) {
     // ? setup steps
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
@@ -723,7 +711,7 @@ export class Manager {
     this._LogFiles[fn] = { last_id, size };
   }
 
-  _constructRelationships(allSchemas: Schema<any>[]) {
+  _constructRelationships(allSchemas: ExaSchema<any>[]) {
     if (this._schema.tableName) {
       //? keep a easy track of relationships
       if (this._schema.relationship) {
@@ -737,7 +725,7 @@ export class Manager {
             if (findschema) {
               this._schema._foreign_field[key] = namee;
             } else {
-              throw new ExabaseError(
+              throw new ExaError(
                 " tableName:",
                 namee,
                 " not found on any schema, please recheck the relationship definition of the ",
@@ -746,7 +734,7 @@ export class Manager {
               );
             }
           } else {
-            throw new ExabaseError(
+            throw new ExaError(
               " Error on schema ",
               this._schema.tableName,
               " relationship target must be a string "
@@ -760,8 +748,7 @@ export class Manager {
   _validate(data: any, update?: boolean) {
     const v = validateData(data, this._schema.columns);
     if (typeof v === "string") {
-      console.log({ data, cols: this._schema.columns });
-      throw new ExabaseError(
+      throw new ExaError(
         update ? "insert" : "update",
         " on table :",
         this._schema.tableName,
@@ -771,7 +758,7 @@ export class Manager {
     }
 
     if (!data._id && update) {
-      throw new ExabaseError(
+      throw new ExaError(
         "update on table :",
         this._schema.tableName,
         " aborted, reason - _id is required"

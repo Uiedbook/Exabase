@@ -4,7 +4,7 @@ import { type Msg, type Msgs, type QueryType, type SchemaOptions, type SchemaCol
 import { Sign, Verify } from "node:crypto";
 export declare class Utils {
     static MANIFEST: {
-        schemas: Schema<any>[];
+        schemas: ExaSchema<any>[];
         bearer: string;
         rings: string[];
         EXABASE_KEYS: {
@@ -19,11 +19,11 @@ export declare class Utils {
     static packr: Packr;
     static RCT: Record<string, Record<string, Msgs | undefined> | boolean>;
 }
-export declare class ExabaseError extends Error {
+export declare class ExaError extends Error {
     constructor(...err: any[]);
     private static geterr;
 }
-export declare class Schema<Model> {
+export declare class ExaSchema<Model> {
     tableName: string;
     RCT?: boolean;
     _trx: Query<Model>;
@@ -50,6 +50,10 @@ export declare class Schema<Model> {
      * @returns Date
      */
     static getTimestamp(_id: string): Date;
+}
+export declare class ExaType {
+    v: (data: any) => boolean;
+    constructor(validator: (data: any) => boolean);
 }
 export declare class Query<Model> {
     private _Manager;
@@ -144,7 +148,7 @@ export declare class Query<Model> {
     private _prepare_for;
 }
 export declare class Manager {
-    _schema: Schema<any>;
+    _schema: ExaSchema<any>;
     _name: string;
     _query: Query<any>;
     tableDir: string;
@@ -154,11 +158,11 @@ export declare class Manager {
     private _LogFiles;
     private _search;
     logging: boolean;
-    constructor(schema: Schema<any>, level: number);
+    constructor(schema: ExaSchema<any>, level: number);
     _setup(init: {
         _exabaseDirectory: string;
         logging: boolean;
-        schemas: Schema<any>[];
+        schemas: ExaSchema<any>[];
     }): Promise<void> | undefined;
     waiters: Record<string, wTrainType[]>;
     runningQueue: boolean;
@@ -169,7 +173,7 @@ export declare class Manager {
     _getReadingLog(logId: string): string;
     _getInsertLog(): string;
     _setLog(fn: string, last_id: string | null, size: number): void;
-    _constructRelationships(allSchemas: Schema<any>[]): void;
+    _constructRelationships(allSchemas: ExaSchema<any>[]): void;
     _validate(data: any, update?: boolean): Record<string, any>;
     _select(query: QueryType): Promise<Msg | Msgs>;
     _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void>;

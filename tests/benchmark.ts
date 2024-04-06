@@ -10,11 +10,11 @@
 
 import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
-import { Schema, Exabase } from "../dist/index.js";
+import { ExaSchema, Exabase } from "../dist/index.js";
 
 const db = Database.open("tests/sql_file/Northwind_large.sqlite");
 
-const Employee = new Schema({
+const Employee = new ExaSchema({
   tableName: "Employee",
   RCT: true,
   columns: {

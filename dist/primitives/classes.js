@@ -21,16 +21,16 @@ export class Utils {
         none: false, //? none is default for use with identifiers that has no need to cache
     };
 }
-export class ExabaseError extends Error {
+export class ExaError extends Error {
     constructor(...err) {
-        const message = ExabaseError.geterr(err);
+        const message = ExaError.geterr(err);
         super(message);
     }
     static geterr(err) {
         return String(err.join(""));
     }
 }
-export class Schema {
+export class ExaSchema {
     tableName;
     RCT;
     _trx;
@@ -61,25 +61,16 @@ export class Schema {
                     delete this.columns[key];
                     continue;
                 }
-                //? adding vitual types validators for JSON, Date and likes
-                // ? Date
-                if (this.columns[key].type === Date) {
-                    this.columns[key].type = ((d) => new Date(d).toString().includes("Inval") === false);
-                }
-                //? JSON
-                if (this.columns[key].type === JSON) {
-                    this.columns[key].type = ((d) => typeof d === "string");
-                }
                 //? validating default values
                 if (this.columns[key].default) {
                     // ? check for type
-                    if (typeof this.columns[key].default !==
-                        typeof this.columns[key].type()) {
-                        throw new ExabaseError(" schema property default value '", this.columns[key].default, "' for ", key, " on the ", this.tableName, " tableName has a wrong type");
+                    const v = validateData({ [key]: this.columns[key].default }, { [key]: { ...this.columns[key], default: undefined } });
+                    if (typeof v === "string") {
+                        throw new ExaError("Error validating default value on ", this.tableName, " ", v);
                     }
                 }
                 //? more later
-                //? let's keep a record of the unique fields we currectly have
+                //? let's keep a record of the unique fields we correctly have
                 if (this.columns[key].unique) {
                     this._unique_field[key] = true;
                 }
@@ -100,7 +91,7 @@ export class Schema {
     get query() {
         if (!this._premature)
             return this._trx;
-        throw new ExabaseError("Schema - " +
+        throw new ExaError("ExaSchema - " +
             this.tableName +
             " is not yet connected to an Exabase Instance");
     }
@@ -112,6 +103,13 @@ export class Schema {
      */
     static getTimestamp(_id) {
         return new Date(parseInt(_id.slice(0, 8), 16) * 1000);
+    }
+}
+// ? for declaring types
+export class ExaType {
+    v = () => false;
+    constructor(validator) {
+        this.v = validator;
     }
 }
 //? this is okay because it's reusable
@@ -137,7 +135,7 @@ export class Query {
         const query = {
             select: typeof field === "string" ? field : "*",
         };
-        // ? inputing relationship payload
+        // ? imputing relationship payload
         if (typeof field === "object") {
             query.select = undefined;
             let key = "", value;
@@ -153,7 +151,7 @@ export class Query {
                 };
             }
             else {
-                throw new ExabaseError(`column field ${key} is not unique, please try searching instead`);
+                throw new ExaError(`column field ${key} is not unique, please try searching instead`);
             }
         }
         // ? populate options
@@ -176,7 +174,7 @@ export class Query {
                             query.populate[lab] = fields[lab];
                         }
                         else {
-                            throw new ExabaseError("can't POPULATE missing realtionship " + lab);
+                            throw new ExaError("can't POPULATE missing realtionship " + lab);
                         }
                     }
                 }
@@ -212,7 +210,7 @@ export class Query {
                 };
             }
             else {
-                throw new ExabaseError(`column field ${key} is not unique, please try searching instead`);
+                throw new ExaError(`column field ${key} is not unique, please try searching instead`);
             }
         }
         // ? populate options
@@ -233,7 +231,7 @@ export class Query {
                             query.populate[lab] = fields[lab];
                         }
                         else {
-                            throw new ExabaseError("can't POPULATE missing realtionship " + lab);
+                            throw new ExaError("can't POPULATE missing realtionship " + lab);
                         }
                     }
                 }
@@ -250,7 +248,7 @@ export class Query {
      */
     search(searchQuery, options) {
         if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
-            throw new ExabaseError("invalid search query ", searchQuery);
+            throw new ExaError("invalid search query ", searchQuery);
         let query = { search: searchQuery };
         // ? populate options
         if (typeof options === "object") {
@@ -272,7 +270,7 @@ export class Query {
                             query.populate[lab] = fields[lab];
                         }
                         else {
-                            throw new ExabaseError("can't POPULATE missing realtionship " + lab);
+                            throw new ExaError("can't POPULATE missing realtionship " + lab);
                         }
                     }
                 }
@@ -301,7 +299,7 @@ export class Query {
      */
     delete(_id) {
         if (typeof _id !== "string") {
-            throw new ExabaseError("cannot continue with delete query '", _id, "' is not a valid Exabase _id value");
+            throw new ExaError("cannot continue with delete query '", _id, "' is not a valid Exabase _id value");
         }
         const query = {
             delete: _id,
@@ -328,10 +326,10 @@ export class Query {
     addRelation(options) {
         const rela = this._Manager._schema.relationship[options.relationship];
         if (!rela) {
-            throw new ExabaseError("No relationship definition called ", options.relationship, " on ", this._Manager._schema.tableName, " schema");
+            throw new ExaError("No relationship definition called ", options.relationship, " on ", this._Manager._schema.tableName, " schema");
         }
         if (typeof options.foreign_id !== "string") {
-            throw new ExabaseError("foreign_id field is invalid.");
+            throw new ExaError("foreign_id field is invalid.");
         }
         const query = {
             reference: {
@@ -354,7 +352,7 @@ export class Query {
     removeRelation(options) {
         const rela = this._Manager._schema.relationship[options.relationship];
         if (!rela) {
-            throw new ExabaseError("No relationship definition called ", options.relationship, " on ", this._Manager._schema.tableName, " schema");
+            throw new ExaError("No relationship definition called ", options.relationship, " on ", this._Manager._schema.tableName, " schema");
         }
         const query = {
             reference: {
@@ -380,7 +378,7 @@ export class Query {
             return this._Manager._runMany(q);
         }
         else {
-            throw new ExabaseError(`Invalid inputs for .saveBatch method, data should be array.`);
+            throw new ExaError(`Invalid inputs for .saveBatch method, data should be array.`);
         }
     }
     deleteBatch(data) {
@@ -389,7 +387,7 @@ export class Query {
             return this._Manager._runMany(q);
         }
         else {
-            throw new ExabaseError(`Invalid inputs for .deleteBatch method, data should be array.`);
+            throw new ExaError(`Invalid inputs for .deleteBatch method, data should be array.`);
         }
     }
     _prepare_for(data, del) {
@@ -403,7 +401,7 @@ export class Query {
                     });
                 }
                 else {
-                    throw new ExabaseError("cannot continue with delete query '", item._id, "' is not a valid Exabase _id value");
+                    throw new ExaError("cannot continue with delete query '", item._id, "' is not a valid Exabase _id value");
                 }
             }
             else {
@@ -619,11 +617,11 @@ export class Manager {
                             this._schema._foreign_field[key] = namee;
                         }
                         else {
-                            throw new ExabaseError(" tableName:", namee, " not found on any schema, please recheck the relationship definition of the ", this._schema.tableName, " schema");
+                            throw new ExaError(" tableName:", namee, " not found on any schema, please recheck the relationship definition of the ", this._schema.tableName, " schema");
                         }
                     }
                     else {
-                        throw new ExabaseError(" Error on schema ", this._schema.tableName, " relationship target must be a string ");
+                        throw new ExaError(" Error on schema ", this._schema.tableName, " relationship target must be a string ");
                     }
                 }
             }
@@ -632,11 +630,10 @@ export class Manager {
     _validate(data, update) {
         const v = validateData(data, this._schema.columns);
         if (typeof v === "string") {
-            console.log({ data, cols: this._schema.columns });
-            throw new ExabaseError(update ? "insert" : "update", " on table :", this._schema.tableName, " aborted, reason - ", v);
+            throw new ExaError(update ? "insert" : "update", " on table :", this._schema.tableName, " aborted, reason - ", v);
         }
         if (!data._id && update) {
-            throw new ExabaseError("update on table :", this._schema.tableName, " aborted, reason - _id is required");
+            throw new ExaError("update on table :", this._schema.tableName, " aborted, reason - _id is required");
         }
         return v;
     }

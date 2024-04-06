@@ -1,4 +1,4 @@
-import { realpath, open, write, fsync, close, chown as _chown, rename, unlink, } from "node:fs";
+import { open, write, fsync, close, chown as _chown, rename, unlink, } from "node:fs";
 import { resolve as _resolve } from "node:path";
 import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
@@ -8,7 +8,7 @@ import { Buffer } from "node:buffer";
 import { freemem } from "node:os";
 //
 import {} from "./types.js";
-import { Utils, ExabaseError } from "./classes.js";
+import { Utils, ExaError, ExaType } from "./classes.js";
 export const loadLog = async (filePath) => {
     try {
         const data = await readFile(filePath);
@@ -36,7 +36,7 @@ export async function updateMessage(dir, _unique_field, message) {
         const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
         // ? checking for existing specified unique identifiers
         if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
-            throw new ExabaseError("UPDATE on table :", dir, " aborted, reason - unique field's ", someIdex[0], " value ", someIdex[1], " exists!");
+            throw new ExaError("UPDATE on table :", dir, " aborted, reason - unique field's ", someIdex[0], " value ", someIdex[1], " exists!");
         }
     }
     if (_unique_field) {
@@ -48,10 +48,10 @@ export async function prepareMessage(dir, _unique_field, message) {
     if (_unique_field) {
         const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
         if (Array.isArray(someIdex)) {
-            throw new ExabaseError("INSERT on table :", dir, " aborted, reason - unique field's '", someIdex[0], "' value '", someIdex[1], "' exists!");
+            throw new ExaError("INSERT on table :", dir, " aborted, reason - unique field's '", someIdex[0], "' value '", someIdex[1], "' exists!");
         }
     }
-    message._id = generate_id();
+    message._id = ExaId();
     if (_unique_field) {
         await updateIndex(dir, _unique_field, message);
     }
@@ -166,11 +166,11 @@ export const addForeignKeys = async (fileName, reference, RCTiedlog) => {
         select: reference._id,
     }, RCTiedlog);
     if (!message) {
-        throw new ExabaseError("Adding relation on table :", " aborted, reason - item _id '", reference._id, "' not found!");
+        throw new ExaError("Adding relation on table :", " aborted, reason - item _id '", reference._id, "' not found!");
     }
     const foreign_message = await Utils.EXABASE_MANAGERS[reference.foreign_table.toUpperCase()]._query.findOne(reference.foreign_id);
     if (!foreign_message) {
-        throw new ExabaseError("Adding relation on table :", " aborted, reason - foreign_id '", reference.foreign_id, "' from foreign table '", reference.foreign_table, "' via it's relationship '", reference.relationship, "' not found!");
+        throw new ExaError("Adding relation on table :", " aborted, reason - foreign_id '", reference.foreign_id, "' from foreign table '", reference.foreign_table, "' via it's relationship '", reference.relationship, "' not found!");
     }
     fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
     //? update foreign key table
@@ -195,7 +195,7 @@ export const addForeignKeys = async (fileName, reference, RCTiedlog) => {
             messageX[reference.relationship] = [reference.foreign_id];
         }
     }
-    //? over-writting the structure
+    //? over-writing the structure
     messages[reference._id] = messageX;
     await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
 };
@@ -400,7 +400,7 @@ export const binarysorted_insert = async (message, messages) => {
     messages.splice(low, 0, message);
     return messages;
 };
-export const generate_id = () => {
+export const ExaId = () => {
     const PROCESS_UNIQUE = randomBytes(5);
     let index = ~~(Math.random() * 0xffffff);
     const time = ~~(Date.now() / 1000);
@@ -433,7 +433,7 @@ export const encode_timestamp = (timestamp) => {
     buffer[0] = (time >> 24) & 0xff;
     return buffer.toString("hex");
 };
-// Schema validator
+// ExaSchema validator
 export function validateData(data = {}, schema = {}) {
     let info = {};
     //? check for valid input
@@ -467,7 +467,12 @@ export function validateData(data = {}, schema = {}) {
             }
             // ? check for type
             if (typeof type === "function" &&
-                typeof data[prop] !== typeof type()) {
+                type(data[prop])) {
+                info = `${prop} type is invalid ${typeof data[prop]}`;
+                break;
+            }
+            // ? check for exaType type
+            if (type instanceof ExaType && type.v(data[prop])) {
                 info = `${prop} type is invalid ${typeof data[prop]}`;
                 break;
             }
@@ -490,19 +495,19 @@ export function validateData(data = {}, schema = {}) {
 }
 //  other functions
 export const getComputedUsage = (allowedUsagePercent, schemaLength) => {
-    const nuPerc = (p) => p / 1500; /*
+    const nuParc = (p) => p / 1500; /*
         ? (100 = convert to percentage, 15 = exabase gravity constant) = 1500 units  */
     //? percent allowed to be used
-    // ? what can be used by exabse
-    const usableGB = freemem() * nuPerc(allowedUsagePercent || 10); /*
-        ? normalise any 0% of falsy values to 10% */
+    // ? what can be used by exabase
+    const usableGB = freemem() * nuParc(allowedUsagePercent || 10); /*
+        ? normalize any 0% of falsy values to 10% */
     // ? usage size per schema derivation
     const usableManagerGB = usableGB / (schemaLength || 1);
     return usableManagerGB;
 };
 export function resizeRCT(level, data) {
     const keys = Object.keys(data);
-    //! 99 should caculated memory capacity
+    //! 99 should calculated memory capacity
     if (keys.length > level) {
         const a = keys.slice(0, level * 0.5);
         for (let i = 0; i < 50; i++) {
@@ -515,7 +520,7 @@ export async function SynFileWrit(file, data) {
     let fd;
     let tmpfile = "";
     try {
-        tmpfile = file + generate_id() + "-SYNC";
+        tmpfile = file + ExaId() + "-SYNC";
         fd = await promisify(open)(tmpfile, "w");
         await promisify(write)(fd, data, 0, data.length, 0);
         await promisify(fsync)(fd);
@@ -549,7 +554,7 @@ export const SynFileWritWithWaitList = {
         let fd;
         let tmpfile = "";
         try {
-            tmpfile = file + generate_id() + "-SYNC";
+            tmpfile = file + ExaId() + "-SYNC";
             fd = await promisify(open)(tmpfile, "w");
             await promisify(write)(fd, data, 0, data.length, 0);
             await promisify(fsync)(fd);

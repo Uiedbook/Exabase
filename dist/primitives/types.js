@@ -1,1 +1,1 @@
-import { Schema } from "./classes.js";
+import { ExaType, ExaSchema, Query } from "./classes.js";

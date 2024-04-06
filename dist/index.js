@@ -1,14 +1,14 @@
 import { mkdirSync } from "node:fs";
 import {} from "./primitives/types.js";
 import { _ExabaseRingInterface, _login_leader_ring, } from "./primitives/http-functions.js";
-import { ExabaseError, Utils, Manager, Query as TRX, } from "./primitives/classes.js";
+import { ExaError, Utils, Manager, Query } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 export class Exabase {
     _announced = false;
     _conn = undefined;
     _exabaseDirectory;
     constructor(init) {
-        //? initialisations
+        //? initializations
         //? [1] directories
         this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
         // ? setting up memory allocation for RCT enabled cache managers
@@ -32,7 +32,7 @@ export class Exabase {
                 logging: init.logging,
                 name: init.name,
             });
-            console.log("Exabase initialised!");
+            console.log("Exabase initialized!");
         }
         catch (e) {
             //? console.log(e);
@@ -79,7 +79,7 @@ export class Exabase {
         // ? if jetpath is added
         if (app?.decorate) {
             if (!Utils.MANIFEST.EXABASE_KEYS.privateKey) {
-                throw new ExabaseError("Exabase public and private keys not provided for connection");
+                throw new ExaError("Exabase public and private keys not provided for connection");
             }
             //? login this rings
             _login_leader_ring({
@@ -102,7 +102,7 @@ export class Exabase {
     }
     async executeQuery(query) {
         if (!this._announced) {
-            throw new ExabaseError("Exabase not ready!");
+            throw new ExaError("Exabase not ready!");
         }
         //? verify query validity
         try {
@@ -115,9 +115,10 @@ export class Exabase {
             return table._run(parsedQuery.query);
         }
         catch (error) {
-            throw new ExabaseError("Invalid query: ", query);
+            throw new ExaError("Invalid query: ", query);
         }
     }
 }
 //? exports
-export { Schema, ExabaseError } from "./primitives/classes.js";
+export { ExaSchema, ExaError, ExaType } from "./primitives/classes.js";
+export { ExaId } from "./primitives/functions.js";

@@ -1,8 +1,8 @@
-import { Exabase, Schema } from "../dist/index.js";
+import { Exabase, ExaSchema } from "../dist/index.js";
 import { test, expect } from "bun:test";
 
 test("example setup, schema setup, inset and find, search, update, and delete operations", async () => {
-  const Order = new Schema<{ ticket: string }>({
+  const Order = new ExaSchema<{ ticket: string }>({
     tableName: "order",
     columns: {
       ticket: { type: String, unique: true },

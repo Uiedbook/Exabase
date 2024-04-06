@@ -153,7 +153,7 @@ export type ExabaseOptions = {
    * ---
    * Data schemas
    */
-  schemas: Schema<any>[],
+  schemas: ExaSchema<any>[],
   /**
    * Exabase DBMS
    * ---
@@ -169,7 +169,7 @@ export type ExabaseOptions = {
 };
 ```
 
-## Schema.Query Methods
+## ExaSchema.Query Methods
 
 ```ts
     /**
@@ -280,7 +280,7 @@ export type ExabaseOptions = {
 ```ts
 test("example setup", async () => {
 
-  const Order = new Schema<{ ticket: string }>({
+  const Order = new ExaSchema<{ ticket: string }>({
     tableName: "order",
     columns: {
       ticket: { type: String, unique: true },

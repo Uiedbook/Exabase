@@ -1,5 +1,4 @@
-import { type ExaDoc, type ExabaseOptions, type connectOptions } from "./primitives/types.js";
-import { Query as TRX } from "./primitives/classes.js";
+import { type ExabaseOptions, type connectOptions } from "./primitives/types.js";
 export declare class Exabase {
     private _announced;
     private _conn;
@@ -8,6 +7,6 @@ export declare class Exabase {
     connect(app?: connectOptions): Promise<unknown> | undefined;
     executeQuery(query: string): Promise<number | void | import("./primitives/types.js").Msg | import("./primitives/types.js").Msgs>;
 }
-export { Schema, ExabaseError } from "./primitives/classes.js";
-export type { ExaDoc } from "./primitives/types.js";
-export type query<Model = ExaDoc<{}>> = TRX<Model>;
+export { ExaSchema, ExaError, ExaType } from "./primitives/classes.js";
+export { ExaId } from "./primitives/functions.js";
+export type { ExaDoc, ExaQuery } from "./primitives/types.js";

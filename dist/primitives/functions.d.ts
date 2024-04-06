@@ -30,7 +30,7 @@ export declare const binarysearch_find: (_id: string, messages: {
 }[]) => number | undefined;
 export declare const binarysearch_mutate: (message: Msg, messages: Msgs, flag: Xtree_flag) => Promise<Msgs>;
 export declare const binarysorted_insert: (message: Msg, messages: Msgs) => Promise<Msgs>;
-export declare const generate_id: () => string;
+export declare const ExaId: () => string;
 export declare const encode_timestamp: (timestamp: string) => string;
 export declare function validateData(data?: Record<string, Record<string, any>>, schema?: Record<string, SchemaColumnOptions>): string | Record<string, any>;
 export declare const getComputedUsage: (allowedUsagePercent: number, schemaLength: number) => number;

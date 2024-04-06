@@ -1,5 +1,4 @@
 import {
-  realpath,
   open,
   write,
   fsync,
@@ -25,7 +24,7 @@ import {
   type fTable,
   type iTable,
 } from "./types.js";
-import { Utils, ExabaseError } from "./classes.js";
+import { Utils, ExaError, ExaType } from "./classes.js";
 
 export const loadLog = async (filePath: string) => {
   try {
@@ -57,7 +56,7 @@ export async function updateMessage(
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     // ? checking for existing specified unique identifiers
     if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
-      throw new ExabaseError(
+      throw new ExaError(
         "UPDATE on table :",
         dir,
         " aborted, reason - unique field's ",
@@ -81,7 +80,7 @@ export async function prepareMessage(
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
     if (Array.isArray(someIdex)) {
-      throw new ExabaseError(
+      throw new ExaError(
         "INSERT on table :",
         dir,
         " aborted, reason - unique field's '",
@@ -92,7 +91,7 @@ export async function prepareMessage(
       );
     }
   }
-  message._id = generate_id();
+  message._id = ExaId();
   if (_unique_field) {
     await updateIndex(dir, _unique_field, message);
   }
@@ -243,7 +242,7 @@ export const addForeignKeys = async (
     RCTiedlog
   );
   if (!message) {
-    throw new ExabaseError(
+    throw new ExaError(
       "Adding relation on table :",
 
       " aborted, reason - item _id '",
@@ -257,7 +256,7 @@ export const addForeignKeys = async (
   ]._query.findOne(reference.foreign_id);
 
   if (!foreign_message) {
-    throw new ExabaseError(
+    throw new ExaError(
       "Adding relation on table :",
 
       " aborted, reason - foreign_id '",
@@ -297,7 +296,7 @@ export const addForeignKeys = async (
       messageX[reference.relationship] = [reference.foreign_id];
     }
   }
-  //? over-writting the structure
+  //? over-writing the structure
   messages[reference._id] = messageX;
   await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
 };
@@ -540,7 +539,7 @@ export const binarysorted_insert = async (message: Msg, messages: Msgs) => {
   return messages;
 };
 
-export const generate_id = (): string => {
+export const ExaId = (): string => {
   const PROCESS_UNIQUE = randomBytes(5);
   let index = ~~(Math.random() * 0xffffff);
   const time = ~~(Date.now() / 1000);
@@ -574,12 +573,13 @@ export const encode_timestamp = (timestamp: string): string => {
   return buffer.toString("hex");
 };
 
-// Schema validator
+// ExaSchema validator
 
 export function validateData(
   data: Record<string, Record<string, any>> = {},
   schema: Record<string, SchemaColumnOptions> = {}
-) {
+) { 
+
   let info: Record<string, any> | string = {};
   //? check for valid input
   if (typeof data !== "object") {
@@ -615,8 +615,13 @@ export function validateData(
       // ? check for type
       if (
         typeof type === "function" &&
-        typeof data[prop] !== typeof (type as NumberConstructor)()
+        (type as NumberConstructor)(data[prop])
       ) {
+        info = `${prop} type is invalid ${typeof data[prop]}`;
+        break;
+      }
+      // ? check for exaType type
+      if (type instanceof ExaType && type.v(data[prop])) {
         info = `${prop} type is invalid ${typeof data[prop]}`;
         break;
       }
@@ -648,19 +653,19 @@ export const getComputedUsage = (
   allowedUsagePercent: number,
   schemaLength: number
 ) => {
-  const nuPerc = (p: number) => p / 1500; /*
+  const nuParc = (p: number) => p / 1500; /*
       ? (100 = convert to percentage, 15 = exabase gravity constant) = 1500 units  */
   //? percent allowed to be used
-  // ? what can be used by exabse
-  const usableGB = freemem() * nuPerc(allowedUsagePercent || 10); /*
-      ? normalise any 0% of falsy values to 10% */
+  // ? what can be used by exabase
+  const usableGB = freemem() * nuParc(allowedUsagePercent || 10); /*
+      ? normalize any 0% of falsy values to 10% */
   // ? usage size per schema derivation
   const usableManagerGB = usableGB / (schemaLength || 1);
   return usableManagerGB;
 };
 export function resizeRCT(level: number, data: Record<string, any>) {
   const keys = Object.keys(data);
-  //! 99 should caculated memory capacity
+  //! 99 should calculated memory capacity
   if (keys.length > level) {
     const a = keys.slice(0, level * 0.5);
     for (let i = 0; i < 50; i++) {
@@ -674,7 +679,7 @@ export async function SynFileWrit(file: string, data: Buffer) {
   let fd;
   let tmpfile = "";
   try {
-    tmpfile = file + generate_id() + "-SYNC";
+    tmpfile = file + ExaId() + "-SYNC";
     fd = await promisify(open)(tmpfile, "w");
     await promisify(write)(fd, data, 0, data.length, 0);
     await promisify(fsync)(fd);
@@ -707,7 +712,7 @@ export const SynFileWritWithWaitList = {
     let fd;
     let tmpfile = "";
     try {
-      tmpfile = file + generate_id() + "-SYNC";
+      tmpfile = file + ExaId() + "-SYNC";
       fd = await promisify(open)(tmpfile, "w");
       await promisify(write)(fd, data, 0, data.length, 0);
       await promisify(fsync)(fd);

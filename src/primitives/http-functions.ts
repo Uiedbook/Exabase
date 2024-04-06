@@ -1,5 +1,5 @@
 //
-import { ExabaseError, Utils } from "./classes.js";
+import { ExaError, Utils } from "./classes.js";
 
 export const _ExabaseRingInterface = async (ctx: {
   throw(): never;
@@ -50,7 +50,7 @@ export const _login_leader_ring = async (indexes: Record<string, number>) => {
   });
   const data: any = await ringbearerResponse.json();
   if (data.status !== "OK") {
-    throw new ExabaseError("Failed Exabase login atempt");
+    throw new ExaError("Failed Exabase login atempt");
   }
   return true;
 };
