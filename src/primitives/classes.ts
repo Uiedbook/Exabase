@@ -838,7 +838,7 @@ export class Manager {
           this.RCT[file] ?? (await loadLog(this.tableDir + file))
         );
       } else {
-        return [];
+        return;
       }
     }
     if (query["count"]) {
@@ -866,7 +866,6 @@ export class Manager {
         this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
 
-      // console.log({ message, query });
       if (message) {
         return this.queue(file, message, "d");
       } else {

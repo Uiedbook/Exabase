@@ -691,7 +691,7 @@ export class Manager {
                 }, this.RCT[file] ?? (await loadLog(this.tableDir + file)));
             }
             else {
-                return [];
+                return;
             }
         }
         if (query["count"]) {
