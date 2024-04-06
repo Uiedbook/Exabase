@@ -578,8 +578,7 @@ export const encode_timestamp = (timestamp: string): string => {
 export function validateData(
   data: Record<string, Record<string, any>> = {},
   schema: Record<string, SchemaColumnOptions> = {}
-) { 
-
+) {
   let info: Record<string, any> | string = {};
   //? check for valid input
   if (typeof data !== "object") {
@@ -587,7 +586,7 @@ export function validateData(
   }
   for (const [prop, value] of Object.entries(schema)) {
     const { type, length, width, nullable } = value as columnValidationType;
-    (info as Record<string, any>)[prop] = data[prop] || value.default || null;
+    (info as Record<string, any>)[prop] = data[prop] || value.default;
     if (prop === "_id") {
       continue;
     }
@@ -596,7 +595,7 @@ export function validateData(
       continue;
     }
     if ((data[prop] === undefined || data[prop] === null) && !nullable) {
-      if (!value.default) {
+      if (value.default === undefined) {
         info = `${prop} is required`;
         break;
       }
@@ -615,13 +614,13 @@ export function validateData(
       // ? check for type
       if (
         typeof type === "function" &&
-        (type as NumberConstructor)(data[prop])
+        !(typeof data[prop] === typeof (type as Function)())
       ) {
         info = `${prop} type is invalid ${typeof data[prop]}`;
         break;
       }
       // ? check for exaType type
-      if (type instanceof ExaType && type.v(data[prop])) {
+      if (type instanceof ExaType && !type.v(data[prop])) {
         info = `${prop} type is invalid ${typeof data[prop]}`;
         break;
       }
@@ -641,6 +640,7 @@ export function validateData(
         data[prop]["length"] > length
       ) {
         info = `${prop} is more than ${length} characters `;
+        break;
       }
     }
   }

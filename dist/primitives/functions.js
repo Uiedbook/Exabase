@@ -442,7 +442,7 @@ export function validateData(data = {}, schema = {}) {
     }
     for (const [prop, value] of Object.entries(schema)) {
         const { type, length, width, nullable } = value;
-        info[prop] = data[prop] || value.default || null;
+        info[prop] = data[prop] || value.default;
         if (prop === "_id") {
             continue;
         }
@@ -451,7 +451,7 @@ export function validateData(data = {}, schema = {}) {
             continue;
         }
         if ((data[prop] === undefined || data[prop] === null) && !nullable) {
-            if (!value.default) {
+            if (value.default === undefined) {
                 info = `${prop} is required`;
                 break;
             }
@@ -467,12 +467,12 @@ export function validateData(data = {}, schema = {}) {
             }
             // ? check for type
             if (typeof type === "function" &&
-                type(data[prop])) {
+                !(typeof data[prop] === typeof type())) {
                 info = `${prop} type is invalid ${typeof data[prop]}`;
                 break;
             }
             // ? check for exaType type
-            if (type instanceof ExaType && type.v(data[prop])) {
+            if (type instanceof ExaType && !type.v(data[prop])) {
                 info = `${prop} type is invalid ${typeof data[prop]}`;
                 break;
             }
@@ -488,6 +488,7 @@ export function validateData(data = {}, schema = {}) {
                 typeof data[prop] === "string" &&
                 data[prop]["length"] > length) {
                 info = `${prop} is more than ${length} characters `;
+                break;
             }
         }
     }

@@ -712,7 +712,6 @@ export class Manager {
         if (query["delete"]) {
             const file = this._getReadingLog(query.delete);
             const message = await deleteMessage(query.delete, this.tableDir, this._schema._unique_field, this._schema.relationship ? true : false, this.tableDir + file, this.RCT[file] ?? (await loadLog(this.tableDir + file)));
-            // console.log({ message, query });
             if (message) {
                 return this.queue(file, message, "d");
             }
