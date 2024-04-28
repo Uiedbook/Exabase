@@ -39,7 +39,7 @@ export declare class ExaSchema<Model> {
     /**
      * Exabase
      * ---
-     * querys object
+     * query object
      * @returns {Query<Model>}
      */
     get query(): Query<Model>;
@@ -57,6 +57,7 @@ export declare class ExaType {
 }
 export declare class Query<Model> {
     private _Manager;
+    _table?: string;
     premature: boolean;
     constructor(Manager: Manager);
     /**
@@ -197,10 +198,10 @@ declare class XNode {
 export declare class XTree {
     base: string[];
     mutatingBase: boolean;
-    persitKey: string;
+    persistKey: string;
     tree: Record<string, XNode>;
     constructor(init: {
-        persitKey: string;
+        persistKey: string;
     });
     restart(): void;
     search(search: Msg, take?: number, skip?: number): string[];
@@ -210,7 +211,7 @@ export declare class XTree {
     insert(data: Msg): void;
     disert(data: Msg): void;
     upsert(data: Msg): void;
-    persit(): Promise<void>;
-    static restore(persitKey: string): any[];
+    persist(): Promise<void>;
+    static restore(persistKey: string): any[];
 }
 export {};

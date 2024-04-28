@@ -5,6 +5,7 @@ export declare class Exabase {
     private _exabaseDirectory;
     constructor(init: ExabaseOptions);
     connect(app?: connectOptions): Promise<unknown> | undefined;
+    query(tableName: string): import("./primitives/classes.js").Query<any>;
     executeQuery(query: string): Promise<number | void | import("./primitives/types.js").Msg | import("./primitives/types.js").Msgs>;
 }
 export { ExaSchema, ExaError, ExaType } from "./primitives/classes.js";

@@ -1,6 +1,5 @@
 import { mkdirSync } from "node:fs";
 import {
-  type ExaDoc,
   type ExabaseOptions,
   type connectOptions,
 } from "./primitives/types.js";
@@ -8,7 +7,7 @@ import {
   _ExabaseRingInterface,
   _login_leader_ring,
 } from "./primitives/http-functions.js";
-import { ExaError, Utils, Manager, Query } from "./primitives/classes.js";
+import { ExaError, Utils, Manager } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
@@ -126,6 +125,17 @@ export class Exabase {
       });
     }
     return undefined;
+  }
+  query(tableName: string) {
+    const table = Utils.EXABASE_MANAGERS[tableName];
+    if (table) {
+      return table._schema.query;
+    }
+    console.log(
+      "ExaError: available tables are ",
+      Object.keys(Utils.EXABASE_MANAGERS).join(", ")
+    );
+    throw new ExaError("No schema named ", tableName, "!");
   }
   async executeQuery(query: string) {
     if (!this._announced) {

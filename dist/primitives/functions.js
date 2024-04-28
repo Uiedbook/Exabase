@@ -435,14 +435,15 @@ export const encode_timestamp = (timestamp) => {
 };
 // ExaSchema validator
 export function validateData(data = {}, schema = {}) {
-    let info = {};
+    let info;
+    let out = {};
     //? check for valid input
     if (typeof data !== "object") {
         info = " data is invalid " + data;
     }
     for (const [prop, value] of Object.entries(schema)) {
         const { type, length, width, nullable } = value;
-        info[prop] = data[prop] || value.default;
+        out[prop] = data[prop] || value.default;
         if (prop === "_id") {
             continue;
         }
@@ -468,12 +469,12 @@ export function validateData(data = {}, schema = {}) {
             // ? check for type
             if (typeof type === "function" &&
                 !(typeof data[prop] === typeof type())) {
-                info = `${prop} type is invalid ${typeof data[prop]}`;
+                info = `Provided ${prop} value has an invalid type value ${String(data[prop])}`;
                 break;
             }
             // ? check for exaType type
             if (type instanceof ExaType && !type.v(data[prop])) {
-                info = `${prop} type is invalid ${typeof data[prop]}`;
+                info = `Provided ${prop} value has an invalid type value ${String(data[prop])}`;
                 break;
             }
             //? checks for numbers width
@@ -492,7 +493,7 @@ export function validateData(data = {}, schema = {}) {
             }
         }
     }
-    return info;
+    return info || out;
 }
 //  other functions
 export const getComputedUsage = (allowedUsagePercent, schemaLength) => {

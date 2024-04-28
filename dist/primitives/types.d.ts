@@ -156,7 +156,7 @@ export type columnValidationType = {
     default?: any;
     unique?: boolean;
 };
-export type qType = "select" | "insert" | "delete" | "update" | "search" | "take" | "unique" | "skip" | "order" | "reference" | "count" | "populate";
+export type qType = "select" | "insert" | "delete" | "update" | "search" | "take" | "unique" | "skip" | "order" | "reference" | "count" | "table" | "populate";
 export type QueryType = Partial<Record<qType, any>>;
 export type Msg = {
     _id: string;

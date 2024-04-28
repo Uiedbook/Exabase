@@ -4,6 +4,7 @@ import { Packr } from "msgpackr";
 import {} from "./types.js";
 import { Sign, Verify } from "node:crypto";
 import { findMessage, updateMessage, deleteMessage, addForeignKeys, loadLog, binarysorted_insert, removeForeignKeys, binarysearch_mutate, findMessageByUnique, loadLogSync, validateData, resizeRCT, prepareMessage, SynFileWrit, SynFileWritWithWaitList, } from "./functions.js";
+import { table } from "node:console";
 export class Utils {
     static MANIFEST = {
         schemas: [],
@@ -50,9 +51,9 @@ export class ExaSchema {
             this.RCT = options.RCT;
             this.migrationFN = options.migrationFN;
             this.columns = { ...(options?.columns || {}) };
-            //? setting up _id type on initialisation
+            //? setting up _id type on initialization
             this.columns._id = { type: String };
-            //? setting up secondary types on initialisation
+            //? setting up secondary types on initialization
             //? Date
             for (const key in this.columns) {
                 //? keep a easy track of relationships
@@ -66,7 +67,7 @@ export class ExaSchema {
                     // ? check for type
                     const v = validateData({ [key]: this.columns[key].default }, { [key]: { ...this.columns[key], default: undefined } });
                     if (typeof v === "string") {
-                        throw new ExaError("Error validating default value on ", this.tableName, " ", v);
+                        throw new ExaError("Error validating default value on ", this.tableName, " reason - ", v);
                     }
                 }
                 //? more later
@@ -85,7 +86,7 @@ export class ExaSchema {
     /**
      * Exabase
      * ---
-     * querys object
+     * query object
      * @returns {Query<Model>}
      */
     get query() {
@@ -115,11 +116,13 @@ export class ExaType {
 //? this is okay because it's reusable
 export class Query {
     _Manager;
+    _table;
     premature = true;
     constructor(Manager) {
         this._Manager = Manager;
         if (Manager) {
             this.premature = false;
+            this._table = Manager._name;
         }
     }
     /**
@@ -134,6 +137,7 @@ export class Query {
         // ? creating query payload
         const query = {
             select: typeof field === "string" ? field : "*",
+            table: this._table,
         };
         // ? imputing relationship payload
         if (typeof field === "object") {
@@ -174,7 +178,7 @@ export class Query {
                             query.populate[lab] = fields[lab];
                         }
                         else {
-                            throw new ExaError("can't POPULATE missing realtionship " + lab);
+                            throw new ExaError("can't POPULATE missing relationship " + lab);
                         }
                     }
                 }
@@ -194,8 +198,9 @@ export class Query {
         // ? creating query payload
         const query = {
             select: typeof field === "string" ? field : undefined,
+            table: this._table,
         };
-        // ? inputing relationship payload
+        // ? inputting relationship payload
         if (typeof field === "object") {
             let key = "", value;
             for (const k in field) {
@@ -231,7 +236,7 @@ export class Query {
                             query.populate[lab] = fields[lab];
                         }
                         else {
-                            throw new ExaError("can't POPULATE missing realtionship " + lab);
+                            throw new ExaError("can't POPULATE missing relationship " + lab);
                         }
                     }
                 }
@@ -249,7 +254,7 @@ export class Query {
     search(searchQuery, options) {
         if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
             throw new ExaError("invalid search query ", searchQuery);
-        let query = { search: searchQuery };
+        let query = { search: searchQuery, table: this._table };
         // ? populate options
         if (typeof options === "object") {
             query.skip = options.skip;
@@ -270,7 +275,7 @@ export class Query {
                             query.populate[lab] = fields[lab];
                         }
                         else {
-                            throw new ExaError("can't POPULATE missing realtionship " + lab);
+                            throw new ExaError("can't POPULATE missing relationship " + lab);
                         }
                     }
                 }
@@ -288,6 +293,7 @@ export class Query {
         const hasid = typeof data?._id === "string";
         const query = {
             [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid),
+            table: this._table,
         };
         return this._Manager._run(query);
     }
@@ -303,6 +309,7 @@ export class Query {
         }
         const query = {
             delete: _id,
+            table: this._table,
         };
         return this._Manager._run(query);
     }
@@ -314,6 +321,7 @@ export class Query {
     count(pops) {
         const query = {
             count: pops || true,
+            table: this._table,
         };
         return this._Manager._run(query);
     }
@@ -340,6 +348,7 @@ export class Query {
                 relationship: options.relationship,
                 foreign_table: rela.target,
             },
+            table: this._table,
         };
         return this._Manager._run(query);
     }
@@ -363,6 +372,7 @@ export class Query {
                 relationship: options.relationship,
                 foreign_table: rela.target,
             },
+            table: this._table,
         };
         return this._Manager._run(query);
     }
@@ -398,6 +408,7 @@ export class Query {
                 if (typeof item._id === "string") {
                     query.push({
                         delete: item._id,
+                        table: this._table,
                     });
                 }
                 else {
@@ -408,6 +419,7 @@ export class Query {
                 const hasid = item?._id && true;
                 query.push({
                     [hasid ? "update" : "insert"]: this._Manager._validate(item, hasid),
+                    table: this._table,
                 });
             }
         }
@@ -432,7 +444,7 @@ export class Manager {
     constructor(schema, level) {
         this._schema = schema;
         this._name = schema.tableName;
-        this._search = new XTree({ persitKey: "" });
+        this._search = new XTree({ persistKey: "" });
         this._query = new Query(this);
         schema._trx = this._query;
         //? set RCT key
@@ -444,7 +456,7 @@ export class Manager {
         this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
         this.logging = init.logging;
         // ? setting up Xtree search index
-        this._search = new XTree({ persitKey: this.tableDir + "XINDEX" });
+        this._search = new XTree({ persistKey: this.tableDir + "XINDEX" });
         // ? setup relationship
         this._constructRelationships(init.schemas);
         //? setup table directories
@@ -481,7 +493,7 @@ export class Manager {
         this.runningQueue = true;
         // console.log("Query length ----> " + queries.length);
         const Rs = [];
-        // ? do the writting by
+        // ? do the writing by
         let messages = this.RCT[file] ?? (await loadLog(this.tableDir + file));
         for (let i = 0; i < queries.length; i++) {
             const [resolve, message, flag] = queries[i];
@@ -508,11 +520,11 @@ export class Manager {
         if (this.RCTied) {
             this.RCT[file] = messages;
         }
-        // ? synchronise writter
+        // ? synchronies writer
         await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
         //? resize RCT
         this.RCTied && resizeRCT(this.rct_level, this.RCT);
-        this._search.persit();
+        this._search.persist();
         Rs.map((a) => a());
         // ? run awaiting queries
         if (this.waiters[file].length) {
@@ -564,7 +576,7 @@ export class Manager {
                     await this._search.insert(LOG[i]);
                 }
             }
-            await this._search.persit();
+            await this._search.persist();
         }
     }
     _getReadingLog(logId) {
@@ -611,13 +623,13 @@ export class Manager {
                 this._schema._foreign_field = {};
                 for (const key in this._schema.relationship) {
                     if (typeof this._schema.relationship[key].target === "string") {
-                        const namee = this._schema.relationship[key].target.toUpperCase();
-                        const findschema = allSchemas.find((schema) => schema.tableName === namee);
-                        if (findschema) {
-                            this._schema._foreign_field[key] = namee;
+                        const namer = this._schema.relationship[key].target.toUpperCase();
+                        const findSchema = allSchemas.find((schema) => schema.tableName === namer);
+                        if (findSchema) {
+                            this._schema._foreign_field[key] = namer;
                         }
                         else {
-                            throw new ExaError(" tableName:", namee, " not found on any schema, please recheck the relationship definition of the ", this._schema.tableName, " schema");
+                            throw new ExaError(" tableName:", namer, " not found on any schema, please recheck the relationship definition of the ", this._schema.tableName, " schema");
                         }
                     }
                     else {
@@ -630,11 +642,15 @@ export class Manager {
     _validate(data, update) {
         const v = validateData(data, this._schema.columns);
         if (typeof v === "string") {
-            throw new ExaError(update ? "insert" : "update", " on table :", this._schema.tableName, " aborted, reason - ", v);
+            throw new ExaError(!update ? "insert" : "update", " on table :", this._schema.tableName, " aborted, reason - ", v);
         }
-        if (!data._id && update) {
-            throw new ExaError("update on table :", this._schema.tableName, " aborted, reason - _id is required");
-        }
+        // if (!data._id && update) {
+        //   throw new ExaError(
+        //     "update on table :",
+        //     this._schema.tableName,
+        //     " aborted, reason - _id is missing"
+        //   );
+        // }
         return v;
     }
     async _select(query) {
@@ -732,20 +748,16 @@ export class Manager {
     _runMany(query) {
         // ? log the query
         if (this.logging)
-            console.log({ query, table: this._name });
+            console.log({ query });
         //? create run trx(s)
         if (query.length) {
-            // console.log({ logs: this._LogFiles, rcts: this.RCT, query });
-            // console.log("-------------------------------------------------- >>>");
             return Promise.all(query.map((q) => this._trx_runner(q)));
         }
     }
     _run(query) {
         if (this.logging)
-            console.log({ query, table: this._name });
+            console.log({ query });
         //? create and run TRX
-        // console.log({ logs: this._LogFiles, rcts: this.RCT, query });
-        // console.log("-------------------------------------------------- >>>");
         return this._trx_runner(query);
     }
 }
@@ -818,11 +830,11 @@ class XNode {
 export class XTree {
     base = [];
     mutatingBase = false;
-    persitKey;
+    persistKey;
     tree = {};
     constructor(init) {
-        this.persitKey = init.persitKey;
-        const [base, tree] = XTree.restore(init.persitKey);
+        this.persistKey = init.persistKey;
+        const [base, tree] = XTree.restore(init.persistKey);
         if (base) {
             this.base = base;
             this.tree = tree;
@@ -955,19 +967,19 @@ export class XTree {
         this.mutatingBase = true;
         this.mutatingBase = false;
     }
-    persit() {
+    persist() {
         const obj = {};
         const keys = Object.keys(this.tree);
         for (let index = 0; index < keys.length; index++) {
             obj[keys[index]] = this.tree[keys[index]].keys;
         }
-        return SynFileWritWithWaitList.write(this.persitKey, Utils.packr.encode({
+        return SynFileWritWithWaitList.write(this.persistKey, Utils.packr.encode({
             base: this.base,
             tree: obj,
         }));
     }
-    static restore(persitKey) {
-        const data = loadLogSync(persitKey);
+    static restore(persistKey) {
+        const data = loadLogSync(persistKey);
         const tree = {};
         if (data.tree) {
             for (const key in data.tree) {

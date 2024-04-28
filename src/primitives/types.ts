@@ -177,6 +177,7 @@ export type qType =
   | "order"
   | "reference"
   | "count"
+  | "table"
   | "populate";
 
 export type QueryType = Partial<Record<qType, any>>;

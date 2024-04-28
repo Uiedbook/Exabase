@@ -32,6 +32,7 @@ import {
   SynFileWrit,
   SynFileWritWithWaitList,
 } from "./functions.js";
+import { table } from "node:console";
 
 export class Utils {
   static MANIFEST: {
@@ -92,9 +93,9 @@ export class ExaSchema<Model> {
       this.RCT = options.RCT;
       this.migrationFN = options.migrationFN;
       this.columns = { ...(options?.columns || {}) };
-      //? setting up _id type on initialisation
+      //? setting up _id type on initialization
       (this.columns as any)._id = { type: String };
-      //? setting up secondary types on initialisation
+      //? setting up secondary types on initialization
       //? Date
       for (const key in this.columns) {
         //? keep a easy track of relationships
@@ -115,7 +116,7 @@ export class ExaSchema<Model> {
             throw new ExaError(
               "Error validating default value on ",
               this.tableName,
-              " ",
+              " reason - ",
               v
             );
           }
@@ -137,7 +138,7 @@ export class ExaSchema<Model> {
   /**
    * Exabase
    * ---
-   * querys object
+   * query object
    * @returns {Query<Model>}
    */
   get query(): Query<Model> {
@@ -169,11 +170,13 @@ export class ExaType {
 //? this is okay because it's reusable
 export class Query<Model> {
   private _Manager: Manager;
+  _table?: string;
   premature: boolean = true;
   constructor(Manager: Manager) {
     this._Manager = Manager;
     if (Manager) {
       this.premature = false;
+      this._table = Manager._name;
     }
   }
 
@@ -196,6 +199,7 @@ export class Query<Model> {
     // ? creating query payload
     const query: QueryType = {
       select: typeof field === "string" ? field : "*",
+      table: this._table,
     };
     // ? imputing relationship payload
     if (typeof field === "object") {
@@ -236,7 +240,7 @@ export class Query<Model> {
             if (relaName) {
               query.populate[lab] = fields[lab];
             } else {
-              throw new ExaError("can't POPULATE missing realtionship " + lab);
+              throw new ExaError("can't POPULATE missing relationship " + lab);
             }
           }
         }
@@ -261,8 +265,9 @@ export class Query<Model> {
     // ? creating query payload
     const query: QueryType = {
       select: typeof field === "string" ? field : undefined,
+      table: this._table,
     };
-    // ? inputing relationship payload
+    // ? inputting relationship payload
     if (typeof field === "object") {
       let key: string = "",
         value: any;
@@ -298,7 +303,7 @@ export class Query<Model> {
             if (relaName) {
               query.populate[lab] = fields[lab];
             } else {
-              throw new ExaError("can't POPULATE missing realtionship " + lab);
+              throw new ExaError("can't POPULATE missing relationship " + lab);
             }
           }
         }
@@ -324,7 +329,7 @@ export class Query<Model> {
   ) {
     if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
       throw new ExaError("invalid search query ", searchQuery);
-    let query: QueryType = { search: searchQuery };
+    let query: QueryType = { search: searchQuery, table: this._table };
     // ? populate options
     if (typeof options === "object") {
       query.skip = options.skip;
@@ -343,7 +348,7 @@ export class Query<Model> {
             if (relaName) {
               query.populate[lab] = fields[lab];
             } else {
-              throw new ExaError("can't POPULATE missing realtionship " + lab);
+              throw new ExaError("can't POPULATE missing relationship " + lab);
             }
           }
         }
@@ -361,6 +366,7 @@ export class Query<Model> {
     const hasid = typeof data?._id === "string";
     const query: QueryType = {
       [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid),
+      table: this._table,
     };
     return this._Manager._run(query) as Promise<ExaDoc<Model>>;
   }
@@ -380,6 +386,7 @@ export class Query<Model> {
     }
     const query: QueryType = {
       delete: _id,
+      table: this._table,
     };
     return this._Manager._run(query) as Promise<ExaDoc<Model>>;
   }
@@ -391,6 +398,7 @@ export class Query<Model> {
   count(pops?: Partial<Model>) {
     const query: QueryType = {
       count: pops || true,
+      table: this._table,
     };
     return this._Manager._run(query) as Promise<number>;
   }
@@ -429,6 +437,7 @@ export class Query<Model> {
         relationship: options.relationship,
         foreign_table: rela.target,
       },
+      table: this._table,
     };
     return this._Manager._run(query) as Promise<void>;
   }
@@ -462,6 +471,7 @@ export class Query<Model> {
         relationship: options.relationship,
         foreign_table: rela.target,
       },
+      table: this._table,
     };
     return this._Manager._run(query) as Promise<void>;
   }
@@ -499,6 +509,7 @@ export class Query<Model> {
         if (typeof (item as any)._id === "string") {
           query.push({
             delete: (item as any)._id,
+            table: this._table,
           });
         } else {
           throw new ExaError(
@@ -511,6 +522,7 @@ export class Query<Model> {
         const hasid = (item as any)?._id && true;
         query.push({
           [hasid ? "update" : "insert"]: this._Manager._validate(item, hasid),
+          table: this._table,
         });
       }
     }
@@ -536,7 +548,7 @@ export class Manager {
   constructor(schema: ExaSchema<any>, level: number) {
     this._schema = schema;
     this._name = schema.tableName;
-    this._search = new XTree({ persitKey: "" });
+    this._search = new XTree({ persistKey: "" });
     this._query = new Query<any>(this);
     schema._trx = this._query;
     //? set RCT key
@@ -552,7 +564,7 @@ export class Manager {
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
     this.logging = init.logging;
     // ? setting up Xtree search index
-    this._search = new XTree({ persitKey: this.tableDir + "XINDEX" });
+    this._search = new XTree({ persistKey: this.tableDir + "XINDEX" });
     // ? setup relationship
     this._constructRelationships(init.schemas);
     //? setup table directories
@@ -587,7 +599,7 @@ export class Manager {
     this.runningQueue = true;
     // console.log("Query length ----> " + queries.length);
     const Rs = [];
-    // ? do the writting by
+    // ? do the writing by
     let messages = this.RCT[file] ?? (await loadLog(this.tableDir + file));
     for (let i = 0; i < queries.length; i++) {
       const [resolve, message, flag] = queries[i];
@@ -612,11 +624,11 @@ export class Manager {
     if (this.RCTied) {
       this.RCT[file] = messages;
     }
-    // ? synchronise writter
+    // ? synchronies writer
     await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
     //? resize RCT
     this.RCTied && resizeRCT(this.rct_level, this.RCT);
-    this._search.persit();
+    this._search.persist();
     Rs.map((a) => a());
     // ? run awaiting queries
     if (this.waiters[file].length) {
@@ -669,7 +681,7 @@ export class Manager {
           await this._search.insert(LOG[i]);
         }
       }
-      await this._search.persit();
+      await this._search.persist();
     }
   }
 
@@ -718,16 +730,16 @@ export class Manager {
         this._schema._foreign_field = {};
         for (const key in this._schema.relationship) {
           if (typeof this._schema.relationship![key].target === "string") {
-            const namee = this._schema.relationship![key].target.toUpperCase();
-            const findschema = allSchemas.find(
-              (schema) => schema.tableName === namee
+            const namer = this._schema.relationship![key].target.toUpperCase();
+            const findSchema = allSchemas.find(
+              (schema) => schema.tableName === namer
             );
-            if (findschema) {
-              this._schema._foreign_field[key] = namee;
+            if (findSchema) {
+              this._schema._foreign_field[key] = namer;
             } else {
               throw new ExaError(
                 " tableName:",
-                namee,
+                namer,
                 " not found on any schema, please recheck the relationship definition of the ",
                 this._schema.tableName,
                 " schema"
@@ -749,7 +761,7 @@ export class Manager {
     const v = validateData(data, this._schema.columns);
     if (typeof v === "string") {
       throw new ExaError(
-        update ? "insert" : "update",
+        !update ? "insert" : "update",
         " on table :",
         this._schema.tableName,
         " aborted, reason - ",
@@ -757,13 +769,13 @@ export class Manager {
       );
     }
 
-    if (!data._id && update) {
-      throw new ExaError(
-        "update on table :",
-        this._schema.tableName,
-        " aborted, reason - _id is required"
-      );
-    }
+    // if (!data._id && update) {
+    //   throw new ExaError(
+    //     "update on table :",
+    //     this._schema.tableName,
+    //     " aborted, reason - _id is missing"
+    //   );
+    // }
     return v;
   }
   async _select(query: QueryType) {
@@ -888,21 +900,17 @@ export class Manager {
   }
   public _runMany(query: QueryType[]) {
     // ? log the query
-    if (this.logging) console.log({ query, table: this._name });
+    if (this.logging) console.log({ query });
     //? create run trx(s)
     if (query.length) {
-      // console.log({ logs: this._LogFiles, rcts: this.RCT, query });
-      // console.log("-------------------------------------------------- >>>");
       return Promise.all(
         query.map((q) => this._trx_runner(q))
       ) as Promise<Msgs>;
     }
   }
   public _run(query: QueryType) {
-    if (this.logging) console.log({ query, table: this._name });
+    if (this.logging) console.log({ query });
     //? create and run TRX
-    // console.log({ logs: this._LogFiles, rcts: this.RCT, query });
-    // console.log("-------------------------------------------------- >>>");
     return this._trx_runner(query);
   }
 }
@@ -976,12 +984,12 @@ class XNode {
 export class XTree {
   base: string[] = [];
   mutatingBase: boolean = false;
-  persitKey: string;
+  persistKey: string;
   tree: Record<string, XNode> = {};
 
-  constructor(init: { persitKey: string }) {
-    this.persitKey = init.persitKey;
-    const [base, tree] = XTree.restore(init.persitKey);
+  constructor(init: { persistKey: string }) {
+    this.persistKey = init.persistKey;
+    const [base, tree] = XTree.restore(init.persistKey);
     if (base) {
       this.base = base;
       this.tree = tree;
@@ -1107,22 +1115,22 @@ export class XTree {
     this.mutatingBase = false;
   }
 
-  persit() {
+  persist() {
     const obj: Record<string, any> = {};
     const keys = Object.keys(this.tree);
     for (let index = 0; index < keys.length; index++) {
       obj[keys[index]] = this.tree[keys[index]].keys;
     }
     return SynFileWritWithWaitList.write(
-      this.persitKey,
+      this.persistKey,
       Utils.packr.encode({
         base: this.base,
         tree: obj,
       })
     );
   }
-  static restore(persitKey: string) {
-    const data = loadLogSync(persitKey);
+  static restore(persistKey: string) {
+    const data = loadLogSync(persistKey);
     const tree: Record<string, any> = {};
     if (data.tree) {
       for (const key in data.tree) {
