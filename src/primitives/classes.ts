@@ -32,7 +32,6 @@ import {
   SynFileWrit,
   SynFileWritWithWaitList,
 } from "./functions.js";
-import { table } from "node:console";
 
 export class Utils {
   static MANIFEST: {
@@ -167,7 +166,7 @@ export class ExaType {
     this.v = validator;
   }
 }
-//? this is okay because it's reusable
+
 export class Query<Model> {
   private _Manager: Manager;
   _table?: string;

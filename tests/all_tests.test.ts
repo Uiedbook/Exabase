@@ -37,7 +37,7 @@ const usersCount = await userTRX.count();
 const ordersCount = await OrderTRX.count();
 expect(usersCount).toBe(0);
 expect(ordersCount).toBe(0);
-console.log("Done cleanin");
+console.log("Done cleaning");
 
 //? tests
 describe("queries", () => {

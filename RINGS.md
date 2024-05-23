@@ -8,7 +8,7 @@ Now let's go over these three factors and how observe how less emphasis on each 
 
 - Consistency. In general purpose distributed databases: consistency is a non non-tradable factor. But however general purpose distributed database AWS Dynamo only provides eventual consistency which is less appealing for consistency critical workloads.
 
-Consistency requires every node in the system to act like as if it is just one node in the system, in this case there shouldn't be any difference in read or consistency status in all of the nodes in the system. This ensures a synchronous behavior across nodes which is very desirable for most applications.
+Consistency requires every node `in` the system to act like as if it is just one node in the system, in this case there shouldn't be any difference in read or consistency status in all of the nodes in the system. This ensures a synchronous behavior across nodes which is very desirable for most applications.
 
 - Partition tolerance. Partition tolerance aligns with Consistency and availability. and is the most critical non-tradable factor of any distributed system.
 
