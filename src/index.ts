@@ -7,10 +7,11 @@ import {
   _ExabaseRingInterface,
   _login_leader_ring,
 } from "./primitives/http-functions.js";
-import { ExaError, Utils, Manager } from "./primitives/classes.js";
+import { ExaError, Utils, Manager, backup } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
+  backup: backup;
   private _announced = false;
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
@@ -18,6 +19,7 @@ export class Exabase {
     //? initializations
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
+    this.backup = new backup(this._exabaseDirectory);
     // ? setting up memory allocation for RCT enabled cache managers
     const usableManagerGB = getComputedUsage(
       init.EXABASE_MEMORY_PERCENT!,
@@ -31,7 +33,7 @@ export class Exabase {
     );
 
     try {
-      // ? create dirs
+      // ? create main dir
       mkdirSync(this._exabaseDirectory);
       // ? create manifest
       Object.assign(Utils.MANIFEST, {
@@ -99,25 +101,15 @@ export class Exabase {
         console.log(e);
       });
   }
-  connect(app?: connectOptions) {
-    // ? if jetpath is added
-    if (app?.decorate) {
-      if (!Utils.MANIFEST.EXABASE_KEYS.privateKey) {
-        throw new ExaError(
-          "Exabase public and private keys not provided for connection"
-        );
-      }
+  connect(options?: connectOptions) {
+    // ? if there's a ring to connect to
+    if (options) {
       //? login this rings
       _login_leader_ring({
         //! /*indexes*/
       });
-      // ? decorate jetpath ctx
-      app.decorate({
-        propagateExabaseRing(ctx) {
-          _ExabaseRingInterface(ctx);
-        },
-      });
-    } //? else { some other stuff with config if available}
+    }
+    //? else { some other stuff with config if available}
     if (!this._announced) {
       console.log("Exabase: connecting...");
       return new Promise((r) => {
@@ -126,6 +118,7 @@ export class Exabase {
     }
     return undefined;
   }
+
   query(tableName: string) {
     const table = Utils.EXABASE_MANAGERS[tableName];
     if (table) {
@@ -143,13 +136,20 @@ export class Exabase {
     }
     //? verify query validity
     try {
-      if (typeof query !== "string") throw new Error();
+      if (typeof query !== "string") throw new ExaError("Invalid query!");
       const parsedQuery = JSON.parse(query);
       const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
-      if (!table) throw new Error();
+      if (!table)
+        throw new ExaError(
+          "table " + parsedQuery.table + " not on this database!"
+        );
       return table._run(parsedQuery.query);
     } catch (error) {
-      throw new ExaError("Invalid query: ", query);
+      if (error instanceof ExaError) {
+        throw error;
+      } else {
+        throw new ExaError("Invalid query: ", query);
+      }
     }
   }
 }

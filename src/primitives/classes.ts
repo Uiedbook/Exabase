@@ -1,6 +1,7 @@
 import { opendir, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { Packr } from "msgpackr";
+import * as tar from "tar";
 import {
   type LOG_file_type,
   type Msg,
@@ -1137,5 +1138,28 @@ export class XTree {
       }
     }
     return [data.base, tree];
+  }
+}
+
+export class backup {
+  name: string;
+  constructor(name: string) {
+    this.name = name;
+  }
+  saveBackup(name = "database-backup.tgz") {
+    return tar.create(
+      {
+        file: name,
+        gzip: true,
+      },
+      [this.name]
+    );
+  }
+  unzipBackup(name = "database-backup.tgz") {
+    return tar.x({
+      gzip: true,
+      f: name,
+      keepNewer: true,
+    });
   }
 }

@@ -659,7 +659,7 @@ export const getComputedUsage = (
   schemaLength: number
 ) => {
   const nuParc = (p: number) => p / 1500; /*
-      ? (100 = convert to percentage, 15 = exabase gravity constant) = 1500 units  */
+      ? (100 = convert to percentage, 15 = ?) = 1500 units  */
   //? percent allowed to be used
   // ? what can be used by exabase
   const usableGB = freemem() * nuParc(allowedUsagePercent || 10); /*

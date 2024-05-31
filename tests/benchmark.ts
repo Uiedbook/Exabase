@@ -47,7 +47,7 @@ const trx = Employee.query;
 let d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();
-// console.log({ c });
+console.log({ c });
 
 console.log("Exabase item count", d);
 console.log("sqlite item count", c.length);
@@ -75,3 +75,5 @@ const sq = db.prepare(`SELECT * FROM "Employee"`);
 }
 
 run();
+
+await ExabaseR.backup.saveBackup();

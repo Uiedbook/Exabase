@@ -39,9 +39,6 @@ export const _ExabaseRingInterface = async (ctx: {
   }
 };
 
-//? indexes is an object of each table with their table size.
-//? this is required for the leader to determine the consistency level of this node.
-//? and node
 export const _login_leader_ring = async (indexes: Record<string, number>) => {
   // ? state = true? this is not new
   const ringbearerResponse = await fetch(Utils.MANIFEST.bearer + "/login", {
