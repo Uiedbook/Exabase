@@ -38,6 +38,14 @@ export type ExabaseOptions = {
    * Exabase signing keys
    */
   EXABASE_KEYS?: { privateKey: string; publicKey: string };
+  /**
+   * Exabase DBMS
+   * ---
+   * Filename of the exabase backup file in the root directory.
+   *
+   * When extracting, tar will keep the existing file on disk if it's newer than the file in the database archive.
+   *  */
+  restoreFromBackup?: string;
 };
 
 /**

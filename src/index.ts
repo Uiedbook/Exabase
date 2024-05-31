@@ -11,15 +11,19 @@ import { ExaError, Utils, Manager, backup } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
-  backup: backup;
+  backup: (file?: string) => Promise<void>;
   private _announced = false;
+  private _restorebackup?: string;
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
   constructor(init: ExabaseOptions) {
     //? initializations
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
-    this.backup = new backup(this._exabaseDirectory);
+    // ? saving restoring backup file name, can be undeined or a string
+    this._restorebackup = init.restoreFromBackup;
+    // ? attaching backup method
+    this.backup = backup.saveBackup(this._exabaseDirectory);
     // ? setting up memory allocation for RCT enabled cache managers
     const usableManagerGB = getComputedUsage(
       init.EXABASE_MEMORY_PERCENT!,
@@ -102,6 +106,10 @@ export class Exabase {
       });
   }
   connect(options?: connectOptions) {
+    // ? Restoring previous backup if neccessary
+    if (typeof this._restorebackup === "string") {
+      backup.unzipBackup(this._restorebackup);
+    }
     // ? if there's a ring to connect to
     if (options) {
       //? login this rings

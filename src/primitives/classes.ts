@@ -1142,23 +1142,22 @@ export class XTree {
 }
 
 export class backup {
-  name: string;
-  constructor(name: string) {
-    this.name = name;
+  static saveBackup(name: string) {
+    return (file = "database-backup.tgz") => {
+      return tar.create(
+        {
+          file,
+          gzip: true,
+        },
+        [name]
+      );
+    };
   }
-  saveBackup(name = "database-backup.tgz") {
-    return tar.create(
-      {
-        file: name,
-        gzip: true,
-      },
-      [this.name]
-    );
-  }
-  unzipBackup(name = "database-backup.tgz") {
+  static unzipBackup(file = "database-backup.tgz") {
     return tar.x({
       gzip: true,
-      f: name,
+      f: file,
+      // ? When extracting, keep the existing file on disk if it's newer than the file in the archive.
       keepNewer: true,
     });
   }

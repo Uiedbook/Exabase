@@ -1,8 +1,8 @@
 import { type ExabaseOptions, type connectOptions } from "./primitives/types.js";
-import { backup } from "./primitives/classes.js";
 export declare class Exabase {
-    backup: backup;
+    backup: (file?: string) => Promise<void>;
     private _announced;
+    private _restorebackup?;
     private _conn;
     private _exabaseDirectory;
     constructor(init: ExabaseOptions);

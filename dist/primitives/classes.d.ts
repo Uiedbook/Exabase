@@ -215,9 +215,7 @@ export declare class XTree {
     static restore(persistKey: string): any[];
 }
 export declare class backup {
-    name: string;
-    constructor(name: string);
-    saveBackup(name?: string): Promise<void>;
-    unzipBackup(name?: string): Promise<void>;
+    static saveBackup(name: string): (file?: string) => Promise<void>;
+    static unzipBackup(file?: string): Promise<void>;
 }
 export {};

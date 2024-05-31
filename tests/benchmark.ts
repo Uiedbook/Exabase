@@ -40,6 +40,7 @@ const Employee = new ExaSchema({
 
 const ExabaseR = new Exabase({
   schemas: [Employee],
+  // restoreFromBackup:""
 });
 
 await ExabaseR.connect();
@@ -76,4 +77,4 @@ const sq = db.prepare(`SELECT * FROM "Employee"`);
 
 run();
 
-await ExabaseR.backup.saveBackup();
+await ExabaseR.backup();
