@@ -9,3 +9,4 @@ tests/sql_file
 /lib
 backup.tar.gz
 tests/sql_file/Northwind_large.sqlite
+dist

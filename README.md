@@ -7,7 +7,7 @@
   <h1 align="center">Exabase</h1>
 
   <p align="center">
-    A scaling focused distributed nosql database with surprising performance and strong data consistency.
+    A high performance nosql database
     <br/>
     <br/>
     <a href="https://github.com/uiedbook/Exabase#examples"><strong>Explore Everst APIs »</strong></a>
@@ -21,10 +21,8 @@
   </p>
 </p>
 
-Exabase is a distributed database infrastucture, with an ACID complaint standard, auto scaling, backup and recovery.
+Exabase is A high performance nosql database, with an ACID complaint standard, easy to scale, backup and recovery.
 and strong data consistency.
-
-Distributed & Performant Database for server-side Javascript Runtimes.
 
 ![Contributors](https://img.shields.io/github/contributors/uiedbook/Exabase?color=dark-green)
 [![npm Version](https://img.shields.io/npm/v/exabase.svg)](https://www.npmjs.com/package/exabase)
@@ -35,33 +33,23 @@ Distributed & Performant Database for server-side Javascript Runtimes.
 
 # Rationale
 
-Exabase as a scalable nosql database supports these features:
+Exabase provides support for these features:
 
 - ACID Compliant transactions.
 - Batch transactions, used for performing large writes (INSERT, DELETE, UPDATE) as a single atomic operation.
-- Inbuilt distribution interface (Exabase Rings).
-- Strong data consistency across all Exabase Rings.
-- Security setup out of the box with jsonwebtokens.
-- Stand alone and in-app usage through exposed ring endpoints and inbuilt http app.
-- Exposes an optional inbuilt highly perfomant http app interface through Rings.
+- JSON based query language.
+- Efficient data formart and backup system
 - Easy backup system and recovery.
-- A powerful client-side Exabase library (ExabaseStore under dev), with theorical load-balanced distribution across all connected rings.
-- Client-side administration interface ( under dev ).
-- A strong backup community moved with passion for making the web better.
 - Strong type system.
-- Granular performance at a tunable level,
+- Granular performance at a tunable scale.
 
-Some other unique benefits of Exabase is it's surpricing performance, honestly, we never knew it could happen!
-
-In Exabase, unlike cassadra or other query based DBMS, Exabase is designed as a light and but powerful DBMS, using the an intuitive schema and query API design, a Client-side ExaStore library and offline ExaCore Admin Panel software you can be able to query and manage your app's data as an easy peasy grease.
-
-This benefits are very essential and delighting.
+Exabase is designed as a simple, light and but powerful database, using the an intuitive schema and query API design you can build with ease.
 
 --
 
 # How Exabase works
 
-Exabase achives a high degree of efficiency and strong level scalability by employing the following techniques qualitatively.
+Exabase achieves a high degree of efficiency and strong level scalability by employing the following techniques qualitatively.
 
 - Seperation of concerns mechanism across schema tables. This allows for more efficiency by keeping each schema managers in it own space and process.
 
@@ -69,28 +57,20 @@ Exabase achives a high degree of efficiency and strong level scalability by empl
 
 - Exabase integrates an extensive use of Binary search algorithms and custom Binary inset algorimths, allowing for sorted storage and efficient query of data.
 
-- Strong data consistency across all Exabase Rings is achieved using The Dynamo db model, in which is consistency is achived when write operations is confirmed to have persisted to a some number of replicas before repsonding to the client.
-
-- Security is handled using jsonwebtokens allowing each Exabase instance to communicate to the Exabase Rings interface securedly and also allows your apps to communicate with Exabse in same manner.
-
 - Exabase employs log file managers and handles log file resizing to makeup for efficient memory usage, log files are totally resizeable and durable.
 
 - Consistency and Durability in log files and other very important files is achieved through an ACID complaint data processing mechanism which is optimised for crash recovery and consistency checks out of the box.
 
-- Exabase transactions are grounded in a strong atomic and isolated model, using a WAL (write ahead log) mechanism that achives faster write querys and efficient data consistency across reads to Exabase schema log files, this allows for strong data consistency and durability within the Exabase DBMS infrastructure.
+- Exabase transactions are grounded in a strong atomic and isolated model, using a transaction mechanism that achieves faster write querys and efficient data consistency across reads to Exabase log files, this allows for strong data consistency and durability.
 
-- Exabase employs Ring to Ring hydration to setup and sanitaze new instances of Exabase and allows the new instance to join the shared Exabase Rings interface.
-
-- Exabase achives an efficient search query standard using search field indexing, you decide what fields of a schema gets indexed for search in your column options, doing so allows Exabase to focus on what's neccessary and reduce unneccessary costs in realtime.
+- Exabase achieves an efficient search query standard using search field indexing.
 
 - A Linux backup based backup functionality you can call in your app to get a single uploadable zip.
-  You can call it periodically as per your needs.
+  You can call it periodically as per your needs, and you can recover using them later.
 
 # Requirements to use Exabase.
 
-Some very few Exabase functionality are dependent on the linux os such a backup with uses GNU/Linux zip utils available via node child-processes, for development purples Exabase can fit any os as far the backup functionality is not requested.
-
-Exabase support all server-side Javascriot runtimes:
+Exabase support all server-side Javascript runtimes:
 
 - Nodejs.
 - Denojs.
@@ -103,9 +83,9 @@ There's no hard rule here, if any Javascript runtime can work fine then Exabase 
 
 Exabase does adjusts it memory based RCT (Exabase Regularity Cache Tank) cache usage to 10% by default which is very okay.
 
-But you can increase to as perferably as 20%, you shouldn't go past 40% if your app is CPU and memory intensive, and the default is best in most cases, however the more RCT space the faster your app Read and write operations will be, i mean lightning speeds, in micro/pico seconds.
+But you can increase to as perferably as 20%, you shouldn't go past 40% if your app is CPU and memory intensive, and the default is best in most cases, however the more RCT space the faster your app Read and write operations will be, we mean lightning speeds, in micro/pico seconds.
 
-# How to get started with Exabase DBMS.
+# How to get started with Exabase database.
 
 ### Installation
 
@@ -117,13 +97,11 @@ npm i exabase --save
 
 ## Usage
 
-Exabase is for the cave man, it has carefully designed APIs that allows you to make the most actions against your databse in a very intuitive way.
+Exabase is for the cave man, it has carefully designed APIs that allows you to make the most actions against your databse in a very easy way.
 
 When improvements and changes rolls out, we will quickly update this page and the currently prepared [web documentation]("https://uiedbook.gitbook.io/exabase/").
 
-We intend to move with less traction and have implemented many of the best decisions and designs we can think-of/research right from the beginning, so your trust is in safe hands.
-
-## The Exabase class API
+## Using Exabase
 
 The `Exabase` class accepts an object argument with the following options:
 
@@ -132,12 +110,12 @@ The `Exabase` class accepts an object argument with the following options:
 ```js
 export type ExabaseOptions = {
   /**
-   * Exabase DBMS
+   * Exabase database
    * ---
    * RCT Memory cache percentage  */
   EXABASE_MEMORY_PERCENT?: number,
   /**
-   * Exabase DBMS
+   * Exabase database
    * ---
    * name  */
   name?: string,
@@ -149,19 +127,19 @@ export type ExabaseOptions = {
    */
   mode?: "REPLICATION" | "EXTENSION",
   /**
-   * Exabase DBMS
+   * Exabase database
    * ---
    * Data schemas
    */
   schemas: ExaSchema<any>[],
   /**
-   * Exabase DBMS
+   * Exabase database
    * ---
    * log each query?
    */
   logging?: boolean,
   /**
-   * Exabase DBMS
+   * Exabase database
    * ---
    * Exabase signing keys
    */
@@ -273,6 +251,11 @@ export type ExabaseOptions = {
     exec(): Promise<Model[]> | Promise<Model & {
         _id: string;
     }[]>;
+  /**
+     * Exabase query
+     * add a callback for this table, to get data as they are commit
+     */
+    onCommit(cb: (commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>) => void): void;
 ```
 
 ## A Basic Database setup and queries.
@@ -387,36 +370,12 @@ this means it stores the entire LOG(n) file of the table in memory, where n is t
 
 This might not be okay for resource heavy workloads. hence it can be turned off per schema.
 
-# Exabase peripherals
-
-### JetPath
-
-An http router ( completed ) extracted from Exabase rings, extracted for use in stand alone apps.
-
-People love the innovation we achieved when we customised how routes should conform to function names, this router also uses the Cradova route matcher logic to get routes faster without using any regex. this is as fast as it could get. [Learn more about JetPath]("https://github.com/uiedbook/jetpath").
-
-### ExaCore
-
-ExaCore ( under dev ) is an administractive Panel that connects to, monitors and executes operations on your Exabase Rings interface. [Get ExaCore]("/")
-
-### ExaStore
-
-A client-side ( under dev ) library for communication with your Exabase rings interface, does a high level theoritical load-balancing out of the box. [Learn more about ExaStore]("/")
-
-It's super interesting what has been achieved so far.
-
 ## MIT Lincenced
 
 Opensourced And Free.
-
-Uiedbook is an open source team of web focused engineers, their vision is to make the web better, improving and innovating infrastructures for a better web experience.
 
 Join Us on [telegram]("https://t.me/UiedbookHQ").
 
 ### Contribution and License Agreement
 
 If you contribute code to this project, you are implicitly allowing your code to be distributed under the MIT license. You are also implicitly verifying that all code is your original work.
-
-## Supporting Exabase development
-
-Your Support is a good force for change anytime you do it, you can ensure Exabase growth and improvement by making a re-occuring or fixed sponsorship to my [github sponsors](https://github.com/sponsors/FridayCandour): or crypto using etheruen: `0xD7DDD4312A4e514751A582AF725238C7E6dF206c`, Bitcoin: `bc1q5548kdanwyd3y07nyjjzt5zkdxqec4nqqrd760` or LTC: `ltc1qgqn6nqq6x555rpj3pw847402aw6kw7a25dc29w`.
