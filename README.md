@@ -312,7 +312,7 @@ test("example setup", async () => {
 
 This benchmark is Exabase againt sqlite.
 
-Sqlite is as we know it, has a tiny footprint and off course really great performance with pure acidity and a relational design.
+Sqlite has a tiny footprint and off course really great performance with pure acidity and relational.
 
 We are trilled Exabase performs really well and exceedily beats sqlite.
 
@@ -342,31 +342,19 @@ benchmark time (avg) (min … max) p75 p99 p995
 
 ---
 
-SELECT _ FROM "Employee" Exabase 2.42 µs/iter (1.91 µs … 7.08 ms) 2.18 µs 5.07 µs 6.4 µs
+SELECT _ FROM "Employee" Exabase 1.39 µs/iter (1.23 µs … 3.77 µs) 1.35 µs 3.77 µs 3.77 µs
 SELECT _ FROM "Employee" sqlite 270.73 µs/iter (187.72 µs … 3.24 ms) 267.24 µs 1.19 ms 1.48 ms
+150X faster
 
-112X faster
+# Zero cach mode (RCT: false)
 
-# Does the RCT cache however destroy performance? no.
-
-Data in Exabase - 10072
-Data in sqlite - 9
-
-cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz
-runtime: bun 1.0.0 (x64-linux)
-
-benchmark time (avg) (min … max) p75 p99 p995
-
----
-
-SELECT _ FROM "Employee" Exabase 6.57 µs/iter (4.65 µs … 13.42 ms) 5.48 µs 16.96 µs 25.02 µs
-SELECT _ FROM "Employee" sqlite 324.54 µs/iter (189.04 µs … 52.11 ms) 271.36 µs 1.59 ms 2.03 ms
+SELECT \* FROM "Employee" Exabase 169.03 µs/iter (108.97 µs … 4.38 ms) 156.34 µs 1.16 ms 1.34 ms
 ```
 
 ### Regularity Cache Tank
 
 The Regularity Cache Tank or RCT is a basic LOG file level cache.
-this means it stores the entire LOG(n) file of the table in memory, where n is the last active LOG file.
+this means, it stores the entire LOG(n) file of the table in memory, where n is the last active LOG file.
 
 This might not be okay for resource heavy workloads. hence it can be turned off per schema.
 

@@ -48,14 +48,16 @@ const trx = Employee.query;
 let d = await trx.count();
 const sql = db.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();
-console.log({ c });
+// console.log({ c });
 
 console.log("Exabase item count", d);
 console.log("sqlite item count", c.length);
 
 if (d !== c.length) {
   console.time("Exabase | Insert time");
+
   await trx.saveBatch(c as any[]);
+
   console.timeEnd("Exabase | Insert time");
   console.log("sqlite data inserted into Exabase");
 }

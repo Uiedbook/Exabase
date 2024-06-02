@@ -87,7 +87,7 @@ export class ExaSchema<Model> {
     // ? parse definitions
     if (this.tableName) {
       this._unique_field = {};
-      this.RCT = options.RCT; 
+      this.RCT = options.RCT;
       this.columns = { ...(options?.columns || {}) };
       //? setting up _id type on initialization
       (this.columns as any)._id = { type: String };
@@ -653,7 +653,7 @@ export class Manager {
     await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
     //? resize RCT
     this.RCTied && resizeRCT(this.rct_level, this.RCT);
-    this._search.persist();
+    await this._search.persist();
     Rs.map((a) => a());
     // ? run awaiting queries
     if (this.waiters[file].length) {
@@ -671,7 +671,7 @@ export class Manager {
       // ? signifies an application crash stopping exabase from completing a commit
       // ? the commit operation can then be restarted from the wal files still in the wal directory
       if (dirent.name.includes("-SYNC")) {
-        await unlink(this.tableDir + dirent.name).catch(() => {});
+        await unlink(this.tableDir + dirent.name);
         continue;
       }
       if (dirent.isFile()) {

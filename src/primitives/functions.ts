@@ -689,12 +689,10 @@ export async function SynFileWrit(file: string, data: Buffer) {
     await promisify(write)(fd, data, 0, data.length, 0);
     await promisify(fsync)(fd);
     await promisify(rename)(tmpfile, file);
-  } catch (e) {
   } finally {
     if (fd) {
-      await promisify(close)(fd).catch(() => {});
+      await promisify(close)(fd);
     }
-    await promisify(unlink)(tmpfile).catch(() => {});
   }
 }
 
@@ -722,14 +720,11 @@ export const SynFileWritWithWaitList = {
       await promisify(write)(fd, data, 0, data.length, 0);
       await promisify(fsync)(fd);
       await promisify(rename)(tmpfile, file);
-    } catch (e) {
     } finally {
       if (fd) {
-        await promisify(close)(fd).catch(() => {});
+        await promisify(close)(fd);
       }
-      await promisify(unlink)(tmpfile).catch(() => {});
     }
-
     // ? adjusting the wait list
     this.waiters[file].shift();
     if (this.waiters[file].length > 0) {

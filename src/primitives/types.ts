@@ -203,4 +203,5 @@ export type connectOptions = {};
 
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
+export type wTrainFlagLessType = [(value: unknown) => void, Buffer];
 export type ExaQuery<Model = ExaDoc<{}>> = Query<Model>;
