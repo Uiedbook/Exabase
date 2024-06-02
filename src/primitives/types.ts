@@ -76,22 +76,6 @@ export interface SchemaOptions<Model> {
   columns: {
     [x in keyof Partial<Model>]: SchemaColumnOptions;
   };
-  /**
-   * Exabase migrations
-   * ---
-   * Indicates a migration function for transforming available items to the changes made in the columns
-   * this allows for start-up migration of existing items on Exabase db instance.
-   *
-   * And again the function is only called during start-up so the db instance need to be restarted.
-   *
-   * ***
-   * synopsis
-   * ***
-   * This function should return true if the item it receives is already valid as this is not handled automatically to avoid an extra abstraction layer over migrations
-   *
-   * the function should be removed when no longer needed to avoid Exabase start-up time.
-   */
-  migrationFN?(data: Record<string, string>): Record<string, string> | true;
 }
 
 /**

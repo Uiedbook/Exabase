@@ -79,9 +79,6 @@ export class ExaSchema<Model> {
   relationship: SchemaRelation = {};
   _unique_field?: Record<string, true> = undefined;
   _foreign_field?: Record<string, string> = {};
-  migrationFN:
-    | ((data: Record<string, string>) => true | Record<string, string>)
-    | undefined;
   _premature: boolean = true;
   constructor(options: SchemaOptions<Model>) {
     //? mock query
@@ -90,8 +87,7 @@ export class ExaSchema<Model> {
     // ? parse definitions
     if (this.tableName) {
       this._unique_field = {};
-      this.RCT = options.RCT;
-      this.migrationFN = options.migrationFN;
+      this.RCT = options.RCT; 
       this.columns = { ...(options?.columns || {}) };
       //? setting up _id type on initialization
       (this.columns as any)._id = { type: String };
@@ -160,7 +156,7 @@ export class ExaSchema<Model> {
   }
 }
 
-// ? for declaring types
+// ? for creating custom types
 export class ExaType {
   v: (data: any) => boolean = () => false;
   constructor(validator: (data: any) => boolean) {
@@ -170,6 +166,9 @@ export class ExaType {
 
 export class Query<Model> {
   private _Manager: Manager;
+  private _OnCommitCB?: (
+    commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>
+  ) => void;
   _table?: string;
   premature: boolean = true;
   constructor(Manager: Manager) {
@@ -368,7 +367,11 @@ export class Query<Model> {
       [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid),
       table: this._table,
     };
-    return this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    const saved = this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    if (this._OnCommitCB) {
+      this._OnCommitCB(saved);
+    }
+    return saved;
   }
   /**
    * Exabase query
@@ -388,7 +391,11 @@ export class Query<Model> {
       delete: _id,
       table: this._table,
     };
-    return this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    const saved = this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    if (this._OnCommitCB) {
+      this._OnCommitCB(saved);
+    }
+    return saved;
   }
   /**
    * Exabase query
@@ -484,7 +491,12 @@ export class Query<Model> {
   saveBatch(data: Partial<Model>[]) {
     if (Array.isArray(data)) {
       const q = this._prepare_for(data, false);
-      return this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
+
+      const saved = this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
+      if (this._OnCommitCB) {
+        this._OnCommitCB(saved);
+      }
+      return saved;
     } else {
       throw new ExaError(
         `Invalid inputs for .saveBatch method, data should be array.`
@@ -494,7 +506,11 @@ export class Query<Model> {
   deleteBatch(data: Partial<Model>[]) {
     if (Array.isArray(data)) {
       const q = this._prepare_for(data, true);
-      return this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
+      const saved = this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
+      if (this._OnCommitCB) {
+        this._OnCommitCB(saved);
+      }
+      return saved;
     } else {
       throw new ExaError(
         `Invalid inputs for .deleteBatch method, data should be array.`
@@ -527,6 +543,15 @@ export class Query<Model> {
       }
     }
     return query;
+  }
+  onCommit(
+    cb: (commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>) => void
+  ) {
+    if (typeof cb === "function") {
+      this._OnCommitCB = cb;
+    } else {
+      throw new ExaError("Invalid oncommit function");
+    }
   }
 }
 
