@@ -138,28 +138,28 @@ export class Exabase {
     );
     throw new ExaError("No schema named ", tableName, "!");
   }
-  async executeQuery(query: string) {
-    if (!this._announced) {
-      throw new ExaError("Exabase not ready!");
-    }
-    //? verify query validity
-    try {
-      if (typeof query !== "string") throw new ExaError("Invalid query!");
-      const parsedQuery = JSON.parse(query);
-      const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
-      if (!table)
-        throw new ExaError(
-          "table " + parsedQuery.table + " not on this database!"
-        );
-      return table._run(parsedQuery.query);
-    } catch (error) {
-      if (error instanceof ExaError) {
-        throw error;
-      } else {
-        throw new ExaError("Invalid query: ", query);
-      }
-    }
-  }
+  // async executeQuery(query: string) {
+  //   if (!this._announced) {
+  //     throw new ExaError("Exabase not ready!");
+  //   }
+  //   //? verify query validity
+  //   try {
+  //     if (typeof query !== "string") throw new ExaError("Invalid query!");
+  //     const parsedQuery = JSON.parse(query);
+  //     const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
+  //     if (!table)
+  //       throw new ExaError(
+  //         "table " + parsedQuery.table + " not on this database!"
+  //       );
+  //     return table._run(parsedQuery.query);
+  //   } catch (error) {
+  //     if (error instanceof ExaError) {
+  //       throw error;
+  //     } else {
+  //       throw new ExaError("Invalid query: ", query);
+  //     }
+  //   }
+  // }
 }
 
 //? exports

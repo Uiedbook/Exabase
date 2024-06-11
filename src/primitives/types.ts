@@ -137,6 +137,10 @@ export interface SchemaColumnOptions {
    * Type of relation. Can be one of the value of the RelationTypes class.
    */
   RelationType?: "MANY" | "ONE";
+  /**
+   * Type of relation. Can be one of the value of the RelationTypes class.
+   */
+  index?: boolean;
 }
 /**
  * All together

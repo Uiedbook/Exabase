@@ -79,6 +79,7 @@ export async function prepareMessage(
 ) {
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
+
     if (Array.isArray(someIdex)) {
       throw new ExaError(
         "INSERT on table :",
@@ -386,6 +387,7 @@ const updateIndex = async (
     if (!messages[type]) {
       messages[type] = {};
     }
+
     messages[type][message[type as keyof Msg]] = message._id;
   }
 
@@ -410,10 +412,12 @@ const findIndex = async (
     {
     ? here's a real example of what the messages variable looks like
     ? so not an array but an object of property indexes
+   { 
     email: {
       'friday1@gmail.com': '656cd09b48e1c473de50b059',
       'friday2@gmail.com': '656cd10a48e1c473de50b05b'
     }
+  }
     */
     if (messages[uf][data[uf]]) {
       return [uf, messages[uf][data[uf]]];
@@ -587,7 +591,10 @@ export function validateData(
   }
   for (const [prop, value] of Object.entries(schema)) {
     const { type, length, width, nullable } = value as columnValidationType;
-    out[prop] = data[prop] || value.default;
+    // ?
+    data[prop] = data[prop] || value.default || data[prop];
+    out[prop] = data[prop];
+    // ?
     if (prop === "_id") {
       continue;
     }
@@ -649,6 +656,7 @@ export function validateData(
       }
     }
   }
+
   return info! || out;
 }
 

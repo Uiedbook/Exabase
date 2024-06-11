@@ -325,6 +325,7 @@ export class Query<Model> {
       populate?: string[] | boolean;
       take?: number;
       skip?: number;
+      reverse?: true | false;
     }
   ) {
     if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
@@ -334,6 +335,7 @@ export class Query<Model> {
     if (typeof options === "object") {
       query.skip = options.skip;
       query.take = options.take;
+      query.reverse = options.reverse;
       query.populate = {};
       const fields = this._Manager._schema._foreign_field!;
       if (options.populate === true) {
@@ -565,20 +567,30 @@ export class Manager {
   public RCT: Record<string, Msgs> = {};
   //? number of RCTied log files
   public rct_level: number;
-  private _LogFiles: LOG_file_type = {};
-  private _search: XTree;
-  // public waiters: Record<string, (() => void)[]> = {};
+  public _LogFiles: LOG_file_type = {};
+  public _search: XTree;
   public logging: boolean = false;
+  // public waiters: Record<string, (() => void)[]> = {};
   // private clock_vector = { x0: null, xn: null };
   constructor(schema: ExaSchema<any>, level: number) {
     this._schema = schema;
     this._name = schema.tableName;
-    this._search = new XTree({ persistKey: "" });
     this._query = new Query<any>(this);
     schema._trx = this._query;
     //? set RCT key
     this.RCTied = schema.RCT || false;
     this.rct_level = level;
+    // ? setup indexTable for searching
+    const columns = schema.columns;
+    const indexTable: Record<string, boolean> = {};
+    for (const key in columns) {
+      indexTable[key] = columns[key].index || false;
+    }
+
+    // ? avoid indexing  _wal_ignore_flag & _id ok?
+    indexTable["_id"] = false;
+    indexTable["_wal_ignore_flag"] = false;
+    this._search = new XTree({ persistKey: "", indexTable });
   }
   _setup(init: {
     _exabaseDirectory: string;
@@ -588,8 +600,8 @@ export class Manager {
     // ? setup steps
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
     this.logging = init.logging;
-    // ? setting up Xtree search index
-    this._search = new XTree({ persistKey: this.tableDir + "XINDEX" });
+    // ? provide Xtree search index dir
+    this._search.persistKey = this.tableDir + "XINDEX";
     // ? setup relationship
     this._constructRelationships(init.schemas);
     //? setup table directories
@@ -784,6 +796,7 @@ export class Manager {
 
   _validate(data: any, update?: boolean) {
     const v = validateData(data, this._schema.columns);
+
     if (typeof v === "string") {
       throw new ExaError(
         !update ? "insert" : "update",
@@ -866,9 +879,7 @@ export class Manager {
       );
       return Promise.all(searches);
     }
-    if (query["unique"]) {
-      // ! todo: handle findMany on unique here cause both findone and findmany comes here
-      // ! filtering => take, skip, reverse here
+    if (query["unique"]) { 
       const select = await findMessageByUnique(
         this.tableDir + "UINDEX",
         this._schema._unique_field!,
@@ -994,17 +1005,19 @@ class XNode {
     this.disert(value, index);
     this.insert(value, index);
   }
-  search(value: unknown): number[] {
+  search(value: unknown, reverse: boolean = false): number[] {
+    const items = this.keys;
     let left = 0;
-    let right = this.keys.length - 1;
+    let right = items.length - 1;
     for (; left <= right; ) {
       const mid = Math.floor((left + right) / 2);
-      const current = this.keys[mid].value;
+      const current = items[mid].value;
+
       if (
         current === value ||
         (typeof current === "string" && current.includes(value as string))
       ) {
-        return this.keys[mid].indexes;
+        return reverse ? items[mid].indexes.reverse() : items[mid].indexes;
       } else if (current! < value!) {
         left = mid + 1;
       } else {
@@ -1020,14 +1033,22 @@ export class XTree {
   mutatingBase: boolean = false;
   persistKey: string;
   tree: Record<string, XNode> = {};
+  indexTable: Record<string, boolean>;
 
-  constructor(init: { persistKey: string }) {
+  constructor(init: {
+    persistKey: string;
+    indexTable: Record<string, boolean>;
+  }) {
     this.persistKey = init.persistKey;
+    this.indexTable = init.indexTable;
+    // ?
     const [base, tree] = XTree.restore(init.persistKey);
+    // ?
     if (base) {
       this.base = base;
       this.tree = tree;
     }
+    // ?
   }
   restart() {
     this.base = [];
@@ -1039,22 +1060,24 @@ export class XTree {
     skip: number = 0,
     reverse = false
   ) {
-    // ! todo: handle findMany on unique here cause both findone and findmany comes here
-    // ! filtering => take, skip, reverse here
     const results: string[] = [];
     for (const key in search) {
       if (this.tree[key]) {
-        const indexes = this.tree[key].search(search[key as keyof Msg]);
+        const indexes = this.tree[key].search(
+          search[key as keyof Msg],
+          reverse
+        );
         if (skip && results.length >= skip) {
           results.splice(0, skip);
-          skip = 0;
+          skip = 0; //? ok captain
         }
         results.push(...(indexes || []).map((idx: number) => this.base[idx]));
         if (results.length >= take) break;
+      } else {
+        throw new ExaError("Search index '", key, "' doesn't exist");
       }
     }
     if (results.length >= take) return results.slice(0, take);
-
     return results;
   }
 
@@ -1090,9 +1113,7 @@ export class XTree {
   }
   insert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
-    if (!this.mutatingBase) {
-      this.mutatingBase = true;
-    } else {
+    if (this.mutatingBase) {
       setImmediate(() => {
         this.insert(data);
       });
@@ -1101,20 +1122,20 @@ export class XTree {
     // ? save keys in their corresponding nodes
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
-        if ("_wal_ignore_flag-_id".includes(key)) continue;
+        if (!this.indexTable[key]) continue;
         if (!this.tree[key]) {
           this.tree[key] = new XNode();
         }
         this.tree[key].insert(data[key as keyof Msg], this.base.length);
       }
+      this.mutatingBase = true;
       this.base.push(data["_id"]);
       this.mutatingBase = false;
     }
   }
   disert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
-    if (!this.mutatingBase) {
-    } else {
+    if (this.mutatingBase) {
       setImmediate(() => {
         this.disert(data);
       });
@@ -1124,7 +1145,7 @@ export class XTree {
     if (index === undefined) return;
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
-        if (key === "_id" || !this.tree[key]) continue;
+        if (!this.indexTable[key]) continue;
         this.tree[key].disert(data[key as keyof Msg], index);
       }
       this.mutatingBase = true;
@@ -1134,26 +1155,18 @@ export class XTree {
   }
   upsert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
-    if (!this.mutatingBase) {
-    } else {
-      setImmediate(() => {
-        this.upsert(data);
-      });
-      return;
-    }
+
     const index = this.searchBase(data["_id"]);
     if (index === undefined) return;
     if (typeof data === "object" && !Array.isArray(data)) {
       for (const key in data) {
-        if (key === "_id") continue;
+        if (!this.indexTable[key]) continue;
         if (!this.tree[key]) {
           this.tree[key] = new XNode();
         }
         this.tree[key].upsert(data[key as keyof Msg], index);
       }
     }
-    this.mutatingBase = true;
-    this.mutatingBase = false;
   }
 
   persist() {
