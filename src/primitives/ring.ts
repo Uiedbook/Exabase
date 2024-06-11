@@ -1,6 +1,7 @@
 //
 import { ExaError, Utils } from "./classes.js";
 
+// ! todo handle sending fresh requests to serverless fresh data backup
 export const _ExabaseRingInterface = async (ctx: {
   throw(): never;
   json: () => Promise<Record<string, any>>;
