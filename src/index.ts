@@ -6,7 +6,7 @@ import {
 import {
   _ExabaseRingInterface,
   _login_leader_ring,
-} from "./primitives/http-functions.js";
+} from "./primitives/ring.js";
 import { ExaError, Utils, Manager, backup } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 

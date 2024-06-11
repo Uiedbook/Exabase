@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MessagePackr Parser</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        padding-top: 6rem;
+      }
+      * {
+        /* border: 1px red solid; */
+      }
+      header {
+        background-color: #333;
+        color: #fff;
+        padding: 10px 0;
+        text-align: center;
+        text-align: center;
+        position: fixed;
+        width: 100%;
+        top: 0px;
+      }
+      footer {
+        background-color: #333;
+        color: #fff;
+        padding: 10px 0;
+        text-align: center;
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+      }
+      .container {
+        /* max-width: 800px; */
+        margin: 100px auto;
+        padding: 20px;
+      }
+      h1 {
+        margin-top: 0;
+      }
+      section {
+        margin-bottom: 20px;
+      }
+      th,
+      td {
+        padding: 8px;
+        border: 1px solid #ddd;
+        text-align: left;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 9rem;
+      }
+
+      th {
+        background-color: #f2f2f2;
+      }
+      /* Zebra striping */
+      tr:nth-of-type(odd) {
+        background: #eee;
+      }
+      th {
+        background: #333;
+        color: white;
+        font-weight: bold;
+      }
+      td,
+      th {
+        padding: 6px;
+        border: 1px solid #ccc;
+        text-align: left;
+      }
+      /*  */
+
+      table {
+        /* border: 1px solid #ccc; */
+        border-collapse: collapse;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        table-layout: fixed;
+      }
+
+      table caption {
+        font-size: 1.5em;
+        margin: 0.5em 0 0.75em;
+      }
+
+      table tr {
+        /* background-color: #f8f8f8; */
+        /* border: 1px solid #ddd; */
+        padding: 0.35em;
+      }
+
+      table th,
+      table td {
+        padding: 0.625em;
+        text-align: center;
+      }
+
+      table th {
+        font-size: 0.85em;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      @media screen and (max-width: 600px) {
+        table {
+          border: 0;
+        }
+
+        table caption {
+          font-size: 1.3em;
+        }
+
+        table thead {
+          border: none;
+          clip: rect(0 0 0 0);
+          height: 1px;
+          margin: -1px;
+          overflow: hidden;
+          padding: 0;
+          position: absolute;
+          width: 1px;
+        }
+
+        table tr {
+          border-bottom: 1px solid #ddd;
+          display: block;
+          margin-bottom: 0.625em;
+        }
+
+        table td {
+          /* border-bottom: 1px solid #ddd; */
+          display: block;
+          font-size: 0.8em;
+          text-align: right;
+          max-width: 100%;
+        }
+
+        table td::before {
+          content: attr(data-label);
+          float: left;
+          font-weight: bold;
+          text-transform: uppercase;
+          background: gainsboro;
+          padding: 12px;
+          /* color: white; */
+          font-weight: bold;
+          margin-right: 12px;
+          border-radius: 4px;
+        }
+        tr:nth-of-type(odd) {
+          background: unset;
+        }
+        tr {
+          margin-bottom: 25px;
+        }
+
+        table td:last-child {
+          border-bottom: 0;
+        }
+      }
+
+      input[type="file"] {
+        margin-right: 10px;
+      }
+
+      /*  */
+
+      .code {
+        /* white-space: pre; */
+        font-family: Consolas, monospace;
+        background-color: #ffffff;
+        padding: 12px;
+        border-radius: 8px;
+        text-wrap: wrap;
+        overflow-wrap: break-word;
+        max-width: 800px;
+      }
+      .code .string {
+        color: #d6582b;
+      }
+      .code .number {
+        color: #188c62;
+      }
+      .code .boolean,
+      .code .null {
+        color: #0824ff;
+      }
+      .code .key {
+        color: #3456b9;
+      }
+      .code-container {
+        background-color: white;
+      }
+      strong,
+      .body-pack *,
+      h4 {
+        margin-bottom: 10px;
+        color: #333 !important;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Exabase Log viewer</h1>
+    </header>
+    <div class="container">
+      <section id="about">
+        <h2>About</h2>
+        <p>
+          This tool allows you to parse MessagePack binary files and view the
+          contents in a table/code format.
+        </p>
+      </section>
+
+      <section id="user-input">
+        <h2>Select a Binary File</h2>
+        <form id="file-form">
+          <input type="file" id="file-input" accept="*" required />
+          <button type="submit">Parse</button>
+        </form>
+      </section>
+
+      <section id="table-section" style="display: none">
+        <h2>Parsed Data</h2>
+        <table id="parsed-table">
+          <caption>
+            data
+          </caption>
+          <thead>
+            <tr id="header-row"></tr>
+          </thead>
+          <tbody id="data-rows"></tbody>
+        </table>
+      </section>
+
+      <section id="code-section" style="display: none">
+        <h2>Parsed Data raw</h2>
+        <caption>
+          data
+        </caption>
+        <div id="code" class="code"></div>
+      </section>
+    </div>
+
+    <footer>
+      <p>&copy; 2024 exabase</p>
+    </footer>
+
+    <script src="msgpackr.js"></script>
+    <script>
+      function syntaxHighlight(json) {
+        if (typeof json != "string") {
+          json = JSON.stringify(json, null, "	");
+        }
+
+        json = json
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+        return json.replace(
+          /("(\u[a-zA-Z0-9]{4}|\[^u]|[^\"])*"(s*:)?|(true|false|null)|-?d+(?:.d*)?(?:[eE][+-]?d+)?)|[0-9]?/g,
+          function (match) {
+            if (!match) return "";
+            var cls = "";
+            if (/^"/.test(match)) {
+              if (/:$/.test(match)) {
+                cls = "key";
+              } else {
+                cls = "string";
+              }
+            } else if (/true|false/.test(match)) {
+              cls = "boolean";
+            } else if (/null/.test(match)) {
+              cls = "null";
+            } else if (/[0-9]/.test(match)) {
+              cls = "number";
+            }
+            return '<span class="' + cls + '">' + match + "</span>";
+          }
+        );
+      }
+
+      document
+        .getElementById("file-form")
+        .addEventListener("submit", function (e) {
+          e.preventDefault();
+          var fileInput = document.getElementById("file-input");
+          var file = fileInput.files[0];
+          if (file) {
+            var reader = new FileReader();
+            reader.onload = function () {
+              var arrayBuffer = reader.result;
+              var data = msgpackr.decode(new Uint8Array(arrayBuffer));
+              renderTable(data);
+            };
+            reader.readAsArrayBuffer(file);
+          }
+        });
+
+      function renderTable(data) {
+        var tableSection = document.getElementById("table-section");
+        var codeSection = document.getElementById("code-section");
+        // Populate table headers
+        if (!data[0] && typeof data === "object") {
+          tableSection.style.display = "none";
+          codeSection.style.display = "block";
+          codeSection.querySelector("#code").innerHTML = syntaxHighlight(
+            JSON.stringify(data)
+          );
+          console.log(data);
+          return;
+        }
+
+        tableSection.style.display = "block";
+        codeSection.style.display = "none";
+        var headerRow = document.getElementById("header-row");
+        headerRow.innerHTML = "";
+        var dataRows = document.getElementById("data-rows");
+        dataRows.innerHTML = "";
+        var headers = Object.keys(data[0]);
+        headers.forEach(function (header) {
+          var th = document.createElement("th");
+          th.scope = "col";
+          th.textContent = header;
+          headerRow.appendChild(th);
+        });
+
+        // Populate table data rows
+        data.forEach(function (item) {
+          var row = document.createElement("tr");
+          headers.forEach(function (header, idx) {
+            var td = document.createElement("td");
+            td.setAttribute("data-label", headers[idx]);
+            td.textContent = item[header];
+            row.appendChild(td);
+          });
+          dataRows.appendChild(row);
+        });
+      }
+    </script>
+  </body>
+</html>

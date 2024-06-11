@@ -188,16 +188,17 @@ export class Query<Model> {
    * @returns
    */
   findMany(
-    field?: Partial<Model> | string,
+    field: Partial<Model> | string,
     options?: {
       populate?: string[] | boolean;
       take?: number;
       skip?: number;
+      reverse?: true | false;
     }
   ) {
     // ? creating query payload
     const query: QueryType = {
-      select: typeof field === "string" ? field : "*",
+      select: field,
       table: this._table,
     };
     // ? imputing relationship payload
@@ -263,7 +264,7 @@ export class Query<Model> {
   ) {
     // ? creating query payload
     const query: QueryType = {
-      select: typeof field === "string" ? field : undefined,
+      select: field,
       table: this._table,
     };
     // ? inputting relationship payload
@@ -488,62 +489,61 @@ export class Query<Model> {
    * @param data
    * @param type
    */
-  saveBatch(data: Partial<Model>[]) {
-    if (Array.isArray(data)) {
-      const q = this._prepare_for(data, false);
-
-      const saved = this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
-      if (this._OnCommitCB) {
-        this._OnCommitCB(saved);
-      }
-      return saved;
-    } else {
-      throw new ExaError(
-        `Invalid inputs for .saveBatch method, data should be array.`
-      );
-    }
-  }
-  deleteBatch(data: Partial<Model>[]) {
-    if (Array.isArray(data)) {
-      const q = this._prepare_for(data, true);
-      const saved = this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
-      if (this._OnCommitCB) {
-        this._OnCommitCB(saved);
-      }
-      return saved;
-    } else {
-      throw new ExaError(
-        `Invalid inputs for .deleteBatch method, data should be array.`
-      );
-    }
-  }
-  private _prepare_for(data: Partial<Model>[], del: boolean) {
-    const query: QueryType[] = [];
-    for (let i = 0; i < data.length; i++) {
-      const item = data[i];
-      if (del) {
-        if (typeof (item as any)._id === "string") {
-          query.push({
-            delete: (item as any)._id,
-            table: this._table,
-          });
-        } else {
-          throw new ExaError(
-            "cannot continue with delete query '",
-            (item as any)._id,
-            "' is not a valid Exabase _id value"
-          );
-        }
-      } else {
-        const hasid = (item as any)?._id && true;
-        query.push({
-          [hasid ? "update" : "insert"]: this._Manager._validate(item, hasid),
-          table: this._table,
-        });
-      }
-    }
-    return query;
-  }
+  // saveBatch(data: Partial<Model>[]) {
+  //   if (Array.isArray(data)) {
+  //     const q = this._prepare_for(data, false);
+  //     const saved = this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
+  //     if (this._OnCommitCB) {
+  //       this._OnCommitCB(saved);
+  //     }
+  //     return saved;
+  //   } else {
+  //     throw new ExaError(
+  //       `Invalid inputs for .saveBatch method, data should be array.`
+  //     );
+  //   }
+  // }
+  // deleteBatch(data: Partial<Model>[]) {
+  //   if (Array.isArray(data)) {
+  // const q = this._prepare_for(data, true);
+  // const saved = this._Manager._runMany(q) as Promise<ExaDoc<Model[]>>;
+  // if (this._OnCommitCB) {
+  //   this._OnCommitCB(saved);
+  // }
+  //     return saved;
+  //   } else {
+  //     throw new ExaError(
+  //       `Invalid inputs for .deleteBatch method, data should be array.`
+  //     );
+  //   }
+  // }
+  // private _prepare_for(data: Partial<Model>[], del: boolean) {
+  //   const query: QueryType[] = [];
+  //   for (let i = 0; i < data.length; i++) {
+  //     const item = data[i];
+  //     if (del) {
+  //       if (typeof (item as any)._id === "string") {
+  //         query.push({
+  //           delete: (item as any)._id,
+  //           table: this._table,
+  //         });
+  //       } else {
+  //         throw new ExaError(
+  //           "cannot continue with delete query '",
+  //           (item as any)._id,
+  //           "' is not a valid Exabase _id value"
+  //         );
+  //       }
+  //     } else {
+  //       const hasid = (item as any)?._id && true;
+  //       query.push({
+  //         [hasid ? "update" : "insert"]: this._Manager._validate(item, hasid),
+  //         table: this._table,
+  //       });
+  //     }
+  //   }
+  //   return query;
+  // }
   onCommit(
     cb: (commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>) => void
   ) {
@@ -821,8 +821,11 @@ export class Manager {
         this.RCT[file] = RCTied;
       }
     }
-
-    if (query.select === "*") return RCTied;
+    if (query.select === "*") {
+      // ! todo: handle
+      // ! filtering => take, skip, reverse here
+      return RCTied;
+    }
     return findMessage(this.tableDir, query as any, RCTied) as Promise<Msg>;
   }
   async _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void> {
@@ -848,7 +851,12 @@ export class Manager {
       return this.queue(file, message, "u");
     }
     if (query["search"]) {
-      const indexes = this._search.search(query.search, query.take);
+      const indexes = this._search.search(
+        query.search,
+        query.take,
+        query.skip,
+        query.reverse
+      );
       const searches = indexes.map(
         (_id: string) =>
           this._select({
@@ -859,6 +867,8 @@ export class Manager {
       return Promise.all(searches);
     }
     if (query["unique"]) {
+      // ! todo: handle findMany on unique here cause both findone and findmany comes here
+      // ! filtering => take, skip, reverse here
       const select = await findMessageByUnique(
         this.tableDir + "UINDEX",
         this._schema._unique_field!,
@@ -908,7 +918,6 @@ export class Manager {
       } else {
         throw new Error("bug");
       }
-      return;
     }
     if (query["reference"] && query["reference"]._new) {
       const file = this._getReadingLog(query.reference._id);
@@ -923,16 +932,16 @@ export class Manager {
       return removeForeignKeys(this.tableDir + file, query.reference);
     }
   }
-  public _runMany(query: QueryType[]) {
-    // ? log the query
-    if (this.logging) console.log({ query });
-    //? create run trx(s)
-    if (query.length) {
-      return Promise.all(
-        query.map((q) => this._trx_runner(q))
-      ) as Promise<Msgs>;
-    }
-  }
+  // public _runMany(query: QueryType[]) {
+  //   // ? log the query
+  //   if (this.logging) console.log({ query });
+  //   //? create run trx(s)
+  //   if (query.length) {
+  //     return Promise.all(
+  //       query.map((q) => this._trx_runner(q))
+  //     ) as Promise<Msgs>;
+  //   }
+  // }
   public _run(query: QueryType) {
     if (this.logging) console.log({ query });
     //? create and run TRX
@@ -1024,7 +1033,14 @@ export class XTree {
     this.base = [];
     this.tree = {} as Record<string, XNode>;
   }
-  search(search: Msg, take: number = Infinity, skip: number = 0) {
+  search(
+    search: Msg,
+    take: number = Infinity,
+    skip: number = 0,
+    reverse = false
+  ) {
+    // ! todo: handle findMany on unique here cause both findone and findmany comes here
+    // ! filtering => take, skip, reverse here
     const results: string[] = [];
     for (const key in search) {
       if (this.tree[key]) {

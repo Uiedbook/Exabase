@@ -56,7 +56,9 @@ console.log("sqlite item count", c.length);
 if (d !== c.length) {
   console.time("Exabase | Insert time");
 
-  await trx.saveBatch(c as any[]);
+  for (let i = 0; i < c.length; i++) {
+    await trx.save(c[i] as any);
+  }
 
   console.timeEnd("Exabase | Insert time");
   console.log("sqlite data inserted into Exabase");
@@ -66,7 +68,7 @@ console.log("read Exabase item count to ensure it's consistent ofc it is", d);
 
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
-    await trx.findMany();
+    await trx.findMany("*");
   });
 }
 

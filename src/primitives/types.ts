@@ -166,7 +166,7 @@ export type qType =
   | "take"
   | "unique"
   | "skip"
-  | "order"
+  | "reverse"
   | "reference"
   | "count"
   | "table"
