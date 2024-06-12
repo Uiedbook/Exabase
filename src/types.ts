@@ -1,4 +1,4 @@
-import { ExaType, ExaSchema, Query } from "./classes.js";
+import { ExaType, ExaSchema, Query } from "./primitives/classes.js";
 
 /**
  * Interface for Exabase init  */
@@ -161,22 +161,55 @@ export type columnValidationType = {
   unique?: boolean;
 };
 
-export type qType =
-  | "select"
-  | "insert"
-  | "delete"
-  | "update"
-  | "search"
-  | "take"
-  | "unique"
-  | "skip"
-  | "reverse"
-  | "reference"
-  | "count"
-  | "table"
-  | "populate";
+// type qType =
+//   | "select"
+//   | "insert"
+//   | "delete"
+//   | "update"
+//   | "search"
+//   | "take"
+//   | "logIndex"
+//   | "unique"
+//   | "skip"
+//   | "reverse"
+//   | "reference"
+//   | "count"
+//   | "table"
+//   | "populate";
 
-export type QueryType = Partial<Record<qType, any>>;
+// export type QueryTypex = Partial<Record<qType, any>>;
+export type QueryType<Model> = {
+  reference?: {
+    _new?: boolean;
+    relationshipType: "MANY" | "ONE";
+    _id: string;
+    foreign_id: string;
+    foreign_table: string;
+    relationship: string;
+  };
+  select?: string | Partial<Model>;
+  sortBy?: {
+    [x in keyof Partial<Model>]: "ASC" | "DESC";
+  };
+  delete?: string;
+  table?: string;
+  insert?: Record<string, any>;
+  update?: Record<string, any>;
+  search?: Record<string, any>;
+  unique?: Record<string, any>;
+  populate?: Record<string, any>;
+  skip?: number;
+  take?: number;
+  count?: Record<string, any> | boolean;
+  /**
+   * TODO: exabase doesn't walk the log files until search is complete, no multi-log db would do so either.
+   * we only tranverse the first log file or last in reverse mode for findMany("*", {<options>})
+   * it's a good idea to allow users to access middle log files
+   * in this case they can use logCount to know the number of logs and provide logIndex option to iterate through via .findMany()
+   */
+  logIndex?: number;
+  // reverse?: boolean;
+};
 
 export type Msg = { _id: string };
 export type Msgs = Msg[];

@@ -1,12 +1,4 @@
-import {
-  open,
-  write,
-  fsync,
-  close,
-  chown as _chown,
-  rename,
-  unlink,
-} from "node:fs";
+import { open, write, fsync, close, chown as _chown, rename } from "node:fs";
 import { resolve as _resolve } from "node:path";
 import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
@@ -23,7 +15,7 @@ import {
   type columnValidationType,
   type fTable,
   type iTable,
-} from "./types.js";
+} from "../types.js";
 import { Utils, ExaError, ExaType } from "./classes.js";
 
 export const loadLog = async (filePath: string) => {
@@ -230,7 +222,7 @@ export const addForeignKeys = async (
     _id: string;
     foreign_table: string;
     foreign_id: string;
-    type: "MANY" | "ONE";
+    relationshipType: "MANY" | "ONE";
     relationship: string;
   },
   RCTiedlog: any
@@ -280,7 +272,7 @@ export const addForeignKeys = async (
   if (typeof messageX !== "object") {
     messageX = {};
   }
-  if (reference.type === "ONE") {
+  if (reference.relationshipType === "ONE") {
     messageX[reference.relationship] = reference.foreign_id;
   } else {
     if (Array.isArray(messageX[reference.relationship])) {
@@ -523,6 +515,7 @@ export const binarysearch_mutate = async (
   }
   return messages;
 };
+
 //? binary sort insert it
 export const binarysorted_insert = async (message: Msg, messages: Msgs) => {
   const _id = message._id;
@@ -740,3 +733,67 @@ export const SynFileWritWithWaitList = {
     }
   },
 };
+
+// ? bucket sort for sorting
+export function bucketSort(arr: Msgs, prop: keyof Msg, order: "ASC" | "DESC") {
+  // ? Adjust the bucket size based on data distribution
+  const bucketSize = Math.floor(arr.length / 2);
+  // ? create buckets
+  const bucketsMap: Record<number, Msg[]> = {};
+  let lastData = null;
+  for (let i = 0; i < arr.length; i++) {
+    const data = arr[i];
+    const bucketIndex = Math.floor(
+      data[prop].toString().charCodeAt(0) / bucketSize
+    );
+    if (!bucketsMap[bucketIndex]) {
+      bucketsMap[bucketIndex] = [];
+    }
+    // if (lastData && lastData[prop] >= data[prop]) {
+    //   bucketsMap[bucketIndex].unshift(data);
+    // } else {
+    bucketsMap[bucketIndex]!.push(data);
+    // }
+    lastData = data;
+  }
+  const buckets: Msgs[] = Object.values(bucketsMap);
+  console.log(1, buckets, 1);
+
+  // ? merge buckets
+  let result: Msgs = [];
+  for (let i = 0; i < buckets.length; i++) {
+    // ? sort using merge sort
+    const sortedBucket = mergeSort(buckets[i], prop);
+    result = result.concat(sortedBucket);
+  }
+  // console.log({ result, order });
+  if (order === "DESC") {
+    return result.reverse();
+  }
+  return result;
+}
+
+function mergeSort(arr: Msgs, prop: keyof Msg): Msgs {
+  if (arr.length <= 1) return arr;
+  const middle = Math.floor(arr.length / 2);
+  const left = arr.slice(0, middle);
+  const right = arr.slice(middle);
+  return merge(mergeSort(left, prop), mergeSort(right, prop), prop);
+}
+
+function merge(left: Msgs, right: Msgs, prop: keyof Msg) {
+  const result: Msgs = [];
+  let leftIndex = 0;
+  let rightIndex = 0;
+  while (leftIndex < left.length && rightIndex < right.length) {
+    if (left[leftIndex][prop] < right[rightIndex][prop]) {
+      result.push(left[leftIndex]);
+      leftIndex++;
+    } else {
+      result.push(right[rightIndex]);
+      rightIndex++;
+    }
+  }
+  console.log({ result });
+  return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));
+}

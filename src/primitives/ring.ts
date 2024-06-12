@@ -54,14 +54,14 @@ export const _login_leader_ring = async (indexes: Record<string, number>) => {
 };
 
 //! /login - (request out) logins an Exabase Ring interface.
-const app = async (ctx: { reply: (arg0: { status: string }) => void }) => {
-  // const req = (await ctx.body.json()) as {
-  //   url: string;
-  // };
-  // MANIFEST.ringlord = req.url as string;
-  // console.log(data);
-  ctx.reply({ status: "OK" });
-};
+// const app = async (ctx: { reply: (arg0: { status: string }) => void }) => {
+// const req = (await ctx.body.json()) as {
+//   url: string;
+// };
+// MANIFEST.ringlord = req.url as string;
+// console.log(data);
+//   ctx.reply({ status: "OK" });
+// };
 const login = async (ctx: { reply: (arg0: { status: string }) => void }) => {
   // const req = (await ctx.body.json()) as {
   //   url: string;
@@ -71,17 +71,17 @@ const login = async (ctx: { reply: (arg0: { status: string }) => void }) => {
   ctx.reply({ status: "OK" });
 };
 //! /authorise - (request in) request Exabase login credentails for authorisation before adding the node to the Ring interface.
-const authorise = async (ctx: {
-  body: { json: () => { url: string } | PromiseLike<{ url: string }> };
-  reply: (arg0: { status: string }) => void;
-}) => {
-  const req = (await ctx.body.json()) as {
-    url: string;
-  };
-  (Utils.MANIFEST.rings as string[]).push(req.url);
-  // console.log(data);
-  ctx.reply({ status: "OK" });
-};
+// const authorise = async (ctx: {
+//   body: { json: () => { url: string } | PromiseLike<{ url: string }> };
+//   reply: (arg0: { status: string }) => void;
+// }) => {
+//   const req = (await ctx.body.json()) as {
+//     url: string;
+//   };
+//   (Utils.MANIFEST.rings as string[]).push(req.url);
+//   // console.log(data);
+//   ctx.reply({ status: "OK" });
+// };
 //! /hydrate -
 const hydrate = async (ctx: {
   reply: (arg0: { status: string }) => void;

@@ -1,8 +1,5 @@
 import { mkdirSync } from "node:fs";
-import {
-  type ExabaseOptions,
-  type connectOptions,
-} from "./primitives/types.js";
+import { type ExabaseOptions, type connectOptions } from "./types.js";
 import {
   _ExabaseRingInterface,
   _login_leader_ring,
@@ -165,4 +162,4 @@ export class Exabase {
 //? exports
 export { ExaSchema, ExaError, ExaType } from "./primitives/classes.js";
 export { ExaId } from "./primitives/functions.js";
-export type { ExaDoc, ExaQuery } from "./primitives/types.js";
+export type { ExaDoc, ExaQuery } from "./types.js";

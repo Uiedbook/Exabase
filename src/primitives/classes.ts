@@ -14,7 +14,7 @@ import {
   type Xtree_flag,
   type SchemaRelation,
   type wTrainType,
-} from "./types.js";
+} from "../types.js";
 import { Sign, Verify } from "node:crypto";
 import {
   findMessage,
@@ -32,6 +32,7 @@ import {
   prepareMessage,
   SynFileWrit,
   SynFileWritWithWaitList,
+  bucketSort,
 } from "./functions.js";
 
 export class Utils {
@@ -169,7 +170,8 @@ export class Query<Model> {
   private _OnCommitCB?: (
     commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>
   ) => void;
-  _table?: string;
+  //? avaible immidiately connected
+  _table: string = "";
   premature: boolean = true;
   constructor(Manager: Manager) {
     this._Manager = Manager;
@@ -188,22 +190,33 @@ export class Query<Model> {
    * @returns
    */
   findMany(
-    field: Partial<Model> | string,
+    field?: Partial<Model> | string,
     options?: {
       populate?: string[] | boolean;
       take?: number;
       skip?: number;
-      reverse?: true | false;
+      sortBy?: {
+        [x in keyof Partial<Model>]: "ASC" | "DESC";
+      };
+      /**
+       * INFO: exabase doesn't walk the log files until search is complete, no multi-log db would do so either.
+       * we only tranverse the first log file or last in reverse mode for findMany("*", {<options>})
+       * it's a good idea to allow users to access middle log files
+       * in this case they can use logCount to know the number of logs and provide logIndex option to iterate
+       * through via .findMany()
+       */
+      logIndex?: number;
+      // reverse?: true | false;
     }
   ) {
     // ? creating query payload
-    const query: QueryType = {
-      select: field,
+    const query: QueryType<Model> = {
+      select: field || "*",
       table: this._table,
     };
     // ? imputing relationship payload
     if (typeof field === "object") {
-      query.select = undefined;
+      query.select = "";
       let key: string = "",
         value: any;
       for (const k in field) {
@@ -224,16 +237,19 @@ export class Query<Model> {
     }
     // ? populate options
     if (typeof options === "object") {
-      query.populate = {};
       query.skip = options.skip;
       query.take = options.take;
+      // query.reverse = options.reverse;
+      query.sortBy = options.sortBy;
       const fields = this._Manager._schema._foreign_field!;
       if (options.populate === true) {
+        query.populate = {};
         for (const lab in fields) {
           query.populate[lab] = fields[lab];
         }
       } else {
         if (Array.isArray(options.populate)) {
+          query.populate = {};
           for (let i = 0; i < options.populate.length; i++) {
             const lab = options.populate[0];
             const relaName = fields[lab];
@@ -263,7 +279,7 @@ export class Query<Model> {
     }
   ) {
     // ? creating query payload
-    const query: QueryType = {
+    const query: QueryType<Model> = {
       select: field,
       table: this._table,
     };
@@ -289,14 +305,15 @@ export class Query<Model> {
     }
     // ? populate options
     if (typeof options === "object") {
-      query.populate = {};
       const fields = this._Manager._schema._foreign_field!;
       if (options.populate === true) {
+        query.populate = {};
         for (const lab in fields) {
           query.populate[lab] = fields[lab];
         }
       } else {
         if (Array.isArray(options.populate)) {
+          query.populate = {};
           for (let i = 0; i < options.populate.length; i++) {
             const lab = options.populate[0];
             const relaName = fields[lab];
@@ -325,25 +342,30 @@ export class Query<Model> {
       populate?: string[] | boolean;
       take?: number;
       skip?: number;
-      reverse?: true | false;
+      // reverse?: true | false;
+      sortBy?: {
+        [x in keyof Partial<Model>]: "ASC" | "DESC";
+      };
     }
   ) {
     if (typeof searchQuery !== "object" && !Array.isArray(searchQuery))
       throw new ExaError("invalid search query ", searchQuery);
-    let query: QueryType = { search: searchQuery, table: this._table };
+    const query: QueryType<Model> = { search: searchQuery, table: this._table };
     // ? populate options
     if (typeof options === "object") {
       query.skip = options.skip;
       query.take = options.take;
-      query.reverse = options.reverse;
-      query.populate = {};
+      // query.reverse = options.reverse;
+      query.sortBy = options.sortBy;
       const fields = this._Manager._schema._foreign_field!;
       if (options.populate === true) {
+        query.populate = {};
         for (const lab in fields) {
           query.populate[lab] = fields[lab];
         }
       } else {
         if (Array.isArray(options.populate)) {
+          query.populate = {};
           for (let i = 0; i < options.populate.length; i++) {
             const lab = options.populate[0];
             const relaName = fields[lab];
@@ -366,7 +388,7 @@ export class Query<Model> {
    */
   save(data: Partial<ExaDoc<Model>>) {
     const hasid = typeof data?._id === "string";
-    const query: QueryType = {
+    const query: QueryType<Model> = {
       [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid),
       table: this._table,
     };
@@ -390,7 +412,7 @@ export class Query<Model> {
         "' is not a valid Exabase _id value"
       );
     }
-    const query: QueryType = {
+    const query: QueryType<Model> = {
       delete: _id,
       table: this._table,
     };
@@ -406,11 +428,20 @@ export class Query<Model> {
    * @returns
    */
   count(pops?: Partial<Model>) {
-    const query: QueryType = {
+    const query: QueryType<Model> = {
       count: pops || true,
       table: this._table,
     };
     return this._Manager._run(query) as Promise<number>;
+  }
+  /**
+   * Exabase query
+   * count the number for log files availble in the Table
+   * each log file store 16kb of data
+   * @returns
+   */
+  logCount() {
+    return this._Manager._getLastReadingLog() as string;
   }
   /**
    * Exabase query
@@ -438,11 +469,11 @@ export class Query<Model> {
     if (typeof options.foreign_id !== "string") {
       throw new ExaError("foreign_id field is invalid.");
     }
-    const query: QueryType = {
+    const query: QueryType<Model> = {
       reference: {
         _id: options._id,
         _new: true,
-        type: rela.RelationType,
+        relationshipType: rela.RelationType,
         foreign_id: options.foreign_id,
         relationship: options.relationship,
         foreign_table: rela.target,
@@ -472,11 +503,11 @@ export class Query<Model> {
         " schema"
       );
     }
-    const query: QueryType = {
+    const query: QueryType<Model> = {
       reference: {
         _id: options._id,
         _new: false,
-        type: rela.RelationType,
+        relationshipType: rela.RelationType,
         foreign_id: options.foreign_id,
         relationship: options.relationship,
         foreign_table: rela.target,
@@ -638,9 +669,11 @@ export class Manager {
     const Rs = [];
     // ? do the writing by
     let messages = this.RCT[file] ?? (await loadLog(this.tableDir + file));
+    // console.log({ message: queries[0][1], messages });
     for (let i = 0; i < queries.length; i++) {
       const [resolve, message, flag] = queries[i];
       if (flag === "i") {
+        // ?
         messages = await binarysorted_insert(message, messages);
         this._setLog(file, message._id, messages.length);
         // ? update search index
@@ -715,7 +748,7 @@ export class Manager {
         const LOG = await loadLog(this.tableDir + file);
         const ln = LOG.length;
         for (let i = 0; i < ln; i++) {
-          await this._search.insert(LOG[i]);
+          this._search.insert(LOG[i]);
         }
       }
       await this._search.persist();
@@ -742,6 +775,20 @@ export class Manager {
     }
     return "LOG-" + Object.keys(this._LogFiles).length;
   }
+  _getLastReadingLog() {
+    return "LOG-" + Object.keys(this._LogFiles).length;
+  }
+  // _getNextReadingLog(currentLog: string, reverse: boolean) {
+  // ! for multi-log find traverse log getting
+  //   const index = Number(currentLog.split("LOG-")[1]);
+  //   if (reverse) {
+  //     return "LOG-" + (index - 1 || 1);
+  //   }
+  //   if (index < Object.keys(this._LogFiles).length) {
+  //     return "LOG-" + (index + 1);
+  //   }
+  //   return "LOG-" + index;
+  // }
   _getInsertLog(): string {
     for (const filename in this._LogFiles) {
       const logFile = this._LogFiles[filename];
@@ -775,9 +822,9 @@ export class Manager {
               this._schema._foreign_field[key] = namer;
             } else {
               throw new ExaError(
-                " tableName:",
+                " tableName: ",
                 namer,
-                " not found on any schema, please recheck the relationship definition of the ",
+                " schema not found or connected, please check the relationship definition of the ",
                 this._schema.tableName,
                 " schema"
               );
@@ -786,7 +833,7 @@ export class Manager {
             throw new ExaError(
               " Error on schema ",
               this._schema.tableName,
-              " relationship target must be a string "
+              " relationship target must be a string of a table and connected "
             );
           }
         }
@@ -816,17 +863,8 @@ export class Manager {
     // }
     return v;
   }
-  async _select(query: QueryType) {
-    //? creating a relationship map if needed
-    if (Array.isArray(query.select.relationship)) {
-      const rela: Record<string, string> = {};
-      for (let i = 0; i < query.select.relationship.length; i++) {
-        const r = query.select.relationship;
-        rela[r] = this._schema.relationship![r as string].target;
-      }
-      query.select.relationship = rela;
-    }
-    const file = this._getReadingLog(query.select);
+  async _select(query: QueryType<Record<string, any>>) {
+    const file = this._getReadingLog(query.select as string);
     let RCTied = this.RCT[file];
     if (!RCTied) {
       RCTied = await loadLog(this.tableDir + file);
@@ -835,13 +873,51 @@ export class Manager {
       }
     }
     if (query.select === "*") {
-      // ! todo: handle
-      // ! filtering => take, skip, reverse here
+      // ? INFO: exabase doen't walk the log files until search is complete, no multi-log db would do so either.
+      // ? we only tranverse the first log file or last in reverse mode for findMany("*", {<options>})
+      // ? it's a good idea to allow users to access middle log files
+      // ? in this case they can use logCount to know the number of logs and provide logIndex option to iterate through via .findMany()
+      if (query.logIndex) {
+        RCTied = await loadLog(this.tableDir + "LOG-" + query.logIndex);
+      }
+      // ?
+
+      // ? if reverse and no logindex load the last log instead
+      if (!query.logIndex) {
+        RCTied = await loadLog(this.tableDir + this._getLastReadingLog());
+      }
+
+      // ?
+      if (query.skip) {
+        RCTied = RCTied.slice(query.skip);
+      }
+      // ?
+      if (query.take) {
+        RCTied = RCTied.slice(0, query.take);
+      }
+      if (query.sortBy) {
+        const key = Object.keys(query.sortBy)[0] as "_id";
+        RCTied = bucketSort(RCTied, key, query.sortBy[key] as "ASC");
+      }
+      // ! TODO
+      if (query.populate) {
+        //  const _foreign = await populateForeignKeys(
+        //    fileName,
+        //    message._id,
+        //    populate
+        //  );
+        //  for (const key in _foreign) {
+        //    (message[key as keyof typeof message] as any) = _foreign[key];
+        //  }
+      }
+      // ?
       return RCTied;
     }
     return findMessage(this.tableDir, query as any, RCTied) as Promise<Msg>;
   }
-  async _trx_runner(query: QueryType): Promise<Msg | Msgs | number | void> {
+  async _trx_runner(
+    query: QueryType<Msg>
+  ): Promise<Msg | Msgs | number | void> {
     if (query["select"]) {
       return this._select(query);
     }
@@ -849,7 +925,7 @@ export class Manager {
       const message = await prepareMessage(
         this.tableDir,
         this._schema._unique_field,
-        query.insert
+        query.insert as Msg
       );
       const file = this._getInsertLog();
       return this.queue(file, message, "i");
@@ -858,28 +934,30 @@ export class Manager {
       const message = await updateMessage(
         this.tableDir,
         this._schema._unique_field,
-        query.update
+        query.update as Msg
       );
       const file = this._getReadingLog(message._id);
       return this.queue(file, message, "u");
     }
     if (query["search"]) {
       const indexes = this._search.search(
-        query.search,
+        query.search as Msg,
         query.take,
-        query.skip,
-        query.reverse
+        query.skip
       );
       const searches = indexes.map(
         (_id: string) =>
           this._select({
             select: _id,
             populate: query.populate,
+            // ? sorting for search is added here
+            sortBy: query.sortBy,
           }) as Promise<Msg>
       );
+
       return Promise.all(searches);
     }
-    if (query["unique"]) { 
+    if (query["unique"]) {
       const select = await findMessageByUnique(
         this.tableDir + "UINDEX",
         this._schema._unique_field!,
@@ -910,7 +988,7 @@ export class Manager {
         }
         return size;
       } else {
-        return this._search.count(query["count"]);
+        return this._search.count(query["count"] as Msg);
       }
     }
     if (query["delete"]) {
@@ -930,7 +1008,7 @@ export class Manager {
         throw new Error("bug");
       }
     }
-    if (query["reference"] && query["reference"]._new) {
+    if (query["reference"] && query.reference._new) {
       const file = this._getReadingLog(query.reference._id);
       return addForeignKeys(
         this.tableDir + file,
@@ -953,7 +1031,7 @@ export class Manager {
   //     ) as Promise<Msgs>;
   //   }
   // }
-  public _run(query: QueryType) {
+  public _run(query: QueryType<Msg>) {
     if (this.logging) console.log({ query });
     //? create and run TRX
     return this._trx_runner(query);
@@ -1005,7 +1083,7 @@ class XNode {
     this.disert(value, index);
     this.insert(value, index);
   }
-  search(value: unknown, reverse: boolean = false): number[] {
+  search(value: unknown): number[] {
     const items = this.keys;
     let left = 0;
     let right = items.length - 1;
@@ -1017,7 +1095,7 @@ class XNode {
         current === value ||
         (typeof current === "string" && current.includes(value as string))
       ) {
-        return reverse ? items[mid].indexes.reverse() : items[mid].indexes;
+        return items[mid].indexes;
       } else if (current! < value!) {
         left = mid + 1;
       } else {
@@ -1054,31 +1132,26 @@ export class XTree {
     this.base = [];
     this.tree = {} as Record<string, XNode>;
   }
-  search(
-    search: Msg,
-    take: number = Infinity,
-    skip: number = 0,
-    reverse = false
-  ) {
-    const results: string[] = [];
+  search(search: Msg, take: number = Infinity, skip: number = 0) {
+    let indexes: number[] = [];
     for (const key in search) {
       if (this.tree[key]) {
-        const indexes = this.tree[key].search(
-          search[key as keyof Msg],
-          reverse
-        );
-        if (skip && results.length >= skip) {
-          results.splice(0, skip);
+        const index = this.tree[key].search(search[key as keyof Msg]);
+        if (skip && indexes.length >= skip) {
+          indexes.splice(0, skip);
           skip = 0; //? ok captain
         }
-        results.push(...(indexes || []).map((idx: number) => this.base[idx]));
-        if (results.length >= take) break;
+        indexes.push(...index);
+        if (indexes.length >= take) break;
       } else {
         throw new ExaError("Search index '", key, "' doesn't exist");
       }
     }
-    if (results.length >= take) return results.slice(0, take);
-    return results;
+
+    if (indexes.length >= take) {
+      indexes = indexes.slice(0, take);
+    }
+    return indexes.map((idx: number) => this.base[idx]);
   }
 
   searchBase(_id: string) {
@@ -1155,7 +1228,6 @@ export class XTree {
   }
   upsert(data: Msg) {
     // if (!data["_id"]) throw new Error("bad insert");
-
     const index = this.searchBase(data["_id"]);
     if (index === undefined) return;
     if (typeof data === "object" && !Array.isArray(data)) {
