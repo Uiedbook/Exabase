@@ -9,6 +9,7 @@ const users = new ExaSchema<{ age: number; name: string; mom: string }>({
     mom: { RelationType: "ONE", unique: true, type: String, target: "mom" },
   },
 });
+
 const moms = new ExaSchema<{ age: number; name: string }>({
   tableName: "mom",
   columns: {
@@ -22,15 +23,21 @@ const db = new Exabase({ schemas: [users, moms] });
 await db.connect();
 // ?
 for (let i = 0; i < 5; i++) {
-  await users.query.save({ age: i, name: "friday" });
+  const mom = await moms.query.save({ age: i, name: "friday" });
+  const user = await users.query.save({ age: i, name: "friday" });
+  await users.query.addRelation({
+    _id: user._id,
+    foreign_id: mom._id,
+    relationship: "mom",
+  });
 }
 console.time();
 const ser = await users.query.findMany(undefined, {
-  sortBy: { age: "ASC" },
+  sortBy: { age: "DESC" },
   // take: 2,
   // skip: 2,
   populate: ["mom"],
-  logIndex: 1,
+  // logIndex: 1,
 });
 console.timeEnd();
 console.log(ser, ser.length);

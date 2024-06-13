@@ -79,7 +79,7 @@ export async function prepareMessage(
         " aborted, reason - unique field's '",
         someIdex[0],
         "' value '",
-        someIdex[1],
+        message[someIdex[0] as keyof Msg],
         "' exists!"
       );
     }
@@ -216,6 +216,7 @@ export async function findMessage(
   }
 }
 
+// ! TODO: i think relationship has a bug, gonna find and fix it.
 export const addForeignKeys = async (
   fileName: string,
   reference: {
@@ -735,38 +736,43 @@ export const SynFileWritWithWaitList = {
 };
 
 // ? bucket sort for sorting
-export function bucketSort(arr: Msgs, prop: keyof Msg, order: "ASC" | "DESC") {
+export function bucketSort(
+  arr: Msgs,
+  prop: keyof Msg,
+  order: "ASC" | "DESC"
+): Msgs {
+  if (arr.length === 0) return arr;
+  // ? Find min and max values to determine the range of the buckets
+  const minValue = Math.min(
+    ...arr.map((item: Msg) => item[prop] as unknown as number)
+  );
+  const maxValue = Math.max(
+    ...arr.map((item: Msg) => item[prop] as unknown as number)
+  );
+
   // ? Adjust the bucket size based on data distribution
-  const bucketSize = Math.floor(arr.length / 2);
+  const bucketCount = Math.floor(arr.length / 2) || 1;
+  const bucketSize = Math.ceil((maxValue - minValue + 1) / bucketCount);
+
   // ? create buckets
-  const bucketsMap: Record<number, Msg[]> = {};
-  let lastData = null;
+  const buckets: Msgs[] = Array.from({ length: bucketCount }, () => []);
+
   for (let i = 0; i < arr.length; i++) {
-    const data = arr[i];
+    const data: Msg = arr[i];
     const bucketIndex = Math.floor(
-      data[prop].toString().charCodeAt(0) / bucketSize
+      ((data[prop] as unknown as number) - minValue) / bucketSize
     );
-    if (!bucketsMap[bucketIndex]) {
-      bucketsMap[bucketIndex] = [];
-    }
-    // if (lastData && lastData[prop] >= data[prop]) {
-    //   bucketsMap[bucketIndex].unshift(data);
-    // } else {
-    bucketsMap[bucketIndex]!.push(data);
-    // }
-    lastData = data;
+    buckets[bucketIndex].push(data);
   }
-  const buckets: Msgs[] = Object.values(bucketsMap);
-  console.log(1, buckets, 1);
 
   // ? merge buckets
   let result: Msgs = [];
   for (let i = 0; i < buckets.length; i++) {
     // ? sort using merge sort
     const sortedBucket = mergeSort(buckets[i], prop);
-    result = result.concat(sortedBucket);
+    result.push(...sortedBucket);
   }
-  // console.log({ result, order });
+
   if (order === "DESC") {
     return result.reverse();
   }
@@ -781,7 +787,7 @@ function mergeSort(arr: Msgs, prop: keyof Msg): Msgs {
   return merge(mergeSort(left, prop), mergeSort(right, prop), prop);
 }
 
-function merge(left: Msgs, right: Msgs, prop: keyof Msg) {
+function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
   const result: Msgs = [];
   let leftIndex = 0;
   let rightIndex = 0;
@@ -794,6 +800,5 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg) {
       rightIndex++;
     }
   }
-  console.log({ result });
   return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));
 }

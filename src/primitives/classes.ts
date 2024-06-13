@@ -33,6 +33,7 @@ import {
   SynFileWrit,
   SynFileWritWithWaitList,
   bucketSort,
+  populateForeignKeys,
 } from "./functions.js";
 
 export class Utils {
@@ -880,35 +881,33 @@ export class Manager {
       if (query.logIndex) {
         RCTied = await loadLog(this.tableDir + "LOG-" + query.logIndex);
       }
-      // ?
 
-      // ? if reverse and no logindex load the last log instead
-      if (!query.logIndex) {
-        RCTied = await loadLog(this.tableDir + this._getLastReadingLog());
-      }
-
-      // ?
+      // ? skip results
       if (query.skip) {
         RCTied = RCTied.slice(query.skip);
       }
-      // ?
+      // ? cutdown results
       if (query.take) {
         RCTied = RCTied.slice(0, query.take);
       }
+      // ? sort results using bucketed merge.sort agorimth
       if (query.sortBy) {
         const key = Object.keys(query.sortBy)[0] as "_id";
         RCTied = bucketSort(RCTied, key, query.sortBy[key] as "ASC");
       }
-      // ! TODO
+      // ? populate relations
       if (query.populate) {
-        //  const _foreign = await populateForeignKeys(
-        //    fileName,
-        //    message._id,
-        //    populate
-        //  );
-        //  for (const key in _foreign) {
-        //    (message[key as keyof typeof message] as any) = _foreign[key];
-        //  }
+        for (let i = 0; i < RCTied.length; i++) {
+          const _foreign = await populateForeignKeys(
+            file,
+            RCTied[i]._id,
+            query.populate
+          );
+
+          for (const key in _foreign) {
+            (RCTied[i][key as keyof Msg] as any) = _foreign[key];
+          }
+        }
       }
       // ?
       return RCTied;
@@ -1013,7 +1012,7 @@ export class Manager {
       return addForeignKeys(
         this.tableDir + file,
         query.reference,
-        this.RCT[file]
+        this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
     }
     if (query["reference"]) {

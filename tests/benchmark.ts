@@ -68,7 +68,7 @@ console.log("read Exabase item count to ensure it's consistent ofc it is", d);
 
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
-    await trx.findMany("*");
+    await trx.findMany();
   });
 }
 
@@ -81,4 +81,4 @@ const sq = db.prepare(`SELECT * FROM "Employee"`);
 
 run();
 
-await ExabaseR.backup();
+// await ExabaseR.backup();
