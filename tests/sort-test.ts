@@ -1,4 +1,4 @@
-import { type Msg, type Msgs } from "./dist/types";
+import { type Msg, type Msgs } from "../dist/types";
 
 // ? bucket sort for sorting
 export function bucketSort(

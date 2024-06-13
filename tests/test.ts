@@ -1,5 +1,5 @@
-import { Exabase } from "./dist/index.js";
-import { ExaSchema } from "./dist/index.js";
+import { Exabase } from "../dist/index.js";
+import { ExaSchema } from "../dist/index.js";
 
 const users = new ExaSchema<{ age: number; name: string; mom: string }>({
   tableName: "user",
