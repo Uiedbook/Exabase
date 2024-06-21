@@ -7,6 +7,7 @@ export const _ExabaseRingInterface = async (ctx: {
   json: () => Promise<Record<string, any>>;
   reply: (arg0: string) => never;
 }) => {
+  // freshNodeUrl
   const data = await ctx.json();
   switch (data["type"]) {
     // ? other rings can login this ring
