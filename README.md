@@ -358,7 +358,7 @@ this means, it stores the entire LOG(n) file of the table in memory, where n is 
 
 This might not be okay for resource heavy workloads. hence it can be turned off per schema.
 
-## MIT Lincenced
+## Apache 2.0 Lincenced
 
 Opensourced And Free.
 
