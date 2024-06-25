@@ -1,14 +1,12 @@
 import { mkdirSync } from "node:fs";
-import { type ExabaseOptions, type connectOptions } from "./types.js";
-import {
-  _ExabaseRingInterface,
-  _login_leader_ring,
-} from "./primitives/ring.js";
+import { type ExabaseOptions } from "./primitives/types.js";
+
 import { ExaError, Utils, Manager, backup } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
-  backup: (file?: string) => Promise<void>;
+  backup: () => Promise<void>;
+  restoreBackup: () => Promise<void>;
   private _announced = false;
   private _restorebackup?: string;
   private _conn: ((value: unknown) => void) | undefined = undefined;
@@ -18,9 +16,10 @@ export class Exabase {
     //? [1] directories
     this._exabaseDirectory = (init.name || "EXABASE_DB").trim().toUpperCase();
     // ? saving restoring backup file name, can be undeined or a string
-    this._restorebackup = init.restoreFromBackup;
+    this._restorebackup = init.backupFileName;
     // ? attaching backup method
     this.backup = backup.saveBackup(this._exabaseDirectory);
+    this.restoreBackup = backup.unzipBackup(init.backupFileName || this._exabaseDirectory);
     // ? setting up memory allocation for RCT enabled cache managers
     const usableManagerGB = getComputedUsage(
       init.EXABASE_MEMORY_PERCENT!,
@@ -39,12 +38,12 @@ export class Exabase {
       // ? create manifest
       Object.assign(Utils.MANIFEST, {
         schemas: undefined as unknown as [],
-        bearer: init.bearer,
-        EXABASE_KEYS: {
-          privateKey: init.EXABASE_KEYS?.privateKey,
-          publicKey: init.EXABASE_KEYS?.publicKey,
-        },
-        mode: init.mode,
+        // bearer: init.bearer,
+        // EXABASE_KEYS: {
+        //   privateKey: init.EXABASE_KEYS?.privateKey,
+        //   publicKey: init.EXABASE_KEYS?.publicKey,
+        // },
+        // mode: init.mode,
         EXABASE_MEMORY_PERCENT: init.EXABASE_MEMORY_PERCENT,
         logging: init.logging,
         name: init.name,
@@ -56,12 +55,12 @@ export class Exabase {
         // ? [3] update Exabase if it exists
         Object.assign(
           {
-            bearer: init.bearer,
-            EXABASE_KEYS: {
-              privateKey: init.EXABASE_KEYS?.privateKey,
-              publicKey: init.EXABASE_KEYS?.publicKey,
-            },
-            mode: init.mode,
+            // bearer: init.bearer,
+            // EXABASE_KEYS: {
+            //   privateKey: init.EXABASE_KEYS?.privateKey,
+            //   publicKey: init.EXABASE_KEYS?.publicKey,
+            // },
+            // mode: init.mode,
             EXABASE_MEMORY_PERCENT: init.EXABASE_MEMORY_PERCENT,
             logging: init.logging,
             name: init.name,
@@ -102,17 +101,10 @@ export class Exabase {
         console.log(e);
       });
   }
-  connect(options?: connectOptions) {
+  connect() {
     // ? Restoring previous backup if neccessary
     if (typeof this._restorebackup === "string") {
       backup.unzipBackup(this._restorebackup);
-    }
-    // ? if there's a ring to connect to
-    if (options) {
-      //? login this rings
-      _login_leader_ring({
-        //! /*indexes*/
-      });
     }
     //? else { some other stuff with config if available}
     if (!this._announced) {
@@ -162,4 +154,4 @@ export class Exabase {
 //? exports
 export { ExaSchema, ExaError, ExaType } from "./primitives/classes.js";
 export { ExaId } from "./primitives/functions.js";
-export type { ExaDoc, ExaQuery } from "./types.js";
+export type { ExaDoc, ExaQuery } from "./primitives/types.js";

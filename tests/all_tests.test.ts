@@ -6,21 +6,22 @@ const Order = new ExaSchema<{ ticket: string }>({
   tableName: "order",
   RCT: true,
   columns: {
-    ticket: { type: String, unique: true },
+    ticket: { type: String, unique: true, index: true },
   },
 });
 const User = new ExaSchema<{ name: string; requestedOrders: any[] }>({
   tableName: "user",
   RCT: true,
   columns: {
-    name: { type: String },
+    name: { type: String, index: true },
     requestedOrders: {
       target: "Order",
       RelationType: "MANY",
       type: ExaSchema,
     },
   },
-});
+})
+  ;
 
 // ?
 const db = new Exabase({ schemas: [User, Order] });
@@ -29,10 +30,6 @@ await db.connect();
 const userTRX = User.query;
 const OrderTRX = Order.query;
 
-const users = await userTRX.findMany();
-const orders = await OrderTRX.findMany();
-await userTRX.deleteBatch(users);
-await OrderTRX.deleteBatch(orders);
 const usersCount = await userTRX.count();
 const ordersCount = await OrderTRX.count();
 expect(usersCount).toBe(0);
@@ -54,7 +51,10 @@ describe("queries", () => {
   });
   it("large inset", async () => {
     const users = Array(100).fill({ name: "saul" });
-    await userTRX.saveBatch(users);
+    for (let i = 0; i < users.length; i++) {
+      const user = users[i];
+      await userTRX.save(user);
+    }
     const usersCount = await userTRX.count();
     expect(usersCount).toBe(100);
   });
@@ -63,8 +63,8 @@ describe("queries", () => {
     expect(users[1].name).toBe("saul");
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
+      await userTRX.save(users[i]);
     }
-    await userTRX.saveBatch(users);
     const updatedUsers = await userTRX.findMany();
     expect(updatedUsers[0].name).toBe("paul");
   });
@@ -85,7 +85,7 @@ describe("queries", () => {
     const populateRelationship = await userTRX.findOne(userin._id, {
       populate: true,
     });
-    // console.log({ populateRelationship });
+    expect(populateRelationship.requestedOrders[0]._id).not.toBe(undefined);
     expect(populateRelationship.requestedOrders[0]._id).toBe(orderin._id);
     await userTRX.removeRelation({
       _id: userin._id,
@@ -108,11 +108,19 @@ describe("queries", () => {
   it("clean up", async () => {
     const users = await userTRX.findMany();
     const orders = await OrderTRX.findMany();
-    await userTRX.deleteBatch(users);
-    await OrderTRX.deleteBatch(orders);
+    for (let i = 0; i < users.length; i++) {
+      await userTRX.delete(users[i]._id);
+    }
+    for (let i = 0; i < orders.length; i++) {
+      await OrderTRX.delete(orders[i]._id);
+    }
     const usersCount = await userTRX.count();
     const ordersCount = await OrderTRX.count();
     expect(usersCount).toBe(0);
     expect(ordersCount).toBe(0);
+  });
+  it("basic search index cleaned", async () => {
+    const userout = await userTRX.search({ name: "saul" });
+    expect(userout[0]).toBe(undefined);
   });
 });

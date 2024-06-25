@@ -40,7 +40,7 @@ const Employee = new ExaSchema({
 
 const ExabaseR = new Exabase({
   schemas: [Employee],
-  // restoreFromBackup:""
+  // backupFileName:""
 });
 
 await ExabaseR.connect();

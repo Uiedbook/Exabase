@@ -1,4 +1,4 @@
-import { type Msg, type Msgs } from "../dist/types";
+import { type Msg, type Msgs } from "../dist/primitives/types.js";
 
 // ? bucket sort for sorting
 export function bucketSort(
@@ -9,8 +9,8 @@ export function bucketSort(
   if (arr.length === 0) return arr;
 
   // ? Find min and max values to determine the range of the buckets
-  const minValue = Math.min(...arr.map((item) => item[prop]));
-  const maxValue = Math.max(...arr.map((item) => item[prop]));
+  const minValue = Math.min(...arr.map((item) => item[prop] as any));
+  const maxValue = Math.max(...arr.map((item) => item[prop] as any));
 
   // ? Adjust the bucket size based on data distribution
   const bucketCount = Math.floor(arr.length / 2) || 1;

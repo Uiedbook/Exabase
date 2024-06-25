@@ -1,6 +1,6 @@
 {
   "name": "exabase",
-  "version": "0.0.0-rc-12",
+  "version": "0.0.0-rc-20",
   "description": "A scaling focused distributed nosql database with surprising performance and strong data consistency.",
   "main": "dist/index.js",
   "type": "module",
@@ -26,8 +26,9 @@
     "javascript"
   ],
   "scripts": {
-    "compile": "rm -rf ./EXABASE_DB && bun bundle.ts",
+    "compile": "rm -rf ./EXABASE_DB && rm -rf ./dist && bun bundle.ts",
     "test": " bun test --timeout 10000",
+    "test2": "rm -rf ./EXABASE_DB && bun test --timeout 20000",
     "build": "bun bundle.ts && npm pack && mv **.tgz ~/",
     "bench": "bun ./tests/benchmark.ts"
   },

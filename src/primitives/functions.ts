@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 import { open, write, fsync, close, chown as _chown, rename } from "node:fs";
 import { resolve as _resolve } from "node:path";
 import { promisify } from "node:util";
@@ -15,16 +16,15 @@ import {
   type columnValidationType,
   type fTable,
   type iTable,
-} from "../types.js";
+} from "./types.js";
 import { Utils, ExaError, ExaType } from "./classes.js";
 
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
     return (Utils.packr.decode(data) || []) as Msgs;
-  } catch (error) {
+  } catch (_error) {
     // console.log({ filePath, error });
-    // console.log({ filePath });
     return [] as Msgs;
   }
 };
@@ -33,7 +33,7 @@ export const loadLogSync = (filePath: string) => {
     const data = readFileSync(filePath);
     const d = Utils.packr.decode(data) || [];
     return d;
-  } catch (error) {
+  } catch (_error) {
     // console.log(error, filePath);
     return [];
   }
@@ -113,70 +113,7 @@ export async function deleteMessage(
   return message || ({ _wal_ignore_flag: true } as unknown as Msg);
 }
 
-// export async function findMessages(
-//   fileName: string,
-//   fo: {
-//     select: string;
-//     skip?: number;
-//     populate?: Record<string, string>;
-//     take?: number;
-//   }
-// ) {
-//   const { select, take, skip, populate } = fo;
-//   let messages = await loadLog(fileName);
-//   if (select === "*") {
-//     if (skip) {
-//       //? remove skip
-//       messages.splice(0, skip);
-//     }
-//     if (take) {
-//       //? reduce to take
-//       messages = messages.slice(0, take);
-//     }
-//     if (populate) {
-//       const _med = messages.map(async (m: Msg) => {
-//         const _foreign = await populateForeignKeys(fileName, m._id, populate);
-//         for (const key in _foreign) {
-//           (m[key as keyof typeof m] as any) = _foreign[key] as Msgs;
-//         }
-//         return m;
-//       });
-//       messages = await Promise.all(_med);
-//     }
-//     return messages;
-//   }
 
-//   //? binary search it
-//   let left = 0;
-//   let right = messages.length - 1;
-//   let mid = Math.floor((left + right) / 2);
-//   let midId = messages[mid]?._id;
-//   while (left <= right) {
-//     mid = Math.floor((left + right) / 2);
-//     midId = messages[mid]._id;
-//     if (midId === select) {
-//       const message = messages[mid];
-//       if (populate) {
-//         const _foreign = await populateForeignKeys(
-//           fileName,
-//           message._id,
-//           populate
-//         );
-//         for (const key in _foreign) {
-//           (message[key as keyof typeof message] as any) = _foreign[key];
-//         }
-//       }
-//       return message;
-//     } else if (midId < select) {
-//       left = mid + 1;
-//     } else if (midId === undefined) {
-//       return undefined;
-//     } else {
-//       right = mid - 1;
-//     }
-//   }
-//   return;
-// }
 export async function findMessage(
   fileName: string,
   fo: {
@@ -316,7 +253,7 @@ export const populateForeignKeys = async (
         const fk = messages[_id][relationship];
         if (fk) {
           if (Array.isArray(fk)) {
-            const marray = fk.map(async (id) => {
+            const marray = fk.map((id) => {
               return Utils.EXABASE_MANAGERS[
                 relationships[relationship]
               ]._query.findOne(id);
@@ -392,8 +329,7 @@ const findIndex = async (
   _unique_field: Record<string, true>,
   data: Record<string, any>
 ) => {
-  let messages = (await loadLog(fileName)) as unknown as iTable;
-
+  const messages = (await loadLog(fileName)) as unknown as iTable;
   if (Array.isArray(messages)) {
     return false;
   }
@@ -424,7 +360,7 @@ export const findMessageByUnique = async (
   _unique_field: Record<string, true>,
   data: Record<string, any>
 ) => {
-  let messages = (await loadLog(fileName)) as unknown as iTable;
+  const messages = (await loadLog(fileName)) as unknown as iTable;
 
   if (Array.isArray(messages)) {
     return undefined;
@@ -464,7 +400,7 @@ const dropIndex = async (
 export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right; ) {
+  for (; left <= right;) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
@@ -478,7 +414,7 @@ export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   return undefined;
 };
 //? binary search and mutate it
-export const binarysearch_mutate = async (
+export const binarysearch_mutate = (
   message: Msg,
   messages: Msgs,
   flag: Xtree_flag
@@ -491,12 +427,13 @@ export const binarysearch_mutate = async (
         messages[0] = message;
       }
     }
+    return messages
   }
 
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right; ) {
+  for (; left <= right;) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
@@ -518,11 +455,11 @@ export const binarysearch_mutate = async (
 };
 
 //? binary sort insert it
-export const binarysorted_insert = async (message: Msg, messages: Msgs) => {
+export const binarysorted_insert = (message: Msg, messages: Msgs) => {
   const _id = message._id;
   let low = 0;
   let high = messages.length - 1;
-  for (; low <= high; ) {
+  for (; low <= high;) {
     const mid = Math.floor((low + high) / 2);
     const current = messages[mid]._id;
     if (current < _id) {
@@ -578,7 +515,7 @@ export function validateData(
   schema: Record<string, SchemaColumnOptions> = {}
 ) {
   let info: string;
-  let out: Record<string, any> = {};
+  const out: Record<string, any> = {};
   //? check for valid input
   if (typeof data !== "object") {
     info = " data is invalid " + data;
@@ -766,7 +703,7 @@ export function bucketSort(
   }
 
   // ? merge buckets
-  let result: Msgs = [];
+  const result: Msgs = [];
   for (let i = 0; i < buckets.length; i++) {
     // ? sort using merge sort
     const sortedBucket = mergeSort(buckets[i], prop);

@@ -1,4 +1,5 @@
-import { ExaType, ExaSchema, Query } from "./primitives/classes.js";
+// deno-lint-ignore-file no-explicit-any
+import { ExaType, ExaSchema, Query } from "./classes.js";
 
 /**
  * Interface for Exabase init  */
@@ -15,11 +16,11 @@ export type ExabaseOptions = {
   name?: string;
   /**
    * a url that points to another node this node can hydrate from if out of date  */
-  bearer?: string;
+  // bearer?: string;
   /**
    * type of ring
    */
-  mode?: "REPLICATION" | "EXTENSION";
+  // mode?: "REPLICATION" | "EXTENSION";
   /**
    * Exabase DBMS
    * ---
@@ -37,7 +38,7 @@ export type ExabaseOptions = {
    * ---
    * Exabase signing keys
    */
-  EXABASE_KEYS?: { privateKey: string; publicKey: string };
+  // EXABASE_KEYS?: { privateKey: string; publicKey: string };
   /**
    * Exabase DBMS
    * ---
@@ -45,7 +46,7 @@ export type ExabaseOptions = {
    *
    * When extracting, tar will keep the existing file on disk if it's newer than the file in the database archive.
    *  */
-  restoreFromBackup?: string;
+  backupFileName?: string;
 
   /**
    * Exabase DBMS
@@ -54,7 +55,7 @@ export type ExabaseOptions = {
    *
    * When extracting, tar will keep the existing file on disk if it's newer than the file in the database archive.
    *  */
-  freshNodeUrl?: string;
+  // freshNodeUrl?: string;
 };
 
 /**
@@ -170,23 +171,6 @@ export type columnValidationType = {
   unique?: boolean;
 };
 
-// type qType =
-//   | "select"
-//   | "insert"
-//   | "delete"
-//   | "update"
-//   | "search"
-//   | "take"
-//   | "logIndex"
-//   | "unique"
-//   | "skip"
-//   | "reverse"
-//   | "reference"
-//   | "count"
-//   | "table"
-//   | "populate";
-
-// export type QueryTypex = Partial<Record<qType, any>>;
 export type QueryType<Model> = {
   reference?: {
     _new?: boolean;
@@ -245,9 +229,9 @@ export type ExaDoc<Model> = Model & {
   _id: string;
 };
 
-export type connectOptions = {};
+export type connectOptions = Record<string | number | symbol, never>;
 
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
 export type wTrainFlagLessType = [(value: unknown) => void, Buffer];
-export type ExaQuery<Model = ExaDoc<{}>> = Query<Model>;
+export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> = Query<Model>;
