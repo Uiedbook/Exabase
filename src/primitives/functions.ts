@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
 import { open, write, fsync, close, chown as _chown, rename } from "node:fs";
 import { resolve as _resolve } from "node:path";
 import { promisify } from "node:util";
@@ -30,9 +29,7 @@ export const loadLog = async (filePath: string) => {
 };
 export const loadLogSync = (filePath: string) => {
   try {
-    const data = readFileSync(filePath);
-    const d = Utils.packr.decode(data) || [];
-    return d;
+    return Utils.packr.decode(readFileSync(filePath)) || [];
   } catch (_error) {
     // console.log(error, filePath);
     return [];
@@ -112,7 +109,6 @@ export async function deleteMessage(
   }
   return message || ({ _wal_ignore_flag: true } as unknown as Msg);
 }
-
 
 export async function findMessage(
   fileName: string,
@@ -400,7 +396,7 @@ const dropIndex = async (
 export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right;) {
+  for (; left <= right; ) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
@@ -427,13 +423,13 @@ export const binarysearch_mutate = (
         messages[0] = message;
       }
     }
-    return messages
+    return messages;
   }
 
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right;) {
+  for (; left <= right; ) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]._id;
     if (midId === _id) {
@@ -459,7 +455,7 @@ export const binarysorted_insert = (message: Msg, messages: Msgs) => {
   const _id = message._id;
   let low = 0;
   let high = messages.length - 1;
-  for (; low <= high;) {
+  for (; low <= high; ) {
     const mid = Math.floor((low + high) / 2);
     const current = messages[mid]._id;
     if (current < _id) {
@@ -672,6 +668,15 @@ export const SynFileWritWithWaitList = {
   },
 };
 
+const numb = (str: string) => {
+  let out = 0,
+    len = str.length;
+  for (let pos = 0; pos < len; pos++) {
+    out += str.charCodeAt(pos);
+  }
+  return out;
+};
+
 // ? bucket sort for sorting
 export function bucketSort(
   arr: Msgs,
@@ -681,10 +686,10 @@ export function bucketSort(
   if (arr.length === 0) return arr;
   // ? Find min and max values to determine the range of the buckets
   const minValue = Math.min(
-    ...arr.map((item: Msg) => item[prop] as unknown as number)
+    ...arr.map((item: Msg) => numb(item[prop].toString()))
   );
   const maxValue = Math.max(
-    ...arr.map((item: Msg) => item[prop] as unknown as number)
+    ...arr.map((item: Msg) => numb(item[prop].toString()))
   );
 
   // ? Adjust the bucket size based on data distribution
@@ -697,7 +702,7 @@ export function bucketSort(
   for (let i = 0; i < arr.length; i++) {
     const data: Msg = arr[i];
     const bucketIndex = Math.floor(
-      ((data[prop] as unknown as number) - minValue) / bucketSize
+      (numb(data[prop].toString()) - minValue) / bucketSize
     );
     buckets[bucketIndex].push(data);
   }

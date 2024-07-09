@@ -1,19 +1,24 @@
 import { Exabase } from "../dist/index.js";
 import { ExaSchema } from "../dist/index.js";
 
-const users = new ExaSchema<{ age: number; name: string; mom: string }>({
+const users = new ExaSchema<{
+  age: number;
+  name: string;
+  mom: string;
+  _id: string;
+}>({
   tableName: "user",
   columns: {
-    age: { type: Number, unique: true, nullable: false, index: true },
+    age: { type: Number, nullable: false, index: true },
     name: { type: String, index: true },
-    mom: { RelationType: "ONE", unique: true, type: String, target: "mom" },
+    mom: { RelationType: "ONE", type: String, target: "mom" },
   },
 });
 
 const moms = new ExaSchema<{ age: number; name: string }>({
   tableName: "mom",
   columns: {
-    age: { type: Number, unique: true, nullable: false, index: true },
+    age: { type: Number, nullable: false, index: true },
     name: { type: String, index: true },
   },
 });
@@ -33,11 +38,11 @@ for (let i = 0; i < 5; i++) {
 }
 console.time();
 const ser = await users.query.findMany(undefined, {
-  sortBy: { age: "DESC" },
-  // take: 2,
-  // skip: 2,
+  sortBy: { age: "ASC" },
+  take: 2,
+  skip: 2,
   populate: ["mom"],
-  // logIndex: 1,
+  logIndex: 1,
 });
 console.timeEnd();
 console.log(ser, ser.length);

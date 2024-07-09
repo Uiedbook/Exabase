@@ -1,4 +1,4 @@
-// deno-lint-ignore-file no-explicit-any
+ 
 import { opendir, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { Packr } from "msgpackr";

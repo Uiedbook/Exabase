@@ -20,9 +20,7 @@ const User = new ExaSchema<{ name: string; requestedOrders: any[] }>({
       type: ExaSchema,
     },
   },
-})
-  ;
-
+});
 // ?
 const db = new Exabase({ schemas: [User, Order] });
 // ? get Exabase ready
@@ -30,8 +28,26 @@ await db.connect();
 const userTRX = User.query;
 const OrderTRX = Order.query;
 
-const usersCount = await userTRX.count();
-const ordersCount = await OrderTRX.count();
+let usersCount = await userTRX.count();
+let ordersCount = await OrderTRX.count();
+if (usersCount !== 0) {
+  const allusers = await userTRX.findMany();
+  for (let u = 0; u < allusers.length; u++) {
+    const user = allusers[u];
+    await userTRX.delete(user._id);
+  }
+}
+if (ordersCount !== 0) {
+  const allorders = await OrderTRX.findMany();
+  for (let u = 0; u < allorders.length; u++) {
+    const order = allorders[u];
+    await OrderTRX.delete(order._id);
+  }
+}
+
+usersCount = await userTRX.count();
+ordersCount = await OrderTRX.count();
+
 expect(usersCount).toBe(0);
 expect(ordersCount).toBe(0);
 console.log("Done cleaning");
@@ -121,6 +137,6 @@ describe("queries", () => {
   });
   it("basic search index cleaned", async () => {
     const userout = await userTRX.search({ name: "saul" });
-    expect(userout[0]).toBe(undefined);
+    expect(userout[0]).toBe(undefined as any);
   });
 });
