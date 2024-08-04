@@ -1,4 +1,3 @@
- 
 import { opendir, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { Packr } from "msgpackr";
@@ -16,7 +15,6 @@ import {
   type SchemaRelation,
   type wTrainType,
 } from "./types.js";
-import { Sign, Verify } from "node:crypto";
 import {
   findMessage,
   updateMessage,
@@ -28,7 +26,7 @@ import {
   binarysearch_mutate,
   findMessageByUnique,
   loadLogSync,
-  validateData,
+  validator,
   resizeRCT,
   prepareMessage,
   SynFileWrit,
@@ -38,22 +36,6 @@ import {
 } from "./functions.js";
 
 export class Utils {
-  static MANIFEST: {
-    schemas: ExaSchema<any>[];
-    bearer: string;
-    rings: string[];
-    EXABASE_KEYS: { privateKey: string; publicKey: string };
-    sign?: Sign;
-    verify?: Verify;
-  } = {
-      schemas: [],
-      bearer: "",
-      rings: [],
-      EXABASE_KEYS: { privateKey: "", publicKey: "" },
-      sign: undefined,
-      verify: undefined,
-    };
-  static EXABASE_RING_STATE: Record<string, Manager> = {};
   static EXABASE_MANAGERS: Record<string, Manager> = {};
   static packr = new Packr();
   //? Regularity Cache Tank or whatever.
@@ -68,12 +50,12 @@ export class ExaError extends Error {
     super(message);
   }
   private static geterr(err: string[]) {
-    return String(`\x1b[31mExabase:${err.join("")}\x1b[0m`);
+    return String(`\x1b[31mExabase: ${err.join("")}\x1b[0m`);
   }
 }
 
 export class ExaSchema<Model> {
-  tableName: string;
+  tableName: Uppercase<string>;
   RCT?: boolean;
   _trx: Query<Model>;
   columns: {
@@ -86,7 +68,9 @@ export class ExaSchema<Model> {
   constructor(options: SchemaOptions<Model>) {
     //? mock query
     this._trx = new Query({} as any);
-    this.tableName = options?.tableName?.trim()?.toUpperCase();
+    this.tableName = options?.tableName
+      ?.trim()
+      ?.toUpperCase() as Uppercase<string>;
     // ? parse definitions
     if (this.tableName) {
       this._unique_field = {};
@@ -107,18 +91,12 @@ export class ExaSchema<Model> {
         //? validating default values
         if (this.columns[key].default) {
           // ? check for type
-          const v = validateData(
+          const v = validator(
             { [key]: this.columns[key].default },
             { [key]: { ...this.columns[key], default: undefined } }
           );
-          if (typeof v === "string") {
-            throw new ExaError(
-              "Error validating default value on ",
-              this.tableName,
-              " reason - ",
-              v
-            );
-          }
+          if (typeof v === "string")
+            throw new ExaError("table ", this.tableName, " error ", v);
         }
 
         //? more later
@@ -144,8 +122,8 @@ export class ExaSchema<Model> {
     if (!this._premature) return this._trx;
     throw new ExaError(
       "ExaSchema - " +
-      this.tableName +
-      " is not yet connected to an Exabase Instance"
+        this.tableName +
+        " is not yet connected to an Exabase Instance"
     );
   }
   /**
@@ -258,7 +236,7 @@ export class Query<Model> {
         }
       }
     }
-    return this._Manager._run(query) as Promise<ExaDoc<Model>[]>;
+    return this._Manager._trx_runner(query) as Promise<ExaDoc<Model>[]>;
   }
   /**
    * Exabase query
@@ -319,7 +297,7 @@ export class Query<Model> {
       }
     }
 
-    return this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    return this._Manager._trx_runner(query) as Promise<ExaDoc<Model>>;
   }
   /**
    * Exabase query
@@ -334,7 +312,6 @@ export class Query<Model> {
       populate?: string[] | boolean;
       take?: number;
       skip?: number;
-      // reverse?: true | false;
       sortBy?: {
         [x in keyof Partial<Model>]: "ASC" | "DESC";
       };
@@ -370,7 +347,7 @@ export class Query<Model> {
         }
       }
     }
-    return this._Manager._run(query) as Promise<ExaDoc<Model>[]>;
+    return this._Manager._trx_runner(query) as Promise<ExaDoc<Model>[]>;
   }
   /**
    * Exabase query
@@ -379,12 +356,11 @@ export class Query<Model> {
    * @returns
    */
   save(data: Partial<ExaDoc<Model>>) {
-    const hasid = typeof data?._id === "string";
     const query: QueryType<Model> = {
-      [hasid ? "update" : "insert"]: this._Manager._validate(data, hasid),
+      [typeof data?._id === "string" ? "update" : "insert"]: data,
       table: this._table,
     };
-    const saved = this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    const saved = this._Manager._trx_runner(query) as Promise<ExaDoc<Model>>;
     if (this._OnCommitCB) {
       this._OnCommitCB(saved);
     }
@@ -408,7 +384,7 @@ export class Query<Model> {
       delete: _id,
       table: this._table,
     };
-    const saved = this._Manager._run(query) as Promise<ExaDoc<Model>>;
+    const saved = this._Manager._trx_runner(query) as Promise<ExaDoc<Model>>;
     if (this._OnCommitCB) {
       this._OnCommitCB(saved);
     }
@@ -424,7 +400,7 @@ export class Query<Model> {
       count: pops || true,
       table: this._table,
     };
-    return this._Manager._run(query) as Promise<number>;
+    return this._Manager._trx_runner(query) as Promise<number>;
   }
   /**
    * Exabase query
@@ -433,7 +409,7 @@ export class Query<Model> {
    * @returns
    */
   logCount() {
-    return this._Manager._getLastReadingLog() as string;
+    return Object.keys(this._Manager._LogFiles).length;
   }
   /**
    * Exabase query
@@ -472,7 +448,7 @@ export class Query<Model> {
       },
       table: this._table,
     };
-    return this._Manager._run(query) as Promise<void>;
+    return this._Manager._trx_runner(query) as Promise<void>;
   }
   /**
    * Exabase query
@@ -506,18 +482,18 @@ export class Query<Model> {
       },
       table: this._table,
     };
-    return this._Manager._run(query) as Promise<void>;
+    return this._Manager._trx_runner(query) as Promise<void>;
   }
 
-  onCommit(
-    cb: (commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>) => void
-  ) {
-    if (typeof cb === "function") {
-      this._OnCommitCB = cb;
-    } else {
-      throw new ExaError("Invalid oncommit function");
-    }
-  }
+  // onCommit(
+  //   cb: (commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>) => void
+  // ) {
+  //   if (typeof cb === "function") {
+  //     this._OnCommitCB = cb;
+  //   } else {
+  //     throw new ExaError("Invalid oncommit function");
+  //   }
+  // }
 }
 
 export class Manager {
@@ -553,7 +529,9 @@ export class Manager {
     // ? avoid indexing  _wal_ignore_flag & _id ok?
     indexTable["_id"] = false;
     indexTable["_wal_ignore_flag"] = false;
-    this._search = new XTree({ persistKey: "", indexTable });
+    this._search = new XTree({
+      indexTable,
+    });
   }
   _setup(init: {
     _exabaseDirectory: string;
@@ -564,7 +542,9 @@ export class Manager {
     this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
     this.logging = init.logging;
     // ? provide Xtree search index dir
-    this._search.persistKey = this.tableDir + "XINDEX";
+    const persistKey = this.tableDir + "XINDEX";
+    this._search.persistKey = persistKey;
+    this._search.tree = XTree.restore(persistKey);
     // ? setup relationship
     this._constructRelationships(init.schemas);
     //? setup table directories
@@ -597,45 +577,52 @@ export class Manager {
   }
   async write(queries: wTrainType[], file: string) {
     this.runningQueue = true;
-    const Rs = [];
+    const resolveFNs = [];
+
     // ? do the writing by
-    let messages = (await loadLog(this.tableDir + file));
-    for (let i = 0; i < queries.length; i++) {
-      const [resolve, message, flag] = queries[i];
+    // let messages = this.RCTied ? this.RCT[file] : undefined;
+    // if (!messages) {
+    const messages = await loadLog(this.tableDir + file);
+    // }
+
+    for (const [resolve, message, flag] of queries) {
       if (flag === "i") {
-        messages = await binarysorted_insert(message, messages);
-        // ? update search index
+        binarysorted_insert(message, messages);
         this._search.insert(message);
       } else {
-        messages = await binarysearch_mutate(message, messages, flag);
+        binarysearch_mutate(message, messages, flag);
         // ? update search index
         if (flag === "d") {
           this._search.disert(message);
         } else {
-          const oldMessage = await this._select({ select: message._id });
-          this._search.upsert(oldMessage as Msg, message);
+          this._search.upsert(message);
         }
+      }
+
+      //? resize RCT
+      // ? update this active RCT
+      if (this.RCTied) {
+        this.RCT[file] = messages;
       }
 
       // ? update _logFile metadata index
       this._LogFiles[file].size = messages.length;
       this._LogFiles[file].last_id = messages.at(-1)?._id!;
-      Rs.push(() => resolve(message));
+      resolveFNs.push(() => resolve(message));
     }
-    // ? update this active RCT
-    if (this.RCTied) {
-      this.RCT[file] = messages;
-    }
+
     // ? synchronies writer
     await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
-    //? resize RCT
-    this.RCTied && resizeRCT(this.rct_level, this.RCT);
-    await this._search.persist();
-    Rs.map((a) => a());
+
+    resolveFNs.map((a) => a());
+    this._search.persist();
     // ? run awaiting queries
     if (this.waiters[file].length) {
       this.write(this.waiters[file].splice(0), file);
     } else {
+      if (this.RCTied) {
+        resizeRCT(this.rct_level, this.RCT);
+      }
       this.runningQueue = false;
     }
   }
@@ -706,9 +693,9 @@ export class Manager {
     }
     return "LOG-" + Object.keys(this._LogFiles).length;
   }
-  _getLastReadingLog() {
-    return "LOG-" + Object.keys(this._LogFiles).length;
-  }
+  // _getLastReadingLog() {
+  //   return "LOG-" + Object.keys(this._LogFiles).length;
+  // }
 
   _getInsertLog(): string {
     for (const filename in this._LogFiles) {
@@ -758,43 +745,31 @@ export class Manager {
     }
   }
 
-  _validate(data: any, update?: boolean) {
-    const v = validateData(data, this._schema.columns);
-
-    if (typeof v === "string") {
-      throw new ExaError(
-        !update ? "insert" : "update",
-        " on table :",
-        this._schema.tableName,
-        " aborted, reason - ",
-        v
-      );
-    }
-
-    if (!data._id && update) {
-      throw new ExaError(
-        "update on table :",
-        this._schema.tableName,
-        " aborted, reason - _id is missing"
-      );
-    }
+  _validate(data: any) {
+    const v = validator(data, this._schema.columns);
+    if (typeof v === "string")
+      throw new ExaError(this._schema.tableName, " table error '", v, "'");
     return v;
   }
   async _select(query: QueryType<Record<string, any>>) {
     const file = this._getReadingLog(query.select as string);
-    let RCTied = this.RCTied ? this.RCT[file] : await loadLog(this.tableDir + file);
+    let RCTied = this.RCTied ? this.RCT[file] : undefined;
     if (!RCTied) {
       RCTied = await loadLog(this.tableDir + file);
-      this.RCT[file] = RCTied;
-    }
-    if (query.select === "*") {
-      // ? INFO: exabase doen't walk the log files until search is complete, no multi-log db would do so either.
-      // ? we only tranverse the first log file or last for findMany("*", {<options>})
-      // ? it's a good idea to allow users to access middle log files
-      // ? in this case they can use logCount to know the number of logs and provide logIndex option to iterate through via .findMany()
-      if (query.logIndex) {
-        RCTied = await loadLog(this.tableDir + "LOG-" + query.logIndex);
+      if (this.RCTied) {
+        this.RCT[file] = RCTied;
       }
+    }
+
+    // ? INFO: exabase doen't walk the log files until search is complete, no multi-log db would do so either.
+    // ? we only tranverse the first log file or last for findMany("*", {<options>})
+    // ? it's a good idea to allow users to access middle log files
+    // ? in this case they can use logCount to know the number of logs and provide logIndex option to iterate through via .findMany()
+    if (query.logIndex) {
+      RCTied = await loadLog(this.tableDir + "LOG-" + query.logIndex);
+    }
+
+    if (query.select === "*") {
       // ? skip results
       if (query.skip) {
         RCTied = RCTied.slice(query.skip);
@@ -810,17 +785,16 @@ export class Manager {
       }
       // ? populate relations
       if (query.populate) {
-        for (let i = 0; i < RCTied.length; i++) {
-          const _foreign = await populateForeignKeys(
-            file,
-            RCTied[i]._id,
-            query.populate
-          );
-
-          for (const key in _foreign) {
-            (RCTied[i][key as keyof Msg] as any) = _foreign[key];
-          }
-        }
+        return Promise.all(
+          RCTied.map(async (item) => {
+            const foreignKeys = await populateForeignKeys(
+              file,
+              item._id,
+              query.populate!
+            );
+            return { ...item, ...foreignKeys };
+          })
+        );
       }
       // ?
       return RCTied;
@@ -830,45 +804,50 @@ export class Manager {
   async _trx_runner(
     query: QueryType<Msg>
   ): Promise<Msg | Msgs | number | void> {
+    if (this.logging) console.log({ query });
+
     if (query["select"]) {
       return this._select(query);
     }
+
     if (query["insert"]) {
+      this._validate(query.insert);
       const message = await prepareMessage(
         this.tableDir,
         this._schema._unique_field,
         query.insert as Msg
       );
-      const file = this._getInsertLog();
-      return this.queue(file, message, "i");
+      return this.queue(this._getInsertLog(), message, "i");
     }
+
     if (query["update"]) {
+      this._validate(query.update);
       const message = await updateMessage(
         this.tableDir,
         this._schema._unique_field,
         query.update as Msg
       );
-      const file = this._getReadingLog(message._id);
-      return this.queue(file, message, "u");
+      return this.queue(this._getReadingLog(message._id), message, "u");
     }
+
     if (query["search"]) {
       const indexes = this._search.search(
         query.search as Msg,
         query.take,
         query.skip
       );
-      const searches = indexes.map(
-        (_id: string) =>
-          this._select({
-            select: _id,
-            populate: query.populate,
-            // ? sorting for search is added here
-            sortBy: query.sortBy,
-          }) as Promise<Msg>
+      return Promise.all(
+        indexes.map(
+          (_id: string) =>
+            this._select({
+              select: _id,
+              populate: query.populate,
+              sortBy: query.sortBy,
+            }) as Promise<Msg>
+        )
       );
-
-      return Promise.all(searches);
     }
+
     if (query["unique"]) {
       const select = await findMessageByUnique(
         this.tableDir + "UINDEX",
@@ -889,104 +868,90 @@ export class Manager {
         return;
       }
     }
+
     if (query["count"]) {
       if (query["count"] === true) {
-        //? we can get count right here
-        let size = 0;
-        const obj: { size: number }[] = Object.values(this._LogFiles) as any;
-        for (let c = 0; c < obj.length; c++) {
-          const element = obj[c];
-          size += element.size;
-        }
-        return size;
-      } else {
-        return this._search.count(query["count"] as Msg);
+        return Object.values(this._LogFiles).reduce(
+          (size, { size: fileSize }) => size + fileSize,
+          0
+        );
       }
+      return this._search.count(query["count"] as Msg);
     }
+
     if (query["delete"]) {
       const file = this._getReadingLog(query.delete);
       const message = await deleteMessage(
         query.delete,
         this.tableDir,
         this._schema._unique_field,
-        this._schema.relationship ? true : false,
+        !!this._schema.relationship,
         this.tableDir + file,
         this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
 
       if (message) {
+        this._search.disert(message);
         return this.queue(file, message, "d");
       } else {
-        throw new ExaError("item not found, left.")
+        throw new ExaError("item not found, left.");
       }
     }
+
     if (query["reference"]) {
+      const file = this._getReadingLog(query.reference._id);
       if (query.reference._new) {
-        const file = this._getReadingLog(query.reference._id);
         return addForeignKeys(
           this.tableDir + file,
           query.reference,
           this.RCT[file] ?? (await loadLog(this.tableDir + file))
         );
       }
-      const file = this._getReadingLog(query.reference._id);
       return removeForeignKeys(this.tableDir + file, query.reference);
     }
-  }
-  public _run(query: QueryType<Msg>) {
-    if (this.logging) console.log({ query });
-    //? create and run TRX
-    return this._trx_runner(query);
+    if (query["logCount"]) {
+      return Object.keys(this._LogFiles).length;
+    }
   }
 }
 
-
 class XNode {
-  keys: Record<string, string[]> = {};
-  constructor(keys?: Record<string, string[]>) {
-    this.keys = keys || {};
+  keys: string[] = [];
+  map: Record<string, number[]> = {};
+  constructor(keys?: string[], map?: Record<string, number[]>) {
+    this.keys = keys || [];
+    this.map = map || {};
   }
-  insert(value: string, id: string) {
-    if (this.keys[value]) {
-      this.keys[value].push(id);
-
-    } else {
-      this.keys[value] = [(id)];
+  insert(val: string, id: string) {
+    const idx = this.keys.push(id);
+    if (!this.map[val]) {
+      this.map[val] = [];
+    }
+    this.map[val].push(idx - 1);
+  }
+  disert(val: string, id: string) {
+    const idx = this.keys.indexOf(id);
+    if (this.map[val]) {
+      this.map[val] = this.map[val].filter((a) => a !== idx);
+      this.keys.splice(idx, 1);
     }
   }
-  disert(oldvalue: string, id: string) {
-    if (this.keys[oldvalue]) {
-      this.keys[oldvalue] = this.keys[oldvalue].filter(
-        (a) => a !== id
-      );
+  upsert(val: string, id: string) {
+    const idx = this.keys.indexOf(id);
+    if (!this.map[val]) {
+      this.map[val] = [];
     }
-
+    this.map[val].push(idx - 1);
   }
-  upsert(oldvalue: string, newvalue: string, id: string) {
-    this.disert(oldvalue, id);
-    this.insert(newvalue, id);
-  }
-
 }
 
 export class XTree {
-  persistKey: string;
+  persistKey?: string;
   tree: Record<string, XNode> = {};
   // used for keep searchable keys of data that should be indexed in the db.
   indexTable: Record<string, boolean>;
-  constructor(init: {
-    persistKey: string;
-    indexTable: Record<string, boolean>;
-  }) {
-    this.persistKey = init.persistKey;
+  constructor(init: { indexTable: Record<string, boolean> }) {
     this.indexTable = init.indexTable;
-    // ?
-    const tree = XTree.restore(init.persistKey);
-    // ?
-    if (tree) {
-      this.tree = tree;
-    }
-    // ?
   }
   restart() {
     this.tree = {} as Record<string, XNode>;
@@ -996,9 +961,11 @@ export class XTree {
     for (const key in search) {
       if (!this.indexTable[key]) continue;
       if (this.tree[key]) {
-        const index = this.tree[key].keys[search[key as "_id"]];
-        if (!index) continue;
-        idx.push(...index);
+        const index = this.tree[key].map[search[key as "_id"]];
+        if (index?.length === 0) continue;
+        for (const i of index) {
+          this.tree[key].keys[i] && idx.push(this.tree[key].keys[i]);
+        }
         if (skip && idx.length >= skip) {
           idx.splice(0, skip);
           skip = 0; //? ok captain
@@ -1018,7 +985,7 @@ export class XTree {
     for (const key in search) {
       if (!this.indexTable[key]) continue;
       if (this.tree[key]) {
-        resultsCount += this.tree[key].keys[search[key as "_id"]].length;
+        resultsCount += this.tree[key].map[search[key as "_id"]].length;
       }
     }
     return resultsCount;
@@ -1059,39 +1026,39 @@ export class XTree {
       }
     }
   }
-  upsert(olddata: Msg, newdata: Msg) {
-    if ((typeof newdata === "object" && typeof olddata === "object")) {
-      for (const key in olddata) {
+  upsert(newdata: Msg) {
+    if (typeof newdata === "object") {
+      for (const key in newdata) {
         if (!this.indexTable[key]) continue;
         if (!this.tree[key]) continue;
-        this.tree[key].upsert(olddata[key as keyof Msg], newdata[key as keyof Msg], olddata["_id"]);
+        this.tree[key].upsert(newdata[key as keyof Msg], newdata["_id"]);
       }
     }
   }
 
   persist() {
-    const obj: Record<string, any> = {};
-    const keys = Object.keys(this.tree);
-    for (let index = 0; index < keys.length; index++) {
-      obj[keys[index]] = this.tree[keys[index]].keys;
+    const obj: { keys: string[]; map: Record<string, any> }[] = [];
+    const map = Object.keys(this.tree);
+    for (let i = 0; i < map.length; i++) {
+      obj[i] = { map: this.tree[map[i]].map, keys: this.tree[map[i]].keys };
     }
     return SynFileWritWithWaitList.write(
-      this.persistKey,
+      this.persistKey!,
       Utils.packr.encode(obj)
     );
   }
   static restore(persistKey: string) {
-    const data = loadLogSync(persistKey);
+    const data = loadLogSync(persistKey, {});
     const tree: Record<string, any> = {};
     if (data) {
       for (const key in data) {
-        tree[key] = new XNode(data[key]);
+        tree[key] = new XNode(data[key].keys, data[key].map);
       }
     }
+
     return tree;
   }
 }
-
 
 export class backup {
   static saveBackup(name: string) {
@@ -1113,6 +1080,6 @@ export class backup {
         // ? When extracting, keep the existing file on disk if it's newer than the file in the archive.
         keepNewer: true,
       });
-    }
+    };
   }
 }

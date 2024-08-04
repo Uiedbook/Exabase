@@ -3,17 +3,22 @@ import { it, describe, expect } from "bun:test";
 
 // ? setup db
 const Order = new ExaSchema<{ ticket: string }>({
-  tableName: "order",
+  tableName: "ORDER",
   RCT: true,
   columns: {
     ticket: { type: String, unique: true, index: true },
   },
 });
-const User = new ExaSchema<{ name: string; requestedOrders: any[] }>({
-  tableName: "user",
+const User = new ExaSchema<{
+  name: string;
+  requestedOrders: any[];
+  age: number;
+}>({
+  tableName: "USER",
   RCT: true,
   columns: {
     name: { type: String, index: true },
+    age: { type: Number, index: true, default: 67 },
     requestedOrders: {
       target: "Order",
       RelationType: "MANY",
@@ -101,6 +106,7 @@ describe("queries", () => {
     const populateRelationship = await userTRX.findOne(userin._id, {
       populate: true,
     });
+
     expect(populateRelationship.requestedOrders[0]._id).not.toBe(undefined);
     expect(populateRelationship.requestedOrders[0]._id).toBe(orderin._id);
     await userTRX.removeRelation({

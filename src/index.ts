@@ -1,6 +1,5 @@
 import { mkdirSync } from "node:fs";
 import { type ExabaseOptions } from "./primitives/types.js";
-
 import { ExaError, Utils, Manager, backup } from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
@@ -19,7 +18,9 @@ export class Exabase {
     this._restorebackup = init.backupFileName;
     // ? attaching backup method
     this.backup = backup.saveBackup(this._exabaseDirectory);
-    this.restoreBackup = backup.unzipBackup(init.backupFileName || this._exabaseDirectory);
+    this.restoreBackup = backup.unzipBackup(
+      init.backupFileName || this._exabaseDirectory
+    );
     // ? setting up memory allocation for RCT enabled cache managers
     const usableManagerGB = getComputedUsage(
       init.EXABASE_MEMORY_PERCENT!,
@@ -36,37 +37,11 @@ export class Exabase {
       // ? create main dir
       mkdirSync(this._exabaseDirectory);
       // ? create manifest
-      Object.assign(Utils.MANIFEST, {
-        schemas: undefined as unknown as [],
-        // bearer: init.bearer,
-        // EXABASE_KEYS: {
-        //   privateKey: init.EXABASE_KEYS?.privateKey,
-        //   publicKey: init.EXABASE_KEYS?.publicKey,
-        // },
-        // mode: init.mode,
-        EXABASE_MEMORY_PERCENT: init.EXABASE_MEMORY_PERCENT,
-        logging: init.logging,
-        name: init.name,
-      } as ExabaseOptions);
       console.log("Exabase initialized!");
     } catch (e: any) {
       //? console.log(e);
       if ({ e }.e.code === "EEXIST") {
         // ? [3] update Exabase if it exists
-        Object.assign(
-          {
-            // bearer: init.bearer,
-            // EXABASE_KEYS: {
-            //   privateKey: init.EXABASE_KEYS?.privateKey,
-            //   publicKey: init.EXABASE_KEYS?.publicKey,
-            // },
-            // mode: init.mode,
-            EXABASE_MEMORY_PERCENT: init.EXABASE_MEMORY_PERCENT,
-            logging: init.logging,
-            name: init.name,
-          },
-          Utils.MANIFEST
-        );
       }
     }
 
@@ -116,39 +91,19 @@ export class Exabase {
     return undefined;
   }
 
-  query(tableName: string) {
-    const table = Utils.EXABASE_MANAGERS[tableName];
-    if (table) {
-      return table._schema.query;
+  async query(query: string) {
+    if (!this._announced) {
+      throw new ExaError("Exabase not ready!");
     }
-    console.log(
-      "ExaError: available tables are ",
-      Object.keys(Utils.EXABASE_MANAGERS).join(", ")
-    );
-    throw new ExaError("No schema named ", tableName, "!");
+    //? verify query validity
+    if (typeof query !== "string") throw new ExaError("Invalid query!");
+    const parsedQuery = JSON.parse(query);
+    const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
+    if (!table || !parsedQuery.query) {
+      throw new ExaError("query canceled!");
+    }
+    return table._trx_runner(parsedQuery.query);
   }
-  // async executeQuery(query: string) {
-  //   if (!this._announced) {
-  //     throw new ExaError("Exabase not ready!");
-  //   }
-  //   //? verify query validity
-  //   try {
-  //     if (typeof query !== "string") throw new ExaError("Invalid query!");
-  //     const parsedQuery = JSON.parse(query);
-  //     const table = Utils.EXABASE_MANAGERS[parsedQuery.table];
-  //     if (!table)
-  //       throw new ExaError(
-  //         "table " + parsedQuery.table + " not on this database!"
-  //       );
-  //     return table._run(parsedQuery.query);
-  //   } catch (error) {
-  //     if (error instanceof ExaError) {
-  //       throw error;
-  //     } else {
-  //       throw new ExaError("Invalid query: ", query);
-  //     }
-  //   }
-  // }
 }
 
 //? exports

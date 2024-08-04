@@ -1,6 +1,5 @@
-import { open, write, fsync, close, chown as _chown, rename } from "node:fs";
+import { chown as _chown, promises as fsp } from "node:fs";
 import { resolve as _resolve } from "node:path";
-import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
@@ -27,12 +26,11 @@ export const loadLog = async (filePath: string) => {
     return [] as Msgs;
   }
 };
-export const loadLogSync = (filePath: string) => {
+export const loadLogSync = (filePath: string, defut: any = []) => {
   try {
     return Utils.packr.decode(readFileSync(filePath)) || [];
   } catch (_error) {
-    // console.log(error, filePath);
-    return [];
+    return defut;
   }
 };
 
@@ -46,13 +44,10 @@ export async function updateMessage(
     // ? checking for existing specified unique identifiers
     if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
       throw new ExaError(
-        "UPDATE on table :",
+        "UPDATE on table on ",
         dir,
-        " aborted, reason - unique field's ",
-        someIdex[0],
-        " value ",
-        someIdex[1],
-        " exists!"
+        " is not unique, ",
+        someIdex[1]
       );
     }
   }
@@ -71,13 +66,10 @@ export async function prepareMessage(
 
     if (Array.isArray(someIdex)) {
       throw new ExaError(
-        "INSERT on table :",
+        "INSERT on table ",
         dir,
-        " aborted, reason - unique field's '",
-        someIdex[0],
-        "' value '",
-        message[someIdex[0] as keyof Msg],
-        "' exists!"
+        " is not unique, ",
+        someIdex[1]
       );
     }
   }
@@ -170,9 +162,7 @@ export const addForeignKeys = async (
   );
   if (!message) {
     throw new ExaError(
-      "Adding relation on table :",
-
-      " aborted, reason - item _id '",
+      "Adding relationship failed  '",
       reference._id,
       "' not found!"
     );
@@ -184,15 +174,13 @@ export const addForeignKeys = async (
 
   if (!foreign_message) {
     throw new ExaError(
-      "Adding relation on table :",
-
-      " aborted, reason - foreign_id '",
+      "Adding relation aborted, foreign _id '",
       reference.foreign_id,
-      "' from foreign table '",
+      "' from table '",
       reference.foreign_table,
-      "' via it's relationship '",
+      "' on relationship '",
       reference.relationship,
-      "' not found!"
+      "' is not found!"
     );
   }
   fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
@@ -417,11 +405,7 @@ export const binarysearch_mutate = (
 ) => {
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
-      if (flag === "d") {
-        messages.pop();
-      } else {
-        messages[0] = message;
-      }
+      flag === "d" ? messages.splice(0, 1) : (messages[0] = message);
     }
     return messages;
   }
@@ -430,14 +414,14 @@ export const binarysearch_mutate = (
   let left = 0;
   let right = messages.length - 1;
   for (; left <= right; ) {
-    const mid = Math.floor((left + right) / 2);
+    // const mid = Math.floor((left + right) / 2);
+    const mid = (left + right) >>> 1; // Bitwise right shift for division by 2
     const midId = messages[mid]._id;
     if (midId === _id) {
       //? run mutation
       if (flag === "u") {
         messages[mid] = message;
-      }
-      if (flag === "d") {
+      } else {
         messages.splice(mid, 1);
       }
       break;
@@ -456,7 +440,8 @@ export const binarysorted_insert = (message: Msg, messages: Msgs) => {
   let low = 0;
   let high = messages.length - 1;
   for (; low <= high; ) {
-    const mid = Math.floor((low + high) / 2);
+    // const mid = Math.floor((low + high) / 2);
+    const mid = (low + high) >>> 1; // Bitwise right shift for division by 2
     const current = messages[mid]._id;
     if (current < _id) {
       low = mid + 1;
@@ -470,12 +455,12 @@ export const binarysorted_insert = (message: Msg, messages: Msgs) => {
   return messages;
 };
 
+const PROCESS_UNIQUE = randomBytes(5);
+const buffer = Buffer.alloc(12);
 export const ExaId = (): string => {
-  const PROCESS_UNIQUE = randomBytes(5);
   let index = ~~(Math.random() * 0xffffff);
   const time = ~~(Date.now() / 1000);
   const inc = (index = (index + 1) % 0xffffff);
-  const buffer = Buffer.alloc(12);
   // 4-byte timestamp
   buffer[3] = time & 0xff;
   buffer[2] = (time >> 8) & 0xff;
@@ -506,85 +491,67 @@ export const encode_timestamp = (timestamp: string): string => {
 
 // ExaSchema validator
 
-export function validateData(
-  data: Record<string, Record<string, any>> = {},
+export function validator(
+  data: Record<string, any> = {},
   schema: Record<string, SchemaColumnOptions> = {}
 ) {
-  let info: string;
-  const out: Record<string, any> = {};
   //? check for valid input
-  if (typeof data !== "object") {
-    info = " data is invalid " + data;
-  }
-  for (const [prop, value] of Object.entries(schema)) {
-    const { type, length, width, nullable } = value as columnValidationType;
+  if (typeof data !== "object") return "input is invalid ";
+
+  const out: Record<string, any> = {};
+  let info: string | undefined;
+  for (const prop in schema) {
+    const value = schema[prop];
+    const { type, max, min, err, required, RegExp } =
+      value as columnValidationType;
     // ?
     data[prop] = data[prop] || value.default || data[prop];
-    out[prop] = data[prop];
     // ?
     if (prop === "_id") {
+      out["_id"] = data["_id"];
       continue;
     }
     // ? check for nullability
-    if ((data[prop] === undefined || data[prop] === null) && nullable) {
-      continue;
-    }
-    if ((data[prop] === undefined || data[prop] === null) && !nullable) {
-      if (value.default === undefined) {
-        info = `${prop} is required`;
+    if (data[prop] === undefined || data[prop] === null) {
+      if (!required) {
+        continue;
+      } else {
+        info = err || `${prop} is required`;
         break;
       }
     }
-    // ?
-    if (typeof data[prop] !== "undefined") {
-      // ? check for empty strings
-      if (
-        typeof data[prop] === "string" &&
-        data[prop]["trim"]() === "" &&
-        nullable
-      ) {
-        info = `${prop} cannot be empty `;
-        break;
-      }
-      // ? check for type
-      if (
-        typeof type === "function" &&
-        !(typeof data[prop] === typeof (type as Function)())
-      ) {
-        info = `Provided ${prop} value has an invalid type value ${String(
-          data[prop]
-        )}`;
-        break;
-      }
-      // ? check for exaType type
-      if (type instanceof ExaType && !type.v(data[prop])) {
-        info = `Provided ${prop} value has an invalid type value ${String(
-          data[prop]
-        )}`;
-        break;
-      }
-      //? checks for numbers width
-      if (
-        width &&
-        !Number.isNaN(Number(data[prop])) &&
-        Number(data[prop]) < width
-      ) {
-        info = `Given ${prop} must not be lesser than ${width}`;
-        break;
-      }
-      //? checks for String length
-      if (
-        length &&
-        typeof data[prop] === "string" &&
-        data[prop]["length"] > length
-      ) {
-        info = `${prop} is more than ${length} characters `;
-        break;
-      }
+    // ? check for type
+    if (
+      typeof type === "function" &&
+      typeof data[prop] !== typeof (type as Function)()
+    ) {
+      info = `${prop} type is invalid -  ${String(typeof data[prop])}`;
+      break;
     }
-  }
 
-  return info! || out;
+    // ? check for exaType type
+    if (type instanceof ExaType && !type.v(data[prop])) {
+      info = `${prop} is invalid - ${String(data[prop])}`;
+      break;
+    }
+    //? checks for String and Number max
+    if (max && (data[prop]?.["length"] || data[prop] > max)) {
+      info = err || `${prop} must not be lesser than ${max}`;
+      break;
+    }
+    //? checks for String and Number min
+    if (min && (data[prop]?.["length"] || data[prop] > min)) {
+      info = err || `${prop} must not be larger than ${min}`;
+      break;
+    }
+    // ? regex check
+    if (typeof RegExp === "object" && !RegExp.test(data[prop])) {
+      info = err || `${prop} is invalid`;
+      break;
+    }
+    out[prop] = data[prop];
+  }
+  return info || out;
 }
 
 //  other functions
@@ -607,9 +574,9 @@ export function resizeRCT(level: number, data: Record<string, any>) {
   const keys = Object.keys(data);
   //! 99 should calculated memory capacity
   if (keys.length > level) {
-    const a = keys.slice(0, level * 0.5);
-    for (let i = 0; i < 50; i++) {
-      data[a[i]] = undefined;
+    const limit = Math.min(level * 0.5, 50);
+    for (let i = 0; i < limit; i++) {
+      delete data[keys[i]];
     }
   }
 }
@@ -617,16 +584,15 @@ export function resizeRCT(level: number, data: Record<string, any>) {
 //? SynFileWrit tree
 export async function SynFileWrit(file: string, data: Buffer) {
   let fd;
-  let tmpfile = "";
+  const tmpfile = file + ExaId() + "-SYNC";
   try {
-    tmpfile = file + ExaId() + "-SYNC";
-    fd = await promisify(open)(tmpfile, "w");
-    await promisify(write)(fd, data, 0, data.length, 0);
-    await promisify(fsync)(fd);
-    await promisify(rename)(tmpfile, file);
+    fd = await fsp.open(tmpfile, "w");
+    await fd.write(data, 0, data.length, 0);
+    await fd.sync();
+    await fsp.rename(tmpfile, file);
   } finally {
-    if (fd) {
-      await promisify(close)(fd);
+    if (fd !== undefined) {
+      await fd.close();
     }
   }
 }
@@ -648,16 +614,15 @@ export const SynFileWritWithWaitList = {
   async write(file: string, data: Buffer) {
     await this.acquireWrite(file);
     let fd;
-    let tmpfile = "";
+    const tmpfile = file + ExaId() + "-SYNC";
     try {
-      tmpfile = file + ExaId() + "-SYNC";
-      fd = await promisify(open)(tmpfile, "w");
-      await promisify(write)(fd, data, 0, data.length, 0);
-      await promisify(fsync)(fd);
-      await promisify(rename)(tmpfile, file);
+      fd = await fsp.open(tmpfile, "w");
+      await fd.write(data, 0, data.length, 0);
+      await fd.sync();
+      await fsp.rename(tmpfile, file);
     } finally {
-      if (fd) {
-        await promisify(close)(fd);
+      if (fd !== undefined) {
+        await fd.close();
       }
     }
     // ? adjusting the wait list
@@ -669,9 +634,8 @@ export const SynFileWritWithWaitList = {
 };
 
 const numb = (str: string) => {
-  let out = 0,
-    len = str.length;
-  for (let pos = 0; pos < len; pos++) {
+  let out = 0;
+  for (let pos = 0, len = str.length; pos < len; pos++) {
     out += str.charCodeAt(pos);
   }
   return out;
@@ -684,16 +648,15 @@ export function bucketSort(
   order: "ASC" | "DESC"
 ): Msgs {
   if (arr.length === 0) return arr;
-  // ? Find min and max values to determine the range of the buckets
-  const minValue = Math.min(
-    ...arr.map((item: Msg) => numb(item[prop].toString()))
-  );
-  const maxValue = Math.max(
-    ...arr.map((item: Msg) => numb(item[prop].toString()))
-  );
 
-  // ? Adjust the bucket size based on data distribution
-  const bucketCount = Math.floor(arr.length / 2) || 1;
+  //? Calculate numb values once and store them
+  const numbValues = arr.map((item) => numb(item[prop].toString()));
+
+  //? Find min and max values to determine the range of the buckets
+  const minValue = Math.min(...numbValues);
+  const maxValue = Math.max(...numbValues);
+  //? Adjust the bucket size based on data distribution
+  const bucketCount = Math.max(Math.floor(arr.length / 2), 1);
   const bucketSize = Math.ceil((maxValue - minValue + 1) / bucketCount);
 
   // ? create buckets
@@ -709,16 +672,12 @@ export function bucketSort(
 
   // ? merge buckets
   const result: Msgs = [];
-  for (let i = 0; i < buckets.length; i++) {
-    // ? sort using merge sort
-    const sortedBucket = mergeSort(buckets[i], prop);
-    result.push(...sortedBucket);
+  for (const bucket of buckets) {
+    if (bucket.length > 0) {
+      result.push(...mergeSort(bucket, prop));
+    }
   }
-
-  if (order === "DESC") {
-    return result.reverse();
-  }
-  return result;
+  return order === "DESC" ? result.reverse() : result;
 }
 
 function mergeSort(arr: Msgs, prop: keyof Msg): Msgs {
@@ -731,16 +690,16 @@ function mergeSort(arr: Msgs, prop: keyof Msg): Msgs {
 
 function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
   const result: Msgs = [];
-  let leftIndex = 0;
-  let rightIndex = 0;
-  while (leftIndex < left.length && rightIndex < right.length) {
-    if (left[leftIndex][prop] < right[rightIndex][prop]) {
-      result.push(left[leftIndex]);
-      leftIndex++;
+  let li = 0;
+  let ri = 0;
+  while (li < left.length && ri < right.length) {
+    if (left[li][prop] < right[ri][prop]) {
+      result.push(left[li]);
+      li++;
     } else {
-      result.push(right[rightIndex]);
-      rightIndex++;
+      result.push(right[ri]);
+      ri++;
     }
   }
-  return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex));
+  return result.concat(left.slice(li)).concat(right.slice(ri));
 }

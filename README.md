@@ -10,7 +10,7 @@
     A high performance nosql database
     <br/>
     <br/>
-    <a href="https://github.com/uiedbook/Exabase#examples"><strong>Explore Everst APIs »</strong></a>
+    <a href="https://github.com/uiedbook/Exabase#examples"><strong>Explore APIs »</strong></a>
     <br/>
     <br/>
     <a href="https://t.me/Exabase">Join Community</a>
@@ -42,39 +42,44 @@ Exabase provides support for these features:
 - Easy backup system and recovery.
 - Strong type system.
 - Granular performance at a tunable scale.
+- Growing ecosystem with Extra projects like: Exaviewer, Exaserver, Exaclient and more
 
-Exabase is designed as a simple, light and but powerful database, using the an intuitive schema and query API design you can build with ease.
+Exabase is designed as a simple, light and but powerful database, using the an intuitive schema and query API design and also a simple json query format.
 
 --
 
 # How Exabase works
 
-Exabase achieves a high degree of efficiency and strong level scalability by employing the following techniques qualitatively.
+Exabase achieves a high degree of efficiency by employing the following techniques.
 
-- Seperation of concerns mechanism across schema tables. This allows for more efficiency by keeping each schema managers in it own space and process.
+- Seperation of concerns mechanism across schema tables. This allows for more efficiency by keeping each schema managers in it own space.
 
-- Exabase uses the most efficient storage mechanism which includes message-pack's serialisation and linux based archiving via nodejs processes.
+- Exabase uses the most efficient storage mechanism which includes message-pack's serialisation and linux based archiving.
 
-- Exabase integrates an extensive use of Binary search algorithms and custom Binary inset algorimths, allowing for sorted storage and efficient query of data.
+- Exabase bounces on an extensive use of Binary search algorithms and custom Binary inset algorimths, allowing for sorted storage and efficient query of data.
 
 - Exabase employs log file managers and handles log file resizing to makeup for efficient memory usage, log files are totally resizeable and durable.
 
 - Consistency and Durability in log files and other very important files is achieved through an ACID complaint data processing mechanism which is optimised for crash recovery and consistency checks out of the box.
 
-- Exabase transactions are grounded in a strong atomic and isolated model, using a transaction mechanism that achieves faster write querys and efficient data consistency across reads to Exabase log files, this allows for strong data consistency and durability.
+- Exabase transactions are grounded in a strong atomic and isolated model, using a transaction mechanism that achieves faster write queries and efficient data consistency across reads to Exabase log files, this allows for strong data consistency and durability.
 
-- Exabase achieves an efficient search query standard using search field indexing.
+- Exabase achieves a high search query efficiency using a search indexing mechanism called Xtree, invented from the ground up.
+
+- Exabase excels at sorting data very fast using a combination of bucket & mergesort algorimths.
 
 - A Linux backup based backup functionality you can call in your app to get a single uploadable zip.
   You can call it periodically as per your needs, and you can recover using them later.
+
+- easy and simple JSON query format.
 
 # Requirements to use Exabase.
 
 Exabase support all server-side Javascript runtimes:
 
 - Nodejs.
-- Denojs.
 - Bunjs.
+- Denojs.
 - Edge support for runtimes like cloudflare workers (in view).
 
 ### Exabase Memory and storage requirements
@@ -112,20 +117,13 @@ export type ExabaseOptions = {
   /**
    * Exabase database
    * ---
-   * RCT Memory cache percentage  */
-  EXABASE_MEMORY_PERCENT?: number,
-  /**
-   * Exabase database
-   * ---
    * name  */
   name?: string,
   /**
-   * a url that points to another node this node can hydrate from if out of date  */
-  bearer?: string,
-  /**
-   * type of ring
-   */
-  mode?: "REPLICATION" | "EXTENSION",
+   * Exabase database
+   * ---
+   * RCT Memory cache percentage  */
+  EXABASE_MEMORY_PERCENT?: number,
   /**
    * Exabase database
    * ---
@@ -138,16 +136,45 @@ export type ExabaseOptions = {
    * log each query?
    */
   logging?: boolean,
-  /**
-   * Exabase database
-   * ---
-   * Exabase signing keys
-   */
-  EXABASE_KEYS?: { privateKey: string, publicKey: string },
 };
 ```
 
-## ExaSchema.Query Methods
+## Exabase Query formart
+
+Exabase is queried with json. in the formart
+
+````json
+{
+  "table": "<table name>",
+  "query": {....},
+}```
+
+Examples:
+
+```ts
+import { Exabase, ExaSchema } from "exabase";
+
+const users = new ExaSchema<{ age: number; name: string }>({
+  tableName: "USER",
+  columns: {
+    age: { type: Number },
+    name: { type: String },
+  },
+});
+
+const db = new Exabase({ schemas: [users] });
+// ? get Exabase ready
+await db.connect();
+const query = JSON.stringify({
+  table: "USER",
+  query: { insert: { age: 1, name: "friday" } },
+});
+const data = await db.query(query);
+console.log({ data, query });
+```
+
+
+## ExaSchema Query Methods
 
 ```ts
     /**
@@ -236,76 +263,46 @@ export type ExabaseOptions = {
         foreign_id: string;
         relationship: string;
     }): Promise<unknown>;
-    /**
-     * Exabase query
-     * batch write operations untill executed.
-     * @param data
-     * @param type
-     */
-    batch(data: Partial<Model>[], type: "INSERT" | "UPDATE" | "DELETE"): Promise<void>;
-    private _prepare_for;
-    /**
-     * Exabase query
-     * execute a batch operation on the database
-     */
-    exec(): Promise<Model[]> | Promise<Model & {
-        _id: string;
-    }[]>;
-  /**
-     * Exabase query
-     * add a callback for this table, to get data as they are commit
-     */
-    onCommit(cb: (commit: Promise<ExaDoc<Model>> | Promise<ExaDoc<Model[]>>) => void): void;
-```
+````
 
 ## A Basic Database setup and queries.
 
 ```ts
-test("example setup", async () => {
-
-  const Order = new ExaSchema<{ ticket: string }>({
-    tableName: "order",
-    columns: {
-      ticket: { type: String, unique: true },
-    },
-  });
-
-  const db = new Exabase({ schemas: [Order] });
-
-  // ? get Exabase ready
-  await db.connect();
-  const OrderTRX = Order.query;
-
-  // ? operations
-  const create_order = await OrderTRX.save({ ticket: Date.now().toString() });
-
-  const find_order = await OrderTRX.findOne(create_order._id);
-
-  expect(create_order._id).toBe(find_order._id);
-
-  const update_order = await OrderTRX.save({
-    ...create_order,
-    ticket: Date.now().toString(),
-  });
-
-  const find_order_by_unique_field = await OrderTRX.findOne({
-    ticket: update_order.ticket,
-  });
-
-  const search_order = await OrderTRX.search({
-    ticket: update_order.ticket,
-  });
-
-  expect(create_order._id).toBe(find_order_by_unique_field._id);
-
-  expect(create_order._id).toBe(search_order[0]._id);
-
-  await OrderTRX.delete(create_order._id);
-
-  const find_deleted_order = await OrderTRX.findOne(create_order._id);
-
-  expect(find_deleted_order).toBe(undefined);
-
+const Order = new ExaSchema<{ ticket: string }>({
+  tableName: "ORDER",
+  columns: {
+    ticket: { type: String, unique: true },
+  },
+});
+const db = new Exabase({ schemas: [Order] });
+// ? get Exabase ready
+await db.connect();
+const OrderTRX = Order.query;
+// ? operations
+const create_order = await OrderTRX.save({ ticket: Date.now().toString() });
+const find_order = await OrderTRX.findOne(create_order._id);
+expect(create_order._id).toBe(find_order._id);
+const update_order = await OrderTRX.save({
+  ...create_order,
+  ticket: Date.now().toString(),
+});
+const find_order_by_unique_field = await OrderTRX.findOne({
+  ticket: update_order.ticket,
+});
+const search_order = await OrderTRX.search({
+  ticket: update_order.ticket,
+});
+console.log({
+  search_order,
+  create_order,
+  update_order,
+  find_order_by_unique_field,
+});
+expect(create_order._id).toBe(find_order_by_unique_field._id);
+expect(create_order._id).toBe(search_order[0]?._id);
+const delete_order = await OrderTRX.delete(create_order._id);
+const find_deleted_order = await OrderTRX.findOne(create_order._id);
+expect(find_deleted_order).toBe(undefined);
 ```
 
 # Benchmarks

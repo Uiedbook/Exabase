@@ -12,10 +12,8 @@ import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
 import { ExaSchema, Exabase } from "../dist/index.js";
 
-const db = Database.open("tests/sql_file/Northwind_large.sqlite");
-
 const Employee = new ExaSchema({
-  tableName: "Employee",
+  tableName: "EMPLOYEE",
   RCT: true,
   columns: {
     LastName: { type: String },
@@ -31,24 +29,25 @@ const Employee = new ExaSchema({
     Country: { type: String },
     HomePhone: { type: String },
     Extension: { type: String },
-    Photo: { type: String, nullable: true },
+    Photo: { type: String },
     Notes: { type: String },
-    ReportsTo: { type: Number, nullable: true },
+    ReportsTo: { type: Number },
     PhotoPath: { type: String },
   },
 });
 
-const ExabaseR = new Exabase({
+const db = new Exabase({
   schemas: [Employee],
-  // backupFileName:""
 });
 
-await ExabaseR.connect();
+await db.connect();
+
+const db2 = Database.open("tests/sql_file/Northwind_large.sqlite");
 const trx = Employee.query;
 let d = await trx.count();
-const sql = db.prepare(`SELECT * FROM "Employee"`);
+
+const sql = db2.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();
-// console.log({ c });
 
 console.log("Exabase item count", d);
 console.log("sqlite item count", c.length);
@@ -66,19 +65,18 @@ if (d !== c.length) {
 d = await trx.count();
 console.log("read Exabase item count to ensure it's consistent ofc it is", d);
 
+const sq = JSON.stringify({ table: "EMPLOYEE", query: { select: "*" } });
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
-    await trx.findMany();
+    await db.query(sq);
   });
 }
 
-const sq = db.prepare(`SELECT * FROM "Employee"`);
+const sq2 = db2.prepare(`SELECT * FROM "Employee"`);
 {
   bench('SELECT * FROM "Employee" sqlite', () => {
-    sq.all();
+    sq2.all();
   });
 }
 
 run();
-
-// await ExabaseR.backup();

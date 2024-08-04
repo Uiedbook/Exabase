@@ -1,3 +1,4 @@
+import { time, timeEnd } from "console";
 import { Exabase } from "../dist/index.js";
 import { ExaSchema } from "../dist/index.js";
 
@@ -9,9 +10,14 @@ const users = new ExaSchema<{ age: number; name: string }>({
   },
 });
 
-const db = new Exabase({ schemas: [users], logging: true });
+const db = new Exabase({ schemas: [users] });
 // ? get Exabase ready
 await db.connect();
-const a = await users.query.save({ age: 2, name: "friday" });
-await users.query.delete(a._id);
-console.log(await users.query.count());
+const query = JSON.stringify({
+  table: "USER",
+  query: { insert: { age: 1, name: "friday" } },
+});
+time();
+const data = await db.query(query);
+timeEnd();
+console.log({ data, query });

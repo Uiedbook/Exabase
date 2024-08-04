@@ -47,15 +47,6 @@ export type ExabaseOptions = {
    * When extracting, tar will keep the existing file on disk if it's newer than the file in the database archive.
    *  */
   backupFileName?: string;
-
-  /**
-   * Exabase DBMS
-   * ---
-   * Filename of the exabase backup file in the root directory.
-   *
-   * When extracting, tar will keep the existing file on disk if it's newer than the file in the database archive.
-   *  */
-  // freshNodeUrl?: string;
 };
 
 /**
@@ -64,7 +55,7 @@ export interface SchemaOptions<Model> {
   /**
    * Table name.
    */
-  tableName: string;
+  tableName: Uppercase<string>;
   /**
    * Exabase RCT
    * ---
@@ -112,21 +103,45 @@ export type SchemaRelationOptions = {
  * Interface for schema column type mappings  */
 export interface SchemaColumnOptions {
   /**
+   * Exabase DBMS
+   * ----------
    * Column type. Must be one of the value from the ColumnTypes class.
    */
   type: ColumnType;
   /**
-   * Column type's length. For example type = "string" and length = 100
+   * Exabase DBMS
+   * ----------
+   * Column type's value max. For example ( type: String, max: 100 )
    */
-  length?: number;
+  max?: number;
   /**
-   * For example, 4 specifies a number of four digits.
+   * Exabase DBMS
+   * ----------
+   * Column type's value min. For example ( type: String, min: 100 )
    */
-  width?: number;
+  min?: number;
+  /**
+   * Exabase DBMS
+   * ----------
+   * default error when the value is wrong
+   */
+  err?: string;
+  /**
+   * Exabase DBMS
+   * ----------
+   * RegExp
+   */
+  RegExp?: RegExp;
   /**
    * Indicates if column's value can be set to NULL.
    */
-  nullable?: boolean;
+  required?: boolean;
+  /**
+   * Exabase DBMS
+   * ----------
+   * Indicates if column's value can be set to NULL.
+   */
+  enum?: (string | number)[];
   /**
    * Exabase DBMS
    * ---
@@ -164,9 +179,11 @@ export type ColumnType =
 
 export type columnValidationType = {
   type?: ColumnType;
-  width?: number;
-  length?: number;
-  nullable?: boolean;
+  max: number;
+  min: number;
+  required?: boolean;
+  err?: string;
+  RegExp?: RegExp;
   default?: any;
   unique?: boolean;
 };
@@ -201,7 +218,7 @@ export type QueryType<Model> = {
    * in this case they can use logCount to know the number of logs and provide logIndex option to iterate through via .findMany()
    */
   logIndex?: number;
-  // reverse?: boolean;
+  logCount?: boolean;
 };
 
 export type Msg = { _id: string };
@@ -234,4 +251,5 @@ export type connectOptions = Record<string | number | symbol, never>;
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
 export type wTrainFlagLessType = [(value: unknown) => void, Buffer];
-export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> = Query<Model>;
+export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> =
+  Query<Model>;
