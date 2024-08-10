@@ -471,6 +471,7 @@ export class Query<Model> {
         " schema"
       );
     }
+    // ?
     const query: QueryType<Model> = {
       reference: {
         _id: options._id,
@@ -570,13 +571,16 @@ export class Manager {
     } else {
       this.waiters[file].push([R!, message, flag]);
     }
-    if (!this.runningQueue) {
-      this.write(this.waiters[file].splice(0), file);
+    if (this.runningQueue === false) {
+      setTimeout(() => {
+        this.write(this.waiters[file].splice(0), file);
+      }, 50);
     }
     return q as Promise<number | void | Msgs | Msg>;
   }
   async write(queries: wTrainType[], file: string) {
     this.runningQueue = true;
+
     const resolveFNs = [];
 
     // ? do the writing by
@@ -611,11 +615,6 @@ export class Manager {
       resolveFNs.push(() => resolve(message));
     }
 
-    // ? synchronies writer
-    await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
-
-    resolveFNs.map((a) => a());
-    this._search.persist();
     // ? run awaiting queries
     if (this.waiters[file].length) {
       this.write(this.waiters[file].splice(0), file);
@@ -623,6 +622,10 @@ export class Manager {
       if (this.RCTied) {
         resizeRCT(this.rct_level, this.RCT);
       }
+      // ? synchronies writer
+      await SynFileWrit(this.tableDir + file, Utils.packr.encode(messages));
+      resolveFNs.map((a) => a());
+      this._search.persist();
       this.runningQueue = false;
     }
   }
@@ -693,9 +696,6 @@ export class Manager {
     }
     return "LOG-" + Object.keys(this._LogFiles).length;
   }
-  // _getLastReadingLog() {
-  //   return "LOG-" + Object.keys(this._LogFiles).length;
-  // }
 
   _getInsertLog(): string {
     for (const filename in this._LogFiles) {

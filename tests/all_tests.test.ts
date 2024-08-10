@@ -70,18 +70,20 @@ describe("queries", () => {
     const userd = await userTRX.findOne(userin._id);
     expect(userd).toBe(undefined as any);
   });
+
   it("large inset", async () => {
-    const users = Array(100).fill({ name: "saul" });
-    for (let i = 0; i < users.length; i++) {
-      const user = users[i];
+    const usersCount = 200;
+    for (let i = 0; i < usersCount; i++) {
+      const user = { name: "saul" };
       await userTRX.save(user);
     }
-    const usersCount = await userTRX.count();
-    expect(usersCount).toBe(100);
+    const usersLength = await userTRX.count();
+    expect(usersLength).toBe(usersCount);
   });
+
   it("large update", async () => {
     const users = await userTRX.findMany();
-    expect(users[1].name).toBe("saul");
+    expect(users[0].name).toBe("saul");
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
       await userTRX.save(users[i]);
