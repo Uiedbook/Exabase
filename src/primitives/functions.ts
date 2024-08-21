@@ -557,14 +557,14 @@ export function validator(
 //  other functions
 
 export const getComputedUsage = (
-  allowedUsagePercent: number,
+  allowedUsagePercent: number = 10,
   schemaLength: number
 ) => {
   const nuParc = (p: number) => p / 1500; /*
       ? (100 = convert to percentage, 15 = ?) = 1500 units  */
   //? percent allowed to be used
   // ? what can be used by exabase
-  const usableGB = freemem() * nuParc(allowedUsagePercent || 10); /*
+  const usableGB = freemem() * nuParc(allowedUsagePercent); /*
       ? normalize any 0% of falsy values to 10% */
   // ? usage size per schema derivation
   const usableManagerGB = usableGB / (schemaLength || 1);

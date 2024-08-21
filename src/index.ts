@@ -1,6 +1,15 @@
 import { mkdirSync } from "node:fs";
-import { type ExabaseOptions } from "./primitives/types.js";
-import { ExaError, Utils, Manager, backup } from "./primitives/classes.js";
+import {
+  type ExabaseOptions,
+  type ExaSchemaQuery,
+} from "./primitives/types.js";
+import {
+  ExaError,
+  Utils,
+  Manager,
+  backup,
+  ExaSchema,
+} from "./primitives/classes.js";
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
@@ -10,6 +19,8 @@ export class Exabase {
   private _restorebackup?: string;
   private _conn: ((value: unknown) => void) | undefined = undefined;
   private _exabaseDirectory: string;
+  MEMORY_PERCENT: number;
+  schemas: ExaSchema<{}>[] = [];
   constructor(init: ExabaseOptions) {
     //? initializations
     //? [1] directories
@@ -22,13 +33,15 @@ export class Exabase {
       init.backupFileName || this._exabaseDirectory
     );
     // ? setting up memory allocation for RCT enabled cache managers
+    this.MEMORY_PERCENT = init.EXABASE_MEMORY_PERCENT || 10;
+    this.schemas = init.schemas || [];
     const usableManagerGB = getComputedUsage(
-      init.EXABASE_MEMORY_PERCENT!,
-      (init.schemas || []).length
+      this.MEMORY_PERCENT,
+      this.schemas.length
     );
 
     // ? get the number of schemas using RCT
-    const RCTiedSchema = (init.schemas || []).filter((a) => a.RCT);
+    const RCTiedSchema = this.schemas.filter((a) => a.RCT);
     const BEST_RCT_LEVEL_PER_MANAGER = Math.round(
       usableManagerGB / 32768 / (RCTiedSchema || []).length
     );
@@ -46,7 +59,7 @@ export class Exabase {
     }
 
     //? setup managers
-    (init.schemas || []).forEach((schema) => {
+    this.schemas.forEach((schema) => {
       Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
         schema,
         BEST_RCT_LEVEL_PER_MANAGER
@@ -58,7 +71,7 @@ export class Exabase {
         manager._setup({
           _exabaseDirectory: this._exabaseDirectory,
           logging: init.logging || false,
-          schemas: init.schemas || [],
+          schemas: this.schemas,
         })
       )
     )
@@ -67,7 +80,7 @@ export class Exabase {
         this._announced = true;
         console.log("Exabase: connected!");
         //? setup query makers
-        (init.schemas || []).forEach((schema) => {
+        this.schemas.forEach((schema) => {
           schema._premature = false;
         });
         this._conn && this._conn(true);
@@ -90,7 +103,57 @@ export class Exabase {
     }
     return undefined;
   }
+  private async induce<Model>(query: string) {
+    if (!this._announced) {
+      throw new ExaError("Exabase not ready!");
+    }
+    //? verify query validity
+    if (typeof query !== "string") throw new ExaError("Invalid query!");
+    const parsedSchema: ExaSchemaQuery<Model> = JSON.parse(query);
+    const schema = parsedSchema?.schema;
+    if (
+      !!parsedSchema ||
+      !schema ||
+      !schema.tableName ||
+      typeof schema.columns !== "object"
+    ) {
+      throw new ExaError("inducement cancelled!");
+    }
+    //? initializations
 
+    // ? setting up memory allocation for RCT enabled cache managers
+    const usableManagerGB = getComputedUsage(
+      this.EXABASE_MEMORY_PERCENT!,
+      (this.schemas || []).length
+    );
+
+    // ? get the number of schemas using RCT
+    // const RCTiedSchema = (init.schemas || []).filter((a) => a.RCT);
+    // const BEST_RCT_LEVEL_PER_MANAGER = Math.round(
+    //   usableManagerGB / 32768 / (RCTiedSchema || []).length
+    // );
+
+    //? setup managers
+
+    Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
+      schema,
+      BEST_RCT_LEVEL_PER_MANAGER
+    );
+
+    // ? setup relationships
+    // Utils.EXABASE_MANAGERS[schema?.tableName!]
+    //   ._setup({
+    //     _exabaseDirectory: this._exabaseDirectory,
+    //     logging: init.logging || false,
+    //     schemas: init.schemas || [],
+    //   })(
+    //     //? setup query makers
+    //     init.schemas || []
+    //   )
+    //   .forEach((schema) => {
+    //     schema._premature = false;
+    //   });
+  }
   async query(query: string) {
     if (!this._announced) {
       throw new ExaError("Exabase not ready!");

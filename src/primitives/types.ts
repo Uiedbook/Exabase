@@ -253,3 +253,33 @@ export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
 export type wTrainFlagLessType = [(value: unknown) => void, Buffer];
 export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> =
   Query<Model>;
+
+export type ExaSchemaQuery<Model> = {
+  schema: {
+    /**
+     * Table name.
+     */
+    tableName: Uppercase<string>;
+    /**
+     * Exabase RCT
+     * ---
+     *
+     * Enables Regularity Cache Tank for this table?.
+     *
+     * ***
+     * synopsis
+     * ***
+     * Exabase RCT is a log file level cache, which makes log files retrieve cheap
+     *
+     * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cach only
+     */
+    RCT?: boolean;
+
+    /**
+     * Indicates properties and  relationship definitions for the schema
+     */
+    columns: {
+      [x in keyof Partial<Model>]: SchemaColumnOptions;
+    };
+  };
+};
