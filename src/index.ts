@@ -97,9 +97,8 @@ export class Exabase {
     //? else { some other stuff with config if available}
     if (!this._announced) {
       console.log("Exabase: connecting...");
-      return new Promise((r) => {
-        this._conn = r;
-      });
+      return new Promise((r) => { 
+                                                     });             
     }
     return undefined;
   }
