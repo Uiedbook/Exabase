@@ -60,7 +60,7 @@ export class Exabase {
 
     //? setup managers
     this.schemas.forEach((schema) => {
-      Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
+      Utils.EXABASE_MANAGERS[schema?.table!] = new Manager(
         schema,
         BEST_RCT_LEVEL_PER_MANAGER
       );
@@ -97,11 +97,12 @@ export class Exabase {
     //? else { some other stuff with config if available}
     if (!this._announced) {
       console.log("Exabase: connecting...");
-      return new Promise((r) => { 
-                                                     });             
+      return new Promise((r) => {});
     }
     return undefined;
   }
+
+  //? this is a function that creates/updates schemas also ajusting RCT memory
   private async induce<Model>(query: string) {
     if (!this._announced) {
       throw new ExaError("Exabase not ready!");
@@ -113,7 +114,7 @@ export class Exabase {
     if (
       !!parsedSchema ||
       !schema ||
-      !schema.tableName ||
+      !schema.table ||
       typeof schema.columns !== "object"
     ) {
       throw new ExaError("inducement cancelled!");
@@ -121,10 +122,10 @@ export class Exabase {
     //? initializations
 
     // ? setting up memory allocation for RCT enabled cache managers
-    const usableManagerGB = getComputedUsage(
-      this.EXABASE_MEMORY_PERCENT!,
-      (this.schemas || []).length
-    );
+    // const usableManagerGB = getComputedUsage(
+    //   this.EXABASE_MEMORY_PERCENT!,
+    //   (this.schemas || []).length
+    // );
 
     // ? get the number of schemas using RCT
     // const RCTiedSchema = (init.schemas || []).filter((a) => a.RCT);
@@ -134,13 +135,10 @@ export class Exabase {
 
     //? setup managers
 
-    Utils.EXABASE_MANAGERS[schema?.tableName!] = new Manager(
-      schema,
-      BEST_RCT_LEVEL_PER_MANAGER
-    );
+    // Utils.EXABAS/
 
     // ? setup relationships
-    // Utils.EXABASE_MANAGERS[schema?.tableName!]
+    // Utils.EXABASE_MANAGERS[schema?.table!]
     //   ._setup({
     //     _exabaseDirectory: this._exabaseDirectory,
     //     logging: init.logging || false,

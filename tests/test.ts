@@ -7,7 +7,7 @@ const users = new ExaSchema<{
   mom: string;
   _id: string;
 }>({
-  tableName: "USER",
+  table: "USER",
   columns: {
     age: { type: Number, required: true, index: true },
     name: { type: String, index: true },
@@ -16,7 +16,7 @@ const users = new ExaSchema<{
 });
 
 const moms = new ExaSchema<{ age: number; name: string }>({
-  tableName: "MOM",
+  table: "MOM",
   columns: {
     age: { type: Number, required: true, index: true },
     name: { type: String, index: true },

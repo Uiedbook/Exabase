@@ -13,7 +13,7 @@ import { Database } from "bun:sqlite";
 import { ExaSchema, Exabase } from "../dist/index.js";
 
 const Employee = new ExaSchema({
-  tableName: "EMPLOYEE",
+  table: "EMPLOYEE",
   RCT: true,
   columns: {
     LastName: { type: String },

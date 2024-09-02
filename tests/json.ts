@@ -3,7 +3,7 @@ import { Exabase } from "../dist/index.js";
 import { ExaSchema } from "../dist/index.js";
 
 const users = new ExaSchema<{ age: number; name: string }>({
-  tableName: "USER",
+  table: "USER",
   columns: {
     age: { type: Number },
     name: { type: String },

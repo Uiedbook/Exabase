@@ -21,7 +21,7 @@ class ExaError extends Error {
 }
 
 export class ExaSchema<Model> {
-  tableName: Uppercase<string>;
+  table: Uppercase<string>;
   _trx: Query<Model>;
   columns: {
     [x: string]: SchemaColumnOptions;
@@ -32,11 +32,9 @@ export class ExaSchema<Model> {
   constructor(options: SchemaOptions<Model>) {
     //? mock query
     this._trx = new Query({} as any);
-    this.tableName = options?.tableName
-      ?.trim()
-      ?.toUpperCase() as Uppercase<string>;
+    this.table = options?.table?.trim()?.toUpperCase() as Uppercase<string>;
     // ? parse definitions
-    if (this.tableName) {
+    if (this.table) {
       this._unique_field = {};
       this.columns = { ...(options?.columns || {}) };
       //? setting up _id type on initialization
@@ -59,7 +57,7 @@ export class ExaSchema<Model> {
             { [key]: { ...this.columns[key], default: undefined } }
           );
           if (typeof v === "string")
-            throw new ExaError("table ", this.tableName, " error ", v);
+            throw new ExaError("table ", this.table, " error ", v);
         }
 
         //? more later
@@ -374,7 +372,7 @@ export class Query<Model> {
         "No relationship definition called ",
         options.relationship,
         " on ",
-        this._Manager._schema.tableName,
+        this._Manager._schema.table,
         " schema"
       );
     }
@@ -412,7 +410,7 @@ export class Query<Model> {
         "No relationship definition called ",
         options.relationship,
         " on ",
-        this._Manager._schema.tableName,
+        this._Manager._schema.table,
         " schema"
       );
     }
@@ -439,7 +437,7 @@ export class Manager {
   public logging: boolean = false;
   constructor(schema: ExaSchema<any>) {
     this._schema = schema;
-    this._name = schema.tableName;
+    this._name = schema.table;
     this._query = new Query<any>(this);
     schema._trx = this._query;
     // ? setup indexTable for searching
@@ -456,7 +454,7 @@ export class Manager {
   _validate(data: any) {
     const v = validator(data, this._schema.columns);
     if (typeof v === "string")
-      throw new ExaError(this._schema.tableName, " table error '", v, "'");
+      throw new ExaError(this._schema.table, " table error '", v, "'");
     return v;
   }
 

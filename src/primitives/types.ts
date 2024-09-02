@@ -55,7 +55,7 @@ export interface SchemaOptions<Model> {
   /**
    * Table name.
    */
-  tableName: Uppercase<string>;
+  table: Uppercase<string>;
   /**
    * Exabase RCT
    * ---
@@ -90,7 +90,7 @@ export type SchemaRelationOptions = {
   /**
    * Indicates with which schema this relation is connected to.
    *
-   * the tableName of that schema
+   * the table of that schema
    */
   target: string;
   /**
@@ -155,7 +155,7 @@ export interface SchemaColumnOptions {
   /**
    * Indicates with which schema this relation is connected to.
    *
-   * the tableName of that schema
+   * the table of that schema
    */
   target?: string;
   /**
@@ -189,6 +189,7 @@ export type columnValidationType = {
 };
 
 export type QueryType<Model> = {
+  where?: Partial<Model>;
   reference?: {
     _new?: boolean;
     relationshipType: "MANY" | "ONE";
@@ -197,8 +198,7 @@ export type QueryType<Model> = {
     foreign_table: string;
     relationship: string;
   };
-  select?: string | Partial<Model>;
-  sortBy?: {
+  sort?: {
     [x in keyof Partial<Model>]: "ASC" | "DESC";
   };
   delete?: string;
@@ -219,6 +219,46 @@ export type QueryType<Model> = {
    */
   logIndex?: number;
   logCount?: boolean;
+};
+
+type selectOps = "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte";
+type updateOps = "$set" | "$unset" | "$inc" | "$push" | "$pull";
+
+export type JQLType<Model> = {
+  table: string;
+  action:
+    | "select"
+    | "delete"
+    | "insert"
+    | "update"
+    | "search"
+    | "relate"
+    | "logCount"
+    | "count"
+    | "schema"
+    | "unique";
+  where?: Partial<Model> & Record<selectOps, any>;
+  update?: Partial<Model> & Record<updateOps, Partial<Model>>;
+  schema?: Partial<Model> & {};
+  select?: Partial<Model>;
+  //
+  insert?: Partial<Model>;
+  populate?: {
+    [x in keyof Partial<Model>]: boolean;
+  };
+  sort: {
+    [x in keyof Partial<Model>]: 1 | -1;
+  };
+  skip?: number;
+  take?: number;
+  count?: Record<string, any> | boolean;
+  /**
+   * TODO: exabase doesn't walk the log files until search is complete, no multi-log db would do so either.
+   * we only tranverse the first log file or last in reverse mode for find Many("*", {<options>})
+   * to allow users to access middle log files
+   * in this case they can use logCount to know the number of logs and provide logIndex option to iterate through
+   */
+  logIndex?: number;
 };
 
 export type Msg = { _id: string };
@@ -259,7 +299,7 @@ export type ExaSchemaQuery<Model> = {
     /**
      * Table name.
      */
-    tableName: Uppercase<string>;
+    table: Uppercase<string>;
     /**
      * Exabase RCT
      * ---

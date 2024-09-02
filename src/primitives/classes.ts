@@ -55,7 +55,7 @@ export class ExaError extends Error {
 }
 
 export class ExaSchema<Model> {
-  tableName: Uppercase<string>;
+  table: Uppercase<string>;
   RCT?: boolean;
   _trx: Query<Model>;
   columns: {
@@ -68,11 +68,9 @@ export class ExaSchema<Model> {
   constructor(options: SchemaOptions<Model>) {
     //? mock query
     this._trx = new Query({} as any);
-    this.tableName = options?.tableName
-      ?.trim()
-      ?.toUpperCase() as Uppercase<string>;
+    this.table = options?.table?.trim()?.toUpperCase() as Uppercase<string>;
     // ? parse definitions
-    if (this.tableName) {
+    if (this.table) {
       this._unique_field = {};
       this.RCT = options.RCT;
       this.columns = { ...(options?.columns || {}) };
@@ -96,7 +94,7 @@ export class ExaSchema<Model> {
             { [key]: { ...this.columns[key], default: undefined } }
           );
           if (typeof v === "string")
-            throw new ExaError("table ", this.tableName, " error ", v);
+            throw new ExaError("table ", this.table, " error ", v);
         }
 
         //? more later
@@ -122,7 +120,7 @@ export class ExaSchema<Model> {
     if (!this._premature) return this._trx;
     throw new ExaError(
       "ExaSchema - " +
-        this.tableName +
+        this.table +
         " is not yet connected to an Exabase Instance"
     );
   }
@@ -429,7 +427,7 @@ export class Query<Model> {
         "No relationship definition called ",
         options.relationship,
         " on ",
-        this._Manager._schema.tableName,
+        this._Manager._schema.table,
         " schema"
       );
     }
@@ -467,7 +465,7 @@ export class Query<Model> {
         "No relationship definition called ",
         options.relationship,
         " on ",
-        this._Manager._schema.tableName,
+        this._Manager._schema.table,
         " schema"
       );
     }
@@ -514,7 +512,7 @@ export class Manager {
   // private clock_vector = { x0: null, xn: null };
   constructor(schema: ExaSchema<any>, level: number) {
     this._schema = schema;
-    this._name = schema.tableName;
+    this._name = schema.table;
     this._query = new Query<any>(this);
     schema._trx = this._query;
     //? set RCT key
@@ -540,7 +538,7 @@ export class Manager {
     schemas: ExaSchema<any>[];
   }) {
     // ? setup steps
-    this.tableDir = init._exabaseDirectory + "/" + this._schema.tableName + "/";
+    this.tableDir = init._exabaseDirectory + "/" + this._schema.table + "/";
     this.logging = init.logging;
     // ? provide Xtree search index dir
     const persistKey = this.tableDir + "XINDEX";
@@ -712,7 +710,7 @@ export class Manager {
     return lfid;
   }
   _constructRelationships(allSchemas: ExaSchema<any>[]) {
-    if (this._schema.tableName) {
+    if (this._schema.table) {
       //? keep a easy track of relationships
       if (this._schema.relationship) {
         this._schema._foreign_field = {};
@@ -720,23 +718,23 @@ export class Manager {
           if (typeof this._schema.relationship![key].target === "string") {
             const namer = this._schema.relationship![key].target.toUpperCase();
             const findSchema = allSchemas.find(
-              (schema) => schema.tableName === namer
+              (schema) => schema.table === namer
             );
             if (findSchema) {
               this._schema._foreign_field[key] = namer;
             } else {
               throw new ExaError(
-                " tableName: ",
+                " table: ",
                 namer,
                 " schema not found or connected, please check the relationship definition of the ",
-                this._schema.tableName,
+                this._schema.table,
                 " schema"
               );
             }
           } else {
             throw new ExaError(
               " Error on schema ",
-              this._schema.tableName,
+              this._schema.table,
               " relationship target must be a string of a table and connected "
             );
           }
@@ -748,7 +746,7 @@ export class Manager {
   _validate(data: any) {
     const v = validator(data, this._schema.columns);
     if (typeof v === "string")
-      throw new ExaError(this._schema.tableName, " table error '", v, "'");
+      throw new ExaError(this._schema.table, " table error '", v, "'");
     return v;
   }
   async _select(query: QueryType<Record<string, any>>) {

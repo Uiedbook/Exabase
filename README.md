@@ -155,7 +155,7 @@ Examples:
 import { Exabase, ExaSchema } from "exabase";
 
 const users = new ExaSchema<{ age: number; name: string }>({
-  tableName: "USER",
+  table: "USER",
   columns: {
     age: { type: Number },
     name: { type: String },
@@ -269,7 +269,7 @@ console.log({ data, query });
 
 ```ts
 const Order = new ExaSchema<{ ticket: string }>({
-  tableName: "ORDER",
+  table: "ORDER",
   columns: {
     ticket: { type: String, unique: true },
   },

@@ -3,7 +3,7 @@ import { it, describe, expect } from "bun:test";
 
 // ? setup db
 const Order = new ExaSchema<{ ticket: string }>({
-  tableName: "ORDER",
+  table: "ORDER",
   RCT: true,
   columns: {
     ticket: { type: String, unique: true, index: true },
@@ -14,7 +14,7 @@ const User = new ExaSchema<{
   requestedOrders: any[];
   age: number;
 }>({
-  tableName: "USER",
+  table: "USER",
   RCT: true,
   columns: {
     name: { type: String, index: true },

@@ -18,3 +18,30 @@ This approach with make writes super fast without affecting db ACID status.
 # 2. make db fulfill the json as query promise, entirely no other method for querying db.
 
 Then create external ODM that maps out json queries for db
+
+structure - commands, queries.
+
+support commands
+
+1.  schema - create, migration
+2.  connect to another instance
+3.  push data to new replica
+4.
+
+query formart - json
+
+query types
+
+count
+logCount
+select - take, sortBy, skip, populate
+search - take, sortBy, skip, populate
+delete
+update
+save
+add relationship
+remove relationship
+
+# 3. attachable storage engine
+
+The db should be able to use multiple storage engines like local file system, kv databases like Dynamodb, deno kv, cf kv.
