@@ -1,48 +1,96 @@
 import { Exabase } from "../dist/index.js";
-import { ExaSchema } from "../dist/index.js";
 
-const users = new ExaSchema<{
-  age: number;
-  name: string;
-  mom: string;
-  _id: string;
-}>({
-  table: "USER",
-  columns: {
-    age: { type: Number, required: true, index: true },
-    name: { type: String, index: true },
-    mom: { RelationType: "ONE", type: String, target: "mom" },
-  },
-});
+const db = new Exabase();
 
-const moms = new ExaSchema<{ age: number; name: string }>({
-  table: "MOM",
-  columns: {
-    age: { type: Number, required: true, index: true },
-    name: { type: String, index: true },
-  },
-});
+await db.query(
+  JSON.stringify({
+    table: "USER",
+    induce: {
+      age: { type: "number", required: true, index: true },
+      name: { type: "string", index: true },
+      mom: {
+        relationType: "ONE",
+        type: "string",
+        target: "MOM",
+        required: true,
+      },
+      kids: {
+        relationType: "MANY",
+        type: "string",
+        target: "CHILD",
+      },
+    },
+  })
+);
 
-const db = new Exabase({ schemas: [users, moms] });
-// ? get Exabase ready
-await db.connect();
-// ?
-for (let i = 0; i < 5; i++) {
-  const mom = await moms.query.save({ age: i, name: "friday" });
-  const user = await users.query.save({ age: i, name: "friday" });
-  await users.query.addRelation({
-    _id: user._id,
-    foreign_id: mom._id,
-    relationship: "mom",
-  });
+await db.query(
+  JSON.stringify({
+    table: "MOM",
+    induce: {
+      age: { type: "number", required: true, index: true },
+      name: { type: "string", index: true, required: true },
+    },
+  })
+);
+
+await db.query(
+  JSON.stringify({
+    table: "CHILD",
+    induce: {
+      age: { type: "number", required: true, index: true },
+      name: { type: "string", index: true },
+    },
+  })
+);
+
+for (let i = 0; i < 10; i++) {
+  const mom = await db.query(
+    JSON.stringify({
+      table: "MOM",
+      insert: { age: i + 40, name: "mom name" },
+    })
+  );
+  const user = await db.query(
+    JSON.stringify({
+      table: "USER",
+      insert: {
+        age: i + 20,
+        name: "user name",
+        mom: mom,
+      },
+    })
+  );
+  const kid = await db.query(
+    JSON.stringify({
+      table: "CHILD",
+      insert: {
+        age: 5,
+        name: "kid name",
+      },
+    })
+  );
+  // user.kids.push(kid);
+  await db.query(
+    JSON.stringify({
+      table: "USER",
+      update: {
+        ...user,
+        kids: [kid],
+      },
+    })
+  );
 }
 console.time();
-const ser = await users.query.findMany(undefined, {
-  sortBy: { age: "ASC" },
-  take: 2,
-  skip: 2,
-  populate: ["mom"],
-  logIndex: 1,
-});
+
+const ser = await db.query(
+  JSON.stringify({
+    table: "USER",
+    many: true,
+    populate: true,
+    sort: { age: "ASC" },
+  })
+);
+
+// console.log({ all: ser }, ser.length);
+console.log({ first: ser[0], last: ser.at(-1) }, ser.length);
 console.timeEnd();
-console.log(ser, ser.length);

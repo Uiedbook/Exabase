@@ -12,37 +12,58 @@ import {
   type SchemaColumnOptions,
   type Xtree_flag,
   type columnValidationType,
-  type fTable,
   type iTable,
 } from "./types.js";
-import { Utils, ExaError, ExaType } from "./classes.js";
+
+import { GLOBAL_OBJECT, ExaError, ExaType } from "./classes.js";
 
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
-    return (Utils.packr.decode(data) || []) as Msgs;
+    return (GLOBAL_OBJECT.packr.decode(data) || []) as Msgs;
   } catch (_error) {
-    // console.log({ filePath, error });
+    // console.log({ filePath, _error }, 1);
     return [] as Msgs;
   }
 };
 export const loadLogSync = (filePath: string, defut: any = []) => {
   try {
-    return Utils.packr.decode(readFileSync(filePath)) || [];
+    return GLOBAL_OBJECT.packr.decode(readFileSync(filePath)) || [];
   } catch (_error) {
+    // console.log({ filePath, _error });
     return defut;
   }
 };
 
+/*
+?
+update mechanism
+
+? get old and new msg 
+? update old msg to new msg
+? check that unique properties are conserved or fail
+! check that foreign key are conserved or fail
+? return to queue for commits
+*/
+
 export async function updateMessage(
   dir: string,
   _unique_field: Record<string, true> | undefined,
-  message: Msg
+  oldmsg: Msg = {} as Msg,
+  newmsg: Msg,
+  relationships: Record<string, { table: string; type: "ONE" | "MANY" }>
 ) {
+  if (newmsg._id.length !== 24) {
+    throw new ExaError("invalid id - " + newmsg._id);
+  }
+  //?  merge old into new
+  newmsg = Object.assign(oldmsg, newmsg);
+
+  // ?mount here
   if (_unique_field) {
-    const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
+    const someIdex = await findIndex(dir + "UINDEX", _unique_field, newmsg);
     // ? checking for existing specified unique identifiers
-    if (Array.isArray(someIdex) && someIdex[1] !== message._id) {
+    if (Array.isArray(someIdex) && someIdex[1] !== newmsg._id) {
       throw new ExaError(
         "UPDATE on table on ",
         dir,
@@ -52,18 +73,21 @@ export async function updateMessage(
     }
   }
   if (_unique_field) {
-    await updateIndex(dir, _unique_field, message as any);
+    await updateIndex(dir, _unique_field, newmsg as any);
   }
-  return message;
+  // ?   conserve
+  // console.log({ newmsg });
+  await conserveForeignKeys(newmsg, relationships);
+  return newmsg;
 }
 export async function prepareMessage(
   dir: string,
   _unique_field: Record<string, true> | undefined,
-  message: Msg
+  message: Msg,
+  relationships: Record<string, { table: string; type: "ONE" | "MANY" }>
 ) {
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
-
     if (Array.isArray(someIdex)) {
       throw new ExaError(
         "INSERT on table ",
@@ -77,6 +101,7 @@ export async function prepareMessage(
   if (_unique_field) {
     await updateIndex(dir, _unique_field, message);
   }
+  await conserveForeignKeys(message, relationships);
   return message;
 }
 
@@ -84,33 +109,39 @@ export async function deleteMessage(
   _id: string,
   dir: string,
   _unique_field: Record<string, true> | undefined,
-  _foreign_field: boolean,
-  fn: string,
   RCTiedlog: Msgs
 ) {
   const message = await findMessage(
-    fn,
     {
-      select: _id,
+      one: _id,
     },
     RCTiedlog
   );
   if (message) {
     if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
-    if (_foreign_field) await dropForeignKeys(dir + "FINDEX", _id);
   }
   return message || ({ _wal_ignore_flag: true } as unknown as Msg);
 }
 
 export async function findMessage(
-  fileName: string,
-  fo: {
-    select: string;
-    populate?: Record<string, string>;
+  query: {
+    one?: string;
+    populate?: Record<string, { table: string; type: "MANY" | "ONE" }>;
   },
   messages: Msgs
 ) {
-  const { select, populate } = fo;
+  const { one = "", populate } = query;
+  if (messages[0]?._id === one) {
+    const message = messages[0];
+    if (populate) {
+      await populateForeignKeys(message, populate);
+      // const _foreign = await populateForeignKeys(message, populate);
+      // for (const key in _foreign) {
+      //   message[key] = _foreign[key];
+      // }
+    }
+    return message;
+  }
 
   //? binary search it
   let left = 0;
@@ -118,20 +149,17 @@ export async function findMessage(
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]?._id;
-    if (midId === select) {
+    if (midId === one) {
       const message = messages[mid];
       if (populate) {
-        const _foreign = await populateForeignKeys(
-          fileName,
-          message._id,
-          populate
-        );
-        for (const key in _foreign) {
-          (message[key as keyof typeof message] as any) = _foreign[key];
-        }
+        await populateForeignKeys(message, populate);
+        // const _foreign = await populateForeignKeys(message, populate);
+        // for (const key in _foreign) {
+        //   (message[key as keyof typeof message] as any) = _foreign[key];
+        // }
       }
       return message;
-    } else if (midId < select) {
+    } else if (midId < one) {
       left = mid + 1;
     } else if (midId === undefined) {
       return undefined;
@@ -141,152 +169,132 @@ export async function findMessage(
   }
 }
 
-// ! TODO: i think relationship has a bug, gonna find and fix it.
-export const addForeignKeys = async (
-  fileName: string,
-  reference: {
-    _id: string;
-    foreign_table: string;
-    foreign_id: string;
-    relationshipType: "MANY" | "ONE";
-    relationship: string;
-  },
-  RCTiedlog: any
+const conserveForeignKeys = async (
+  message: Msg,
+  join: {
+    [x: string]: {
+      table: string;
+      type: "ONE" | "MANY";
+    };
+  }
 ) => {
-  const message = await findMessage(
-    fileName,
-    {
-      select: reference._id,
-    },
-    RCTiedlog
-  );
-  if (!message) {
-    throw new ExaError(
-      "Adding relationship failed  '",
-      reference._id,
-      "' not found!"
-    );
-  }
-
-  const foreign_message = await Utils.EXABASE_MANAGERS[
-    reference.foreign_table.toUpperCase()
-  ]._query.findOne(reference.foreign_id);
-
-  if (!foreign_message) {
-    throw new ExaError(
-      "Adding relation aborted, foreign _id '",
-      reference.foreign_id,
-      "' from table '",
-      reference.foreign_table,
-      "' on relationship '",
-      reference.relationship,
-      "' is not found!"
-    );
-  }
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  //? update foreign key table
-  let messages = (await loadLog(fileName)) as unknown as fTable;
-
-  if (Array.isArray(messages)) {
-    messages = {};
-  }
-  let messageX = messages[reference._id];
-  if (typeof messageX !== "object") {
-    messageX = {};
-  }
-  if (reference.relationshipType === "ONE") {
-    messageX[reference.relationship] = reference.foreign_id;
-  } else {
-    if (Array.isArray(messageX[reference.relationship])) {
-      if (
-        (messageX[reference.relationship] as Array<string>).indexOf(
-          reference.foreign_id
-        ) === -1
-      ) {
-        (messageX[reference.relationship] as Array<string>).push(
-          reference.foreign_id
-        );
+  for (const key in join) {
+    const rela = join[key];
+    if (rela.type === "ONE") {
+      if (typeof message[key as "_id"] === "object") {
+        //  @ts-ignore
+        await findForeignKeys(rela.table, message[key]._id);
+        //  @ts-ignore
+        message[key] = message[key]._id;
       }
     } else {
-      messageX[reference.relationship] = [reference.foreign_id];
+      const msgArr = message[key as "_id"] as unknown as string[];
+      const msgLen = msgArr.length;
+      if (Array.isArray(msgArr)) {
+        for (let i = 0; i < msgLen; i++) {
+          if (typeof msgArr[i] === "object") {
+            //  @ts-ignore
+            await findForeignKeys(rela.table, msgArr[i]._id);
+            //  @ts-ignore
+            msgArr[i] = msgArr[i]._id;
+            //  @ts-ignore
+            message[key] = msgArr;
+          }
+        }
+      } else {
+        //  @ts-ignore
+        message[key] = [];
+      }
     }
   }
-  //? over-writing the structure
-  messages[reference._id] = messageX;
-  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
+};
+
+const findForeignKeys = async (table: string, one: string) => {
+  const foreign_message = await GLOBAL_OBJECT.EXABASE_MANAGERS[
+    table.toUpperCase()
+  ]._trx_runner({ one });
+  if (!foreign_message) {
+    throw new ExaError(
+      "relationship failed: '",
+      one,
+      "' not found on table ",
+      table
+    );
+  }
+};
+
+export const setPopulateOptions = (
+  populate: Record<string, true> | true,
+  fields: Record<string, { table: string; type: "ONE" | "MANY" }> = {}
+) => {
+  if (populate === true) {
+    return fields;
+  }
+  const relationship: Record<
+    string,
+    {
+      table: string;
+      type: "ONE" | "MANY";
+    }
+  > = {};
+  if (Array.isArray(populate)) {
+    for (let i = 0; i < populate.length; i++) {
+      const lab = populate[0];
+      const relaName = fields[lab];
+      if (relaName) {
+        // relationship[lab] = fields[lab].table;
+        relationship[lab] = {
+          table: fields[lab].table,
+          type: fields[lab].type,
+        };
+      } else {
+        throw new ExaError("can't POPULATE missing relationship " + lab);
+      }
+    }
+  }
+
+  return relationship;
 };
 
 export const populateForeignKeys = async (
-  // ! looks like a bug
-  fileName: string,
-  _id: string,
-  relationships: Record<string, string>
-  //? comes as relationship: foreign_table
-) => {
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  //? get foreign keys from table
-  let messages = (await loadLog(fileName)) as unknown as fTable;
-  if (Array.isArray(messages)) {
-    messages = {};
+  message: Msg,
+  join: {
+    [x: string]: {
+      table: string;
+      type: "ONE" | "MANY";
+    };
   }
-  //? load the messages from their various tables
-  const rela: Record<string, Record<string, any>[] | Record<string, any>> = {};
-  if (relationships) {
-    for (const relationship in relationships) {
-      if (messages[_id] && messages[_id][relationship]) {
-        const fk = messages[_id][relationship];
-        if (fk) {
-          if (Array.isArray(fk)) {
-            const marray = fk.map((id) => {
-              return Utils.EXABASE_MANAGERS[
-                relationships[relationship]
-              ]._query.findOne(id);
-            });
-            const msgs = await Promise.all(marray);
-            rela[relationship] = msgs.flat();
-          } else {
-            const msgs = await Utils.EXABASE_MANAGERS[
-              relationships[relationship].toUpperCase()
-            ]._query.findOne(fk);
-            rela[relationship] = msgs as Record<string, any>;
-          }
-        }
+) => {
+  // const rela: Record<string, Record<string, any>[] | Record<string, any>> = {};
+  for (const key in join) {
+    if (join[key].type === "MANY") {
+      const fk = message[key as "_id"];
+      if (fk && Array.isArray(fk)) {
+        const marray = fk.map((id) =>
+          GLOBAL_OBJECT.EXABASE_MANAGERS[join[key].table]._trx_runner({
+            one: id,
+          })
+        );
+        const msgs = await Promise.all(marray);
+        message[key as "_id"] = msgs as any;
+        // rela[key] = msgs.flat();
+      }
+    }
+    if (join[key].type === "ONE") {
+      const fk = message[key as "_id"];
+      if (typeof fk === "string") {
+        const marray = await GLOBAL_OBJECT.EXABASE_MANAGERS[
+          join[key].table
+        ]._trx_runner({ one: fk });
+        message[key as "_id"] = marray as any;
+        // rela[relationship] = msgs as Record<string, any>;
       }
     }
   }
-  return rela;
+
+  // return rela;
 };
-export const removeForeignKeys = async (
-  fileName: string,
-  reference: {
-    _id: string;
-    foreign_id: string;
-    foreign_table: string;
-    relationship: string;
-  }
-) => {
-  //? update foreign key table
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/FINDEX";
-  const messages = (await loadLog(fileName)) as unknown as fTable;
-  if (messages[reference._id]) {
-    if (Array.isArray(messages[reference._id][reference.relationship])) {
-      messages[reference._id][reference.relationship] = (
-        messages[reference._id][reference.relationship] as Array<string>
-      ).filter((item) => item !== reference.foreign_id);
-    } else {
-      delete messages[reference._id][reference.relationship];
-    }
-    await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
-  }
-};
-const dropForeignKeys = async (fileName: string, _id: string) => {
-  //? update foreign key table
-  const messages = (await loadLog(fileName)) as unknown as fTable;
-  if (messages[_id]) {
-    delete messages[_id];
-  }
-  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
-};
+
 const updateIndex = async (
   fileName: string,
   _unique_field: Record<string, true>,
@@ -302,10 +310,13 @@ const updateIndex = async (
       messages[type] = {};
     }
 
-    messages[type][message[type as keyof Msg]] = message._id;
+    messages[type][message[type as "_id"]] = message._id;
   }
 
-  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
+  await SynFileWritWithWaitList.write(
+    fileName,
+    GLOBAL_OBJECT.packr.encode(messages)
+  );
 };
 
 const findIndex = async (
@@ -321,17 +332,6 @@ const findIndex = async (
     if (!messages[uf]) {
       return false;
     }
-    /*
-    {
-    ? here's a real example of what the messages variable looks like
-    ? so not an array but an object of property indexes
-   { 
-    email: {
-      'friday1@gmail.com': '656cd09b48e1c473de50b059',
-      'friday2@gmail.com': '656cd10a48e1c473de50b05b'
-    }
-  }
-    */
     if (messages[uf][data[uf]]) {
       return [uf, messages[uf][data[uf]]];
     }
@@ -377,7 +377,10 @@ const dropIndex = async (
     }
     delete messages[key][data[key]];
   }
-  await SynFileWritWithWaitList.write(fileName, Utils.packr.encode(messages));
+  await SynFileWritWithWaitList.write(
+    fileName,
+    GLOBAL_OBJECT.packr.encode(messages)
+  );
 };
 
 //? binary search it
@@ -478,6 +481,7 @@ export const ExaId = (): string => {
   buffer[9] = (inc >> 16) & 0xff;
   return buffer.toString("hex");
 };
+
 export const encode_timestamp = (timestamp: string): string => {
   const time = ~~(new Date(timestamp).getTime() / 1000);
   const buffer = Buffer.alloc(4);
@@ -505,15 +509,21 @@ export function validator(
     const { type, max, min, err, required, RegExp } =
       value as columnValidationType;
     // ?
-    data[prop] = data[prop] || value.default || data[prop];
-    // ?
     if (prop === "_id") {
       out["_id"] = data["_id"];
       continue;
     }
+    data[prop] = data[prop] || value.default || data[prop];
+
+    // ?
     // ? check for nullability
-    if (data[prop] === undefined || data[prop] === null) {
+    if (
+      data[prop] === undefined ||
+      data[prop] === null ||
+      data[prop]?.length === 0
+    ) {
       if (!required) {
+        out[prop] = data[prop];
         continue;
       } else {
         info = err || `${prop} is required`;
@@ -522,8 +532,9 @@ export function validator(
     }
     // ? check for type
     if (
-      typeof type === "function" &&
-      typeof data[prop] !== typeof (type as Function)()
+      typeof type === "string" &&
+      typeof data[prop] !== type &&
+      !value.relationship
     ) {
       info = `${prop} type is invalid -  ${String(typeof data[prop])}`;
       break;
@@ -554,7 +565,8 @@ export function validator(
   return info || out;
 }
 
-//  other functions
+// ? other functions
+//? ------------------------------------
 
 export const getComputedUsage = (
   allowedUsagePercent: number = 10,
@@ -568,8 +580,10 @@ export const getComputedUsage = (
       ? normalize any 0% of falsy values to 10% */
   // ? usage size per schema derivation
   const usableManagerGB = usableGB / (schemaLength || 1);
-  return usableManagerGB;
+  // ? exactly how much logs will fit into memory per table mamanger
+  return Math.round(usableManagerGB / 32768);
 };
+
 export function resizeRCT(level: number, data: Record<string, any>) {
   const keys = Object.keys(data);
   //! 99 should calculated memory capacity
@@ -584,12 +598,14 @@ export function resizeRCT(level: number, data: Record<string, any>) {
 //? SynFileWrit tree
 export async function SynFileWrit(file: string, data: Buffer) {
   let fd;
-  const tmpfile = file + ExaId() + "-SYNC";
+  const tmpfile = file + "-SYNC";
   try {
     fd = await fsp.open(tmpfile, "w");
     await fd.write(data, 0, data.length, 0);
     await fd.sync();
     await fsp.rename(tmpfile, file);
+  } catch (err) {
+    console.log({ err });
   } finally {
     if (fd !== undefined) {
       await fd.close();
@@ -614,12 +630,14 @@ export const SynFileWritWithWaitList = {
   async write(file: string, data: Buffer) {
     await this.acquireWrite(file);
     let fd;
-    const tmpfile = file + ExaId() + "-SYNC";
+    const tmpfile = file + "-SYNC";
     try {
       fd = await fsp.open(tmpfile, "w");
       await fd.write(data, 0, data.length, 0);
       await fd.sync();
       await fsp.rename(tmpfile, file);
+    } catch (err) {
+      console.log({ err });
     } finally {
       if (fd !== undefined) {
         await fd.close();

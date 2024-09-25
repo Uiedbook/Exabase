@@ -1,5 +1,5 @@
 import { it, describe, expect } from "bun:test";
-import { Utils } from "../dist/primitives/classes";
+import { GLOBAL_OBJECT } from "../dist/primitives/classes";
 import {
   SynFileWritWithWaitList,
   loadLogSync,
@@ -142,7 +142,7 @@ export class XTree {
     }
     return SynFileWritWithWaitList.write(
       this.persistKey,
-      Utils.packr.encode(obj)
+      GLOBAL_OBJECT.packr.encode(obj)
     );
   }
   static restore(persistKey: string) {

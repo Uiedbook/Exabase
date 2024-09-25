@@ -45,3 +45,11 @@ remove relationship
 # 3. attachable storage engine
 
 The db should be able to use multiple storage engines like local file system, kv databases like Dynamodb, deno kv, cf kv.
+
+ralationship logs are unnecessary, follow mongodb spec
+
+extension
+
+Planet - WASP-32 b
+Viculus - Viculus is a Latin term for little village, embodying the spirit of the Singaporean people.
+IAU100 NameExoWorlds Singapore

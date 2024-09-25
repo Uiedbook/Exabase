@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { ExaType, ExaSchema, Query } from "./classes.js";
+import { ExaType, ExaSchema } from "./classes.js";
 
 /**
  * Interface for Exabase init  */
@@ -21,12 +21,6 @@ export type ExabaseOptions = {
    * type of ring
    */
   // mode?: "REPLICATION" | "EXTENSION";
-  /**
-   * Exabase DBMS
-   * ---
-   * Data schemas
-   */
-  schemas: ExaSchema<any>[];
   /**
    * Exabase DBMS
    * ---
@@ -69,13 +63,12 @@ export interface SchemaOptions<Model> {
    *
    * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cach only
    */
-  RCT?: boolean;
 
   /**
    * Indicates properties and  relationship definitions for the schema
    */
   columns: {
-    [x in keyof Partial<Model>]: SchemaColumnOptions;
+    [x in keyof Omit<Model, "_id">]: SchemaColumnOptions;
   };
 }
 
@@ -96,7 +89,7 @@ export type SchemaRelationOptions = {
   /**
    * Type of relation. Can be one of the value of the RelationTypes class.
    */
-  RelationType: "MANY" | "ONE";
+  relationType: "MANY" | "ONE";
 };
 
 /**
@@ -138,12 +131,6 @@ export interface SchemaColumnOptions {
   required?: boolean;
   /**
    * Exabase DBMS
-   * ----------
-   * Indicates if column's value can be set to NULL.
-   */
-  enum?: (string | number)[];
-  /**
-   * Exabase DBMS
    * ---
    * Default value.
    */
@@ -161,7 +148,11 @@ export interface SchemaColumnOptions {
   /**
    * Type of relation. Can be one of the value of the RelationTypes class.
    */
-  RelationType?: "MANY" | "ONE";
+  relationType?: "MANY" | "ONE";
+  /**
+   * The name of the relationship. YOU DON'T NEED TO PROVIDE THIS.
+   */
+  relationship?: string;
   /**
    * Type of relation. Can be one of the value of the RelationTypes class.
    */
@@ -188,85 +179,36 @@ export type columnValidationType = {
   unique?: boolean;
 };
 
+export type searchQuery<Model> =
+  | Partial<Model>
+  | Record<"$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte", Partial<Model>>;
+
 export type QueryType<Model> = {
-  where?: Partial<Model>;
-  reference?: {
-    _new?: boolean;
-    relationshipType: "MANY" | "ONE";
-    _id: string;
-    foreign_id: string;
-    foreign_table: string;
-    relationship: string;
-  };
+  table?: string;
+  one?: string;
   sort?: {
+    // for search and many
     [x in keyof Partial<Model>]: "ASC" | "DESC";
   };
-  delete?: string;
-  table?: string;
+  many?: true;
+  search?: searchQuery<Model>;
   insert?: Record<string, any>;
-  update?: Record<string, any>;
-  search?: Record<string, any>;
+  update?: Partial<Model>;
+  delete?: string;
   unique?: Record<string, any>;
   populate?: Record<string, any>;
   skip?: number;
   take?: number;
   count?: Record<string, any> | boolean;
-  /**
-   * TODO: exabase doesn't walk the log files until search is complete, no multi-log db would do so either.
-   * we only tranverse the first log file or last in reverse mode for findMany("*", {<options>})
-   * it's a good idea to allow users to access middle log files
-   * in this case they can use logCount to know the number of logs and provide logIndex option to iterate through via .findMany()
-   */
   logIndex?: number;
   logCount?: boolean;
 };
 
-type selectOps = "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte";
-type updateOps = "$set" | "$unset" | "$inc" | "$push" | "$pull";
-
-export type JQLType<Model> = {
-  table: string;
-  action:
-    | "select"
-    | "delete"
-    | "insert"
-    | "update"
-    | "search"
-    | "relate"
-    | "logCount"
-    | "count"
-    | "schema"
-    | "unique";
-  where?: Partial<Model> & Record<selectOps, any>;
-  update?: Partial<Model> & Record<updateOps, Partial<Model>>;
-  schema?: Partial<Model> & {};
-  select?: Partial<Model>;
-  //
-  insert?: Partial<Model>;
-  populate?: {
-    [x in keyof Partial<Model>]: boolean;
-  };
-  sort: {
-    [x in keyof Partial<Model>]: 1 | -1;
-  };
-  skip?: number;
-  take?: number;
-  count?: Record<string, any> | boolean;
-  /**
-   * TODO: exabase doesn't walk the log files until search is complete, no multi-log db would do so either.
-   * we only tranverse the first log file or last in reverse mode for find Many("*", {<options>})
-   * to allow users to access middle log files
-   * in this case they can use logCount to know the number of logs and provide logIndex option to iterate through
-   */
-  logIndex?: number;
+export type Msg = {
+  _id: string;
+  // [x: string]: string | string[] | number | boolean | Msg | Msg[];
 };
-
-export type Msg = { _id: string };
 export type Msgs = Msg[];
-
-export interface fTable {
-  [x: string]: { [x: string]: string[] | string };
-}
 
 export interface iTable {
   [x: string]: { [x: string]: string };
@@ -279,47 +221,13 @@ export type LOG_file_type = Record<
 /**
  * Document type
  */
-export type ExaDoc<Model> = Model & {
+export type ExaDoc<Model = any> = Model & {
   /**
    * Document id
    */
   _id: string;
 };
-
-export type connectOptions = Record<string | number | symbol, never>;
-
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
-export type wTrainFlagLessType = [(value: unknown) => void, Buffer];
-export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> =
-  Query<Model>;
-
-export type ExaSchemaQuery<Model> = {
-  schema: {
-    /**
-     * Table name.
-     */
-    table: Uppercase<string>;
-    /**
-     * Exabase RCT
-     * ---
-     *
-     * Enables Regularity Cache Tank for this table?.
-     *
-     * ***
-     * synopsis
-     * ***
-     * Exabase RCT is a log file level cache, which makes log files retrieve cheap
-     *
-     * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cach only
-     */
-    RCT?: boolean;
-
-    /**
-     * Indicates properties and  relationship definitions for the schema
-     */
-    columns: {
-      [x in keyof Partial<Model>]: SchemaColumnOptions;
-    };
-  };
-};
+// export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> =
+//   Query<Model>;

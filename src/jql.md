@@ -2,11 +2,15 @@
 
 | Introduction
 
-In the evolving landscape of database management, the need for a flexible, human-readable query language is more critical than ever. Traditional SQL-based query languages, while powerful, can be complex and difficult to integrate into modern, JSON-centric applications. To address this gap, we introduce JSON Query Language (JQL), a lightweight, JSON-based query language designed to streamline database interactions, particularly for NoSQL and key-value stores.
+JQL is a json as a query schema. the structure of which has be analysed and implemented in the exabse database.
 
-JQL is designed to bridge the gap between structured query language (SQL) and the increasingly prevalent NoSQL databases, offering a syntax that is both powerful and intuitive. By leveraging JSON, JQL aligns naturally with modern data structures, making it an ideal choice for developers who seek simplicity without sacrificing functionality.
+Why not sql?
 
-| Why JQL?
+In traditional SQL-based query languages, while powerful, can be complex and difficult to integrate into modern, JSON-centric applications. To address this gap, we introduce JSON Query Language (JQL), a lightweight, JSON-based query schema designed to streamline database interactions.
+
+JQL is designed to bring similarity and ease between object pattern in applications and the database query formart, offering a syntax that is intuitive. By leveraging JSON, JQL aligns naturally with modern data structures, making it an ideal choice for developers who seek simplicity.
+
+| Benefits?
 
 1. JSON-Centric Design
    The JSON format is ubiquitous in modern web and mobile applications. By using JSON as the query language, JQL provides a seamless experience for developers already familiar with JSON data structures, reducing the learning curve and improving productivity.
@@ -16,9 +20,6 @@ JQL is designed to bridge the gap between structured query language (SQL) and th
 
 3. Flexibility and Power
    Despite its simplicity, JQL does not compromise on power. It supports a wide range of operations, including whereing, sorting, projecting, and updating data. These operations are expressed in a structured and logical manner, making it easy to construct complex queries.
-
-4. Integration with NoSQL Databases
-   JQL is particularly well-suited for NoSQL databases like DynamoDB, MongoDB, and other key-value stores. It offers a MongoDB-like query experience, but with a more standardized and generalized syntax, enabling cross-database compatibility and easier migration between systems.
 
 Query Structure
 A JQL query is a JSON object that consists of various key-value pairs representing the components of the query. Below is an overview of the main components and how they work together.
@@ -55,10 +56,10 @@ A JQL query is a JSON object that consists of various key-value pairs representi
 ```
 
 5.  Sort
-    Defines the order in which results are returned. Use 1 for ascending order and -1 for descending order.
+    Defines the order in which results are returned. Use ASC for ascending order and DESC for descending order.
 
 ```json
-"sort": { "age": 1 }
+"sort": { "age": "DESC" }
 ```
 
 6.  Limit and Skip
@@ -88,7 +89,8 @@ A JQL query is a JSON object that consists of various key-value pairs representi
 ]
 ```
 
-Operators
+9. Operators
+
 JQL supports a variety of operators for building complex queries. These operators are grouped into comparison, logical, and update categories.
 
 1. Comparison Operators

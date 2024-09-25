@@ -10,9 +10,8 @@ const users = new ExaSchema<{ age: number; name: string }>({
   },
 });
 
-const db = new Exabase({ schemas: [users] });
+const db = new Exabase();
 // ? get Exabase ready
-await db.connect();
 const query = JSON.stringify({
   table: "USER",
   query: { insert: { age: 1, name: "friday" } },

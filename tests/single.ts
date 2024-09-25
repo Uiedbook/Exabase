@@ -8,22 +8,22 @@ test("example setup, schema setup, inset and find, search, update, and delete op
       ticket: { type: String, unique: true },
     },
   });
-  const db = new Exabase({ schemas: [Order] });
+  const db = new Exabase();
   // ? get Exabase ready
-  await db.connect();
-  const OrderTRX = Order.query;
   // ? operations
-  const create_order = await OrderTRX.save({ ticket: Date.now().toString() });
-  const find_order = await OrderTRX.findOne(create_order._id);
+  const create_order = await Order.Query.save({
+    ticket: Date.now().toString(),
+  });
+  const find_order = await Order.Query.one(create_order._id);
   expect(create_order._id).toBe(find_order._id);
-  const update_order = await OrderTRX.save({
+  const update_order = await Order.Query.save({
     ...create_order,
     ticket: Date.now().toString(),
   });
-  const find_order_by_unique_field = await OrderTRX.findOne({
+  const find_order_by_unique_field = await Order.Query.one({
     ticket: update_order.ticket,
   });
-  const search_order = await OrderTRX.search({
+  const search_order = await Order.Query.search({
     ticket: update_order.ticket,
   });
   console.log({
@@ -34,8 +34,8 @@ test("example setup, schema setup, inset and find, search, update, and delete op
   });
   expect(create_order._id).toBe(find_order_by_unique_field._id);
   expect(create_order._id).toBe(search_order[0]?._id);
-  const delete_order = await OrderTRX.delete(create_order._id);
-  const find_deleted_order = await OrderTRX.findOne(create_order._id);
+  const delete_order = await Order.Query.delete(create_order._id);
+  const find_deleted_order = await Order.Query.one(create_order._id);
   expect(find_deleted_order).toBe(undefined as any);
   console.log({
     create_order,

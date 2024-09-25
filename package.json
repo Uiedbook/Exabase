@@ -26,7 +26,7 @@
     "javascript"
   ],
   "scripts": {
-    "compile": "rm -rf ./EXABASE_DB && rm -rf ./dist && bun bundle.ts",
+    "compile": "rm -rf ./DB && rm -rf ./dist && bun bundle.ts",
     "test": " bun test --timeout 20000",
     "build": "bun bundle.ts && npm pack && mv **.tgz ~/",
     "bench": "bun ./tests/benchmark.ts"

@@ -10,3 +10,4 @@ tests/sql_file
 backup.tar.gz
 tests/sql_file/Northwind_large.sqlite
 dist
+bus.md

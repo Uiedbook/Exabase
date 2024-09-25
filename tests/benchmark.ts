@@ -12,9 +12,9 @@ import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
 import { ExaSchema, Exabase } from "../dist/index.js";
 
+const db = new Exabase();
 const Employee = new ExaSchema({
   table: "EMPLOYEE",
-  RCT: true,
   columns: {
     LastName: { type: String },
     FirstName: { type: String },
@@ -36,15 +36,8 @@ const Employee = new ExaSchema({
   },
 });
 
-const db = new Exabase({
-  schemas: [Employee],
-});
-
-await db.connect();
-
 const db2 = Database.open("tests/sql_file/Northwind_large.sqlite");
-const trx = Employee.query;
-let d = await trx.count();
+let d = await Employee.Query.count();
 
 const sql = db2.prepare(`SELECT * FROM "Employee"`);
 const c = sql.all();
@@ -56,13 +49,13 @@ if (d !== c.length) {
   console.time("Exabase | Insert time");
 
   for (let i = 0; i < c.length; i++) {
-    await trx.save(c[i] as any);
+    await Employee.Query.save(c[i] as any);
   }
 
   console.timeEnd("Exabase | Insert time");
   console.log("sqlite data inserted into Exabase");
 }
-d = await trx.count();
+d = await Employee.Query.count();
 console.log("read Exabase item count to ensure it's consistent ofc it is", d);
 
 const sq = JSON.stringify({ table: "EMPLOYEE", query: { select: "*" } });

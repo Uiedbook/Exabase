@@ -331,7 +331,6 @@
           th.textContent = header;
           headerRow.appendChild(th);
         });
-
         // Populate table data rows
         data.forEach(function (item) {
           var row = document.createElement("tr");
@@ -339,6 +338,7 @@
             var td = document.createElement("td");
             td.setAttribute("data-label", headers[idx]);
             td.textContent = item[header];
+            td.title = item[header];
             row.appendChild(td);
           });
           dataRows.appendChild(row);
