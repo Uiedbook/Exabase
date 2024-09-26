@@ -1,6 +1,6 @@
 {
   "name": "exabase",
-  "version": "0.0.0-rc-21",
+  "version": "0.0.0-rc-22",
   "description": "A scaling focused distributed nosql database with surprising performance and strong data consistency.",
   "main": "dist/index.js",
   "type": "module",
