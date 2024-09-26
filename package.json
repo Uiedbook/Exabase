@@ -34,8 +34,7 @@
   "author": "Friday Candour",
   "license": "Apache",
   "dependencies": {
-    "msgpackr": "^1.10.1",
-    "tar": "^7.2.0"
+    "msgpackr": "^1.10.1"
   },
   "devDependencies": {
     "@types/bun": "^1.0.1",
