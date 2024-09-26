@@ -112,7 +112,7 @@ export type ExabaseOptions = {
 };
 ```
 
-## Exabase Query formart
+## Exabase JSON Query formart
 
 Exabase is queried with json. in the formart
 
@@ -121,6 +121,32 @@ Exabase is queried with json. in the formart
   "table": "<table name>",
   "<query key>": "<query info>"
 }
+```
+
+## ExaSchema Query Properties
+
+```ts
+ {
+  table: string;
+  one?: string;
+  sort?: {
+    // for search and many
+    [x in keyof Partial<Model>]: "ASC" | "DESC";
+  };
+  many?: true;
+  search?: Partial<Model>;
+  insert?: Record<string, any>;
+  update?: Partial<Model>;
+  delete?: string;
+  unique?: Record<string, any>;
+  populate?: Record<string, any>;
+  skip?: number;
+  take?: number;
+  count?: Record<string, any> | boolean;
+  logIndex?: number;
+  logCount?: boolean;
+};
+
 ```
 
 ## Example syntax
@@ -157,32 +183,6 @@ expect(user._id).toBe(user3._id);
 expect(user._id).toBe(user4._id);
 expect(user4.name).toBe("gregs pola");
 expect(user5).toBe(undefined);
-```
-
-## ExaSchema Query JSON format
-
-```ts
- {
-  table?: string;
-  one?: string;
-  sort?: {
-    // for search and many
-    [x in keyof Partial<Model>]: "ASC" | "DESC";
-  };
-  many?: true;
-  search?: Partial<Model>;
-  insert?: Record<string, any>;
-  update?: Partial<Model>;
-  delete?: string;
-  unique?: Record<string, any>;
-  populate?: Record<string, any>;
-  skip?: number;
-  take?: number;
-  count?: Record<string, any> | boolean;
-  logIndex?: number;
-  logCount?: boolean;
-};
-
 ```
 
 ## A Basic Database setup and queries.
