@@ -34,6 +34,7 @@ import {
 
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
+  static MEMORY_PERCENT: number;
   static packr = new Packr();
   //? Regularity Cache Tank or whatever.
   static RCT: Record<string, Record<string, Msgs | undefined> | boolean> = {

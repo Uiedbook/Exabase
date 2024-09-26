@@ -9,18 +9,17 @@ import {
 import { getComputedUsage } from "./primitives/functions.js";
 
 export class Exabase {
-  private _exabaseDirectory: string;
-  MEMORY_PERCENT: number;
+  private dbDir: string;
   schemas: ExaSchema<{}>[] = [];
   constructor(init: ExabaseOptions = {}) {
     GLOBAL_OBJECT._db = this;
     //? [1] directories
-    this._exabaseDirectory = (init.name || "DB").trim().toUpperCase();
+    this.dbDir = (init.name || "DB").trim().toUpperCase();
     // ? setting up memory allocation for RCT enabled cache managers
-    this.MEMORY_PERCENT = init.EXABASE_MEMORY_PERCENT || 10;
+    GLOBAL_OBJECT.MEMORY_PERCENT = init.EXABASE_MEMORY_PERCENT || 10;
     // ? create main dir
     try {
-      mkdirSync(this._exabaseDirectory);
+      mkdirSync(this.dbDir);
     } catch (e: any) {
       if ({ e }.e.code !== "EEXIST") console.log(e);
     }
@@ -35,14 +34,14 @@ export class Exabase {
     this.schemas.push(schema);
     // ? setup rct level
     const BEST_RCT_LEVEL_PER_MANAGER = getComputedUsage(
-      this.MEMORY_PERCENT,
+      GLOBAL_OBJECT.MEMORY_PERCENT,
       this.schemas.length || 10
     );
     //? setup managers
     GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!] = new Manager(schema);
     // ? setup relationships
     await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._setup({
-      _exabaseDirectory: this._exabaseDirectory,
+      _exabaseDirectory: this.dbDir,
       schemas: this.schemas,
     });
     await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._sync_logs();
