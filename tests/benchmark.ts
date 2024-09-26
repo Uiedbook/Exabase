@@ -10,55 +10,70 @@
 
 import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
-import { ExaSchema, Exabase } from "../dist/index.js";
+import { Exabase } from "../dist/index.js";
 
 const db = new Exabase();
-const Employee = new ExaSchema({
-  table: "EMPLOYEE",
-  columns: {
-    LastName: { type: String },
-    FirstName: { type: String },
-    Title: { type: String },
-    TitleOfCourtesy: { type: String },
-    BirthDate: { type: String },
-    HireDate: { type: String },
-    Address: { type: String },
-    City: { type: String },
-    Region: { type: String },
-    PostalCode: { type: String },
-    Country: { type: String },
-    HomePhone: { type: String },
-    Extension: { type: String },
-    Photo: { type: String },
-    Notes: { type: String },
-    ReportsTo: { type: Number },
-    PhotoPath: { type: String },
-  },
-});
+await db.query(
+  JSON.stringify({
+    table: "EMPLOYEE",
+    induce: {
+      LastName: { type: "string" },
+      FirstName: { type: "string" },
+      Title: { type: "string" },
+      TitleOfCourtesy: { type: "string" },
+      BirthDate: { type: "string" },
+      HireDate: { type: "string" },
+      Address: { type: "string" },
+      City: { type: "string" },
+      Region: { type: "string" },
+      PostalCode: { type: "string" },
+      Country: { type: "string" },
+      HomePhone: { type: "string" },
+      Extension: { type: "string" },
+      Photo: { type: "string" },
+      Notes: { type: "string" },
+      ReportsTo: { type: "number" },
+      PhotoPath: { type: "string" },
+    },
+  })
+);
 
 const db2 = Database.open("tests/sql_file/Northwind_large.sqlite");
-let d = await Employee.Query.count();
+
+let employeeExabaseCount = await db.query(
+  JSON.stringify({ table: "EMPLOYEE", count: true })
+);
 
 const sql = db2.prepare(`SELECT * FROM "Employee"`);
-const c = sql.all();
+const employeeSQLITECount = sql.all();
 
-console.log("Exabase item count", d);
-console.log("sqlite item count", c.length);
+console.log("Exabase item count", employeeExabaseCount);
+console.log("sqlite item count", employeeSQLITECount.length);
 
-if (d !== c.length) {
+console.log(employeeExabaseCount, employeeSQLITECount.length);
+
+if (employeeExabaseCount !== employeeSQLITECount.length) {
   console.time("Exabase | Insert time");
 
-  for (let i = 0; i < c.length; i++) {
-    await Employee.Query.save(c[i] as any);
+  for (let i = 0; i < employeeSQLITECount.length; i++) {
+    await db.query(
+      JSON.stringify({ table: "EMPLOYEE", insert: employeeSQLITECount[i] })
+    );
   }
 
   console.timeEnd("Exabase | Insert time");
   console.log("sqlite data inserted into Exabase");
 }
-d = await Employee.Query.count();
-console.log("read Exabase item count to ensure it's consistent ofc it is", d);
 
-const sq = JSON.stringify({ table: "EMPLOYEE", query: { select: "*" } });
+employeeExabaseCount = await db.query(
+  JSON.stringify({ table: "EMPLOYEE", count: true })
+);
+console.log(
+  "read Exabase item count to ensure it's consistent ofc it is",
+  employeeExabaseCount
+);
+
+const sq = JSON.stringify({ table: "EMPLOYEE", many: true });
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
     await db.query(sq);

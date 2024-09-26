@@ -1,6 +1,3 @@
-// deno-lint-ignore-file no-explicit-any
-import { ExaType, ExaSchema } from "./classes.js";
-
 /**
  * Interface for Exabase init  */
 export type ExabaseOptions = {
@@ -14,33 +11,6 @@ export type ExabaseOptions = {
    * ---
    * name  */
   name?: string;
-  /**
-   * a url that points to another node this node can hydrate from if out of date  */
-  // bearer?: string;
-  /**
-   * type of ring
-   */
-  // mode?: "REPLICATION" | "EXTENSION";
-  /**
-   * Exabase DBMS
-   * ---
-   * log each query?
-   */
-  logging?: boolean;
-  /**
-   * Exabase DBMS
-   * ---
-   * Exabase signing keys
-   */
-  // EXABASE_KEYS?: { privateKey: string; publicKey: string };
-  /**
-   * Exabase DBMS
-   * ---
-   * Filename of the exabase backup file in the root directory.
-   *
-   * When extracting, tar will keep the existing file on disk if it's newer than the file in the database archive.
-   *  */
-  backupFileName?: string;
 };
 
 /**
@@ -164,8 +134,6 @@ export interface SchemaColumnOptions {
 export type ColumnType =
   | BooleanConstructor
   | NumberConstructor
-  | ExaType
-  | typeof ExaSchema
   | StringConstructor;
 
 export type columnValidationType = {
@@ -206,7 +174,7 @@ export type QueryType<Model> = {
 
 export type Msg = {
   _id: string;
-  // [x: string]: string | string[] | number | boolean | Msg | Msg[];
+  [x: string]: string | string[] | number | boolean | Msg | Msg[];
 };
 export type Msgs = Msg[];
 
@@ -218,16 +186,5 @@ export type LOG_file_type = Record<
   string,
   { last_id: string | null; size: number }
 >;
-/**
- * Document type
- */
-export type ExaDoc<Model = any> = Model & {
-  /**
-   * Document id
-   */
-  _id: string;
-};
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
-// export type ExaQuery<Model = ExaDoc<Record<string | number | symbol, never>>> =
-//   Query<Model>;

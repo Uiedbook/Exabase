@@ -15,7 +15,7 @@ import {
   type iTable,
 } from "./types.js";
 
-import { GLOBAL_OBJECT, ExaError, ExaType } from "./classes.js";
+import { GLOBAL_OBJECT, ExaError } from "./classes.js";
 
 export const loadLog = async (filePath: string) => {
   try {
@@ -42,7 +42,7 @@ update mechanism
 ? get old and new msg 
 ? update old msg to new msg
 ? check that unique properties are conserved or fail
-! check that foreign key are conserved or fail
+? check that foreign key are conserved or fail
 ? return to queue for commits
 */
 
@@ -58,7 +58,6 @@ export async function updateMessage(
   }
   //?  merge old into new
   newmsg = Object.assign(oldmsg, newmsg);
-
   // ?mount here
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, newmsg);
@@ -76,7 +75,6 @@ export async function updateMessage(
     await updateIndex(dir, _unique_field, newmsg as any);
   }
   // ?   conserve
-  // console.log({ newmsg });
   await conserveForeignKeys(newmsg, relationships);
   return newmsg;
 }
@@ -104,7 +102,10 @@ export async function prepareMessage(
   await conserveForeignKeys(message, relationships);
   return message;
 }
+/*
+? clean up unique index
 
+*/
 export async function deleteMessage(
   _id: string,
   dir: string,
@@ -135,10 +136,6 @@ export async function findMessage(
     const message = messages[0];
     if (populate) {
       await populateForeignKeys(message, populate);
-      // const _foreign = await populateForeignKeys(message, populate);
-      // for (const key in _foreign) {
-      //   message[key] = _foreign[key];
-      // }
     }
     return message;
   }
@@ -153,10 +150,6 @@ export async function findMessage(
       const message = messages[mid];
       if (populate) {
         await populateForeignKeys(message, populate);
-        // const _foreign = await populateForeignKeys(message, populate);
-        // for (const key in _foreign) {
-        //   (message[key as keyof typeof message] as any) = _foreign[key];
-        // }
       }
       return message;
     } else if (midId < one) {
@@ -242,7 +235,6 @@ export const setPopulateOptions = (
       const lab = populate[0];
       const relaName = fields[lab];
       if (relaName) {
-        // relationship[lab] = fields[lab].table;
         relationship[lab] = {
           table: fields[lab].table,
           type: fields[lab].type,
@@ -265,7 +257,6 @@ export const populateForeignKeys = async (
     };
   }
 ) => {
-  // const rela: Record<string, Record<string, any>[] | Record<string, any>> = {};
   for (const key in join) {
     if (join[key].type === "MANY") {
       const fk = message[key as "_id"];
@@ -287,12 +278,9 @@ export const populateForeignKeys = async (
           join[key].table
         ]._trx_runner({ one: fk });
         message[key as "_id"] = marray as any;
-        // rela[relationship] = msgs as Record<string, any>;
       }
     }
   }
-
-  // return rela;
 };
 
 const updateIndex = async (
@@ -388,7 +376,8 @@ export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   let left = 0;
   let right = messages.length - 1;
   for (; left <= right; ) {
-    const mid = Math.floor((left + right) / 2);
+    const mid = (left + right) >>> 1;
+
     const midId = messages[mid]._id;
     if (midId === _id) {
       return mid;
@@ -417,13 +406,12 @@ export const binarysearch_mutate = (
   let left = 0;
   let right = messages.length - 1;
   for (; left <= right; ) {
-    // const mid = Math.floor((left + right) / 2);
-    const mid = (left + right) >>> 1; // Bitwise right shift for division by 2
+    const mid = (left + right) >>> 1;
     const midId = messages[mid]._id;
     if (midId === _id) {
       //? run mutation
       if (flag === "u") {
-        messages[mid] = message;
+        messages[mid] = Object.assign(message, messages[mid]);
       } else {
         messages.splice(mid, 1);
       }
@@ -444,7 +432,7 @@ export const binarysorted_insert = (message: Msg, messages: Msgs) => {
   let high = messages.length - 1;
   for (; low <= high; ) {
     // const mid = Math.floor((low + high) / 2);
-    const mid = (low + high) >>> 1; // Bitwise right shift for division by 2
+    const mid = (low + high) >>> 1;
     const current = messages[mid]._id;
     if (current < _id) {
       low = mid + 1;
@@ -494,7 +482,6 @@ export const encode_timestamp = (timestamp: string): string => {
 };
 
 // ExaSchema validator
-
 export function validator(
   data: Record<string, any> = {},
   schema: Record<string, SchemaColumnOptions> = {}
@@ -537,12 +524,6 @@ export function validator(
       !value.relationship
     ) {
       info = `${prop} type is invalid -  ${String(typeof data[prop])}`;
-      break;
-    }
-
-    // ? check for exaType type
-    if (type instanceof ExaType && !type.v(data[prop])) {
-      info = `${prop} is invalid - ${String(data[prop])}`;
       break;
     }
     //? checks for String and Number max
@@ -605,7 +586,7 @@ export async function SynFileWrit(file: string, data: Buffer) {
     await fd.sync();
     await fsp.rename(tmpfile, file);
   } catch (err) {
-    console.log({ err });
+    // console.log({ err }, 1);
   } finally {
     if (fd !== undefined) {
       await fd.close();
@@ -637,7 +618,7 @@ export const SynFileWritWithWaitList = {
       await fd.sync();
       await fsp.rename(tmpfile, file);
     } catch (err) {
-      console.log({ err });
+      // console.log({ err, tmpfile }, 2);
     } finally {
       if (fd !== undefined) {
         await fd.close();

@@ -1,7 +1,6 @@
 import { opendir, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync } from "node:fs";
 import { Packr } from "msgpackr";
-import * as tar from "tar";
 import {
   type LOG_file_type,
   type Msg,
@@ -50,7 +49,6 @@ export class ExaError extends Error {
   }
   private static geterr(err: string[]) {
     return String(`Exabase: ${err.join("")}`);
-    // return String(`\x1b[31mExabase: ${err.join("")}\x1b[0m`);
   }
 }
 
@@ -121,24 +119,15 @@ export class ExaSchema<Model> {
     GLOBAL_OBJECT._db._induce(this);
     // ? parse definitions end
   }
-  // static getTimestamp(_id: string) {
-  //   return new Date(parseInt(_id.slice(0, 8), 16) * 1000);
-  // }
 }
 
 // ? for creating custom types, NOT IN USE ATM
-export class ExaType {
-  v: (data: any) => boolean = () => false;
-  constructor(validator: (data: any) => boolean) {
-    this.v = validator;
-  }
-}
-
 export class Manager {
   public _schema: ExaSchema<any>;
   public _name: string;
   public tableDir: string = "";
   public isRelatedConstruced = false;
+  public isActive = false;
   //? Regularity Cache Tank or whatever.
   public RCT: Record<string, Msgs | undefined> = {};
   //? number of RCTied log files
@@ -163,26 +152,18 @@ export class Manager {
       indexTable,
     });
   }
-  async _setup(init: {
-    _exabaseDirectory: string;
-    logging: boolean;
-    schemas: ExaSchema<any>[];
-  }) {
+  async _setup(init: { _exabaseDirectory: string; schemas: ExaSchema<any>[] }) {
     // ? setup steps
     this.tableDir = init._exabaseDirectory + "/" + this._schema.table + "/";
     // ? provide Xtree search index dir
     const persistKey = this.tableDir + "XINDEX";
     this._search.persistKey = persistKey;
-    this._search.tree = XTree.restore(persistKey);
+    const xtreeData = XTree.restore(persistKey);
+    this._search.tree = xtreeData.tree;
+    this._search.keys = xtreeData.keys;
     //? setup table directories
     if (!existsSync(this.tableDir)) {
       mkdirSync(this.tableDir);
-    } else {
-      //? this is a chain process
-      // ? first get logs from disk
-      // ? recover and flush WAL
-      // ? sync search index
-      return this._sync_logs();
     }
   }
   public waiters: Record<string, wTrainType[]> = {};
@@ -217,9 +198,9 @@ export class Manager {
         binarysearch_mutate(message, messages, flag);
         // ? update search index
         if (flag === "d") {
-          this._search.disert(message);
+          this._search.disert(message, true);
         } else {
-          this._search.upsert(message);
+          this._search.insert(message);
         }
       }
       // ? update this active RCT
@@ -257,7 +238,6 @@ export class Manager {
         // ? the commit operation can then be restarted from the <file>-SYNC files still in the wal directory
         if (dirent.name.includes("-SYNC")) {
           await unlink(this.tableDir + dirent.name);
-
           continue;
         }
         if (dirent.isFile()) {
@@ -277,7 +257,7 @@ export class Manager {
 
       return this._sync_searchindex(size);
     } catch (err) {
-      console.log({ err });
+      console.log({ err }, 3);
     }
   }
 
@@ -452,13 +432,16 @@ export class Manager {
     }
 
     if (query["update"]) {
+      const oldmsg = (await this._find({ one: query.update._id })) as Msg;
       const message = await updateMessage(
         this.tableDir,
         this._schema._unique_field,
-        (await this._find({ one: query.update._id })) as Msg,
+        oldmsg,
         this._validate(query.update),
         this._schema._foreign_field
       );
+
+      this._search.disert(oldmsg, false);
       return this.queue(this._getReadingLog(message._id), message, "u");
     }
 
@@ -526,12 +509,8 @@ export class Manager {
         this._schema._unique_field,
         this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
-
-      if (message) {
-        this._search.disert(message);
+      if (message?._id) {
         return this.queue(file, message, "d");
-      } else {
-        throw new ExaError("item not found, left.");
       }
     }
 
@@ -542,39 +521,30 @@ export class Manager {
 }
 
 class XNode {
-  keys: string[] = [];
   map: Record<string, number[]> = {};
-  constructor(keys?: string[], map?: Record<string, number[]>) {
-    this.keys = keys || [];
+  constructor(map?: Record<string, number[]>) {
     this.map = map || {};
   }
-  insert(val: string, id: string) {
-    const idx = this.keys.push(id);
+  insert(val: string, idk: number) {
     if (!this.map[val]) {
       this.map[val] = [];
     }
-    this.map[val].push(idx - 1);
+    this.map[val].push(idk);
   }
-  disert(val: string, id: string) {
-    const idx = this.keys.indexOf(id);
+  disert(val: string, idk: number) {
     if (this.map[val]) {
-      this.map[val] = this.map[val].filter((a) => a !== idx);
-      this.keys.splice(idx, 1);
+      if (idk !== -1) {
+        const idp = this.map[val].indexOf(idk);
+        this.map[val].splice(idp, 1);
+      }
     }
-  }
-  upsert(val: string, id: string) {
-    const idx = this.keys.indexOf(id);
-    if (!this.map[val]) {
-      this.map[val] = [];
-    }
-    this.map[val].push(idx - 1);
   }
 }
 
 export class XTree {
   persistKey?: string;
   tree: Record<string, XNode> = {};
-  // used for keep searchable keys of data that should be indexed in the db.
+  keys: string[] = [];
   indexTable: Record<string, boolean>;
   constructor(init: { indexTable: Record<string, boolean> }) {
     this.indexTable = init.indexTable;
@@ -590,18 +560,16 @@ export class XTree {
         const index = this.tree[key].map[search[key as "_id"]];
         if (!index || index?.length === 0) continue;
         for (const i of index) {
-          this.tree[key].keys[i] && idx.push(this.tree[key].keys[i]);
+          this.keys[i] && idx.push(this.keys[i]);
         }
         if (idx.length >= take) break;
       }
     }
-
     if (idx.length >= take) {
       idx = idx.slice(0, take);
     }
     return idx;
   }
-
   count(search: Msg) {
     let resultsCount: number = 0;
     for (const key in search) {
@@ -614,55 +582,45 @@ export class XTree {
   }
 
   confirmLength(size: number) {
-    const unique = new Set<string>();
-    for (const key in this.tree) {
-      const keys = this.tree[key].keys;
-      for (const key in keys) {
-        for (let i = 0; i < keys[key].length; i++) {
-          const element = keys[key][i];
-          unique.add(element);
-        }
-      }
-    }
-
-    return unique.size === size;
+    return this.keys.length === size;
   }
   insert(data: Msg) {
+    let idk = this.keys.indexOf(data._id);
+    if (idk === -1) {
+      idk = this.keys.push(data._id) - 1;
+    }
     // ? save keys in their corresponding nodes
-    if (typeof data === "object" && !Array.isArray(data)) {
-      for (const key in data) {
-        if (!this.indexTable[key]) continue;
-        if (!this.tree[key]) {
-          this.tree[key] = new XNode();
-        }
-        this.tree[key].insert(data[key as keyof Msg], data._id);
+    for (const key in data) {
+      if (!this.indexTable[key]) continue;
+      if (!this.tree[key]) {
+        this.tree[key] = new XNode();
       }
+      this.tree[key].insert(data[key as "_id"], idk);
     }
   }
-  disert(data: Msg) {
-    if (typeof data === "object" && !Array.isArray(data)) {
-      for (const key in data) {
-        if (!this.indexTable[key]) continue;
-        if (!this.tree[key]) continue;
-        this.tree[key].disert(data[key as keyof Msg], data["_id"]);
-      }
+  disert(data: Msg, drop: boolean) {
+    let idk = this.keys.indexOf(data._id);
+    if (idk === -1) return;
+    for (const key in data) {
+      if (!this.indexTable[key]) continue;
+      if (!this.tree[key]) continue;
+      this.tree[key].disert(data[key as "_id"], idk);
+    }
+    if (drop) {
+      this.keys.splice(idk, 1);
     }
   }
-  upsert(newdata: Msg) {
-    if (typeof newdata === "object") {
-      for (const key in newdata) {
-        if (!this.indexTable[key]) continue;
-        if (!this.tree[key]) continue;
-        this.tree[key].upsert(newdata[key as "_id"], newdata["_id"]);
-      }
-    }
-  }
-
   persist() {
-    const obj: { keys: string[]; map: Record<string, any> }[] = [];
+    const obj: {
+      keys: string[];
+      maps: Record<string, Record<string, number[]>>;
+    } = {
+      keys: this.keys,
+      maps: {},
+    };
     const map = Object.keys(this.tree);
     for (let i = 0; i < map.length; i++) {
-      obj[i] = { map: this.tree[map[i]].map, keys: this.tree[map[i]].keys };
+      obj.maps[map[i]] = this.tree[map[i]].map;
     }
     return SynFileWritWithWaitList.write(
       this.persistKey!,
@@ -672,33 +630,12 @@ export class XTree {
   static restore(persistKey: string) {
     const data = loadLogSync(persistKey, {});
     const tree: Record<string, any> = {};
-    if (data) {
-      for (const key in data) {
-        tree[key] = new XNode(data[key].keys, data[key].map);
+    if (typeof data?.maps === "object") {
+      for (const key in data.maps) {
+        tree[key] = new XNode(data.maps[key]);
       }
+      return { tree, keys: data.keys };
     }
-    return tree;
+    return { tree: {}, keys: [] };
   }
 }
-
-// export class backup {
-//   static saveBackup(name: string) {
-//     return (file = "database-backup.tgz") => {
-//       return tar.create(
-//         {
-//           file,
-//           gzip: true,
-//         },
-//         [name]
-//       );
-//     };
-//   }
-//   static unzipBackup(file = "database-backup.tgz") {
-//     return tar.x({
-//       gzip: true,
-//       f: file,
-//       // ? When extracting, keep the existing file on disk if it's newer than the file in the archive.
-//       keepNewer: true,
-//     });
-//   }
-// }

@@ -93,14 +93,6 @@ export class ExaSchema<Model> {
   }
 }
 
-// ? for creating custom types
-export class ExaType {
-  v: (data: any) => boolean = () => false;
-  constructor(validator: (data: any) => boolean) {
-    this.v = validator;
-  }
-}
-
 export class Query<Model> {
   private _Manager: Manager;
   _table: string = "";

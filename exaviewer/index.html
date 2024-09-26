@@ -298,23 +298,23 @@
             reader.onload = function () {
               var arrayBuffer = reader.result;
               var data = msgpackr.decode(new Uint8Array(arrayBuffer));
-              renderTable(data);
+              renderTable(data, file.name.includes("LOG"));
             };
             reader.readAsArrayBuffer(file);
           }
         });
 
-      function renderTable(data) {
+      function renderTable(data, table) {
+        console.log(data);
         var tableSection = document.getElementById("table-section");
         var codeSection = document.getElementById("code-section");
         // Populate table headers
-        if (!data[0] && typeof data === "object") {
+        if (!table) {
           tableSection.style.display = "none";
           codeSection.style.display = "block";
           codeSection.querySelector("#code").innerHTML = syntaxHighlight(
             JSON.stringify(data)
           );
-          console.log(data);
           return;
         }
 

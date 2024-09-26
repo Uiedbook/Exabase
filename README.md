@@ -21,8 +21,7 @@
   </p>
 </p>
 
-Exabase is A high performance nosql database, with an ACID complaint standard, easy to scale, backup and recovery.
-and strong data consistency.
+Exabase is a high performance nosql database with ACID complaint and scalable.
 
 ![Contributors](https://img.shields.io/github/contributors/uiedbook/Exabase?color=dark-green)
 [![npm Version](https://img.shields.io/npm/v/exabase.svg)](https://www.npmjs.com/package/exabase)
@@ -35,16 +34,18 @@ and strong data consistency.
 
 Exabase provides support for these features:
 
-- ACID Compliant transactions.
-- Batch transactions, used for performing large writes (INSERT, DELETE, UPDATE) as a single atomic operation.
 - JSON based query language.
-- Efficient data formart and backup system
-- Easy backup system and recovery.
-- Strong type system.
-- Granular performance at a tunable scale.
-- Growing ecosystem with Extra projects like: Exaviewer, Exaserver, Exaclient and more
+- ACID Compliant queries.
+- Batch large writes (INSERT, DELETE, UPDATE) as a single query.
+- Efficient data format.
+- Efficient backup system and recovery.
+- High performance and tunable scalabilty.
+- Swappable storage engine (as part of plugin system).
+- Totally Open sourced and free
+- Backed and maintained by big minds at Uiedbook
+- Super Fast Growing ecosystem
 
-Exabase is designed as a simple, light and but powerful database, using the an intuitive schema and query API design and also a simple json query format.
+Exabase is designed as a simple, light and but powerful database, using the an intuitive schema, and a concise JSON base query format.
 
 --
 
@@ -52,26 +53,19 @@ Exabase is designed as a simple, light and but powerful database, using the an i
 
 Exabase achieves a high degree of efficiency by employing the following techniques.
 
-- Seperation of concerns mechanism across schema tables. This allows for more efficiency by keeping each schema managers in it own space.
+- Seperation of concerns mechanism across tables. This allows for more efficiency by keeping each table manager in it own space.
 
 - Exabase uses the most efficient storage mechanism which includes message-pack's serialisation and linux based archiving.
 
-- Exabase bounces on an extensive use of Binary search algorithms and custom Binary inset algorimths, allowing for sorted storage and efficient query of data.
+- Exabase make an extensive use of Binary search algorithms and custom Binary inset algorimths, allowing for sorted storage and efficient query of data.
 
 - Exabase employs log file managers and handles log file resizing to makeup for efficient memory usage, log files are totally resizeable and durable.
 
 - Consistency and Durability in log files and other very important files is achieved through an ACID complaint data processing mechanism which is optimised for crash recovery and consistency checks out of the box.
 
-- Exabase transactions are grounded in a strong atomic and isolated model, using a transaction mechanism that achieves faster write queries and efficient data consistency across reads to Exabase log files, this allows for strong data consistency and durability.
-
-- Exabase achieves a high search query efficiency using a search indexing mechanism called Xtree, invented from the ground up.
+- Exabase achieves a high search query efficiency using a search indexing mechanism called Xtree, written from the ground up.
 
 - Exabase excels at sorting data very fast using a combination of bucket & mergesort algorimths.
-
-- A Linux backup based backup functionality you can call in your app to get a single uploadable zip.
-  You can call it periodically as per your needs, and you can recover using them later.
-
-- easy and simple JSON query format.
 
 # Requirements to use Exabase.
 
@@ -80,21 +74,12 @@ Exabase support all server-side Javascript runtimes:
 - Nodejs.
 - Bunjs.
 - Denojs.
-- Edge support for runtimes like cloudflare workers (in view).
-
-### Exabase Memory and storage requirements
-
-There's no hard rule here, if any Javascript runtime can work fine then Exabase can work fine.
-
-Exabase does adjusts it memory based RCT (Exabase Regularity Cache Tank) cache usage to 10% by default which is very okay.
-
-But you can increase to as perferably as 20%, you shouldn't go past 40% if your app is CPU and memory intensive, and the default is best in most cases, however the more RCT space the faster your app Read and write operations will be, we mean lightning speeds, in micro/pico seconds.
 
 # How to get started with Exabase database.
 
 ### Installation
 
-Install Exabase Right away on your project using npm or Javascript other package managers.
+Install Exabase right on your project using npm.
 
 ```
 npm i exabase --save
@@ -102,7 +87,7 @@ npm i exabase --save
 
 ## Usage
 
-Exabase is for the cave man, it has carefully designed APIs that allows you to make the most actions against your databse in a very easy way.
+Exabase is for the cave man, it has carefully designed APIs that allows you to make the most actions against your database in a very easy way.
 
 When improvements and changes rolls out, we will quickly update this page and the currently prepared [web documentation]("https://uiedbook.gitbook.io/exabase/").
 
@@ -124,18 +109,6 @@ export type ExabaseOptions = {
    * ---
    * RCT Memory cache percentage  */
   EXABASE_MEMORY_PERCENT?: number,
-  /**
-   * Exabase database
-   * ---
-   * Data schemas
-   */
-  schemas: ExaSchema<any>[],
-  /**
-   * Exabase database
-   * ---
-   * log each query?
-   */
-  logging?: boolean,
 };
 ```
 
@@ -143,166 +116,133 @@ export type ExabaseOptions = {
 
 Exabase is queried with json. in the formart
 
-````json
+```json
 {
   "table": "<table name>",
-  "query": {....},
-}```
-
-Examples:
-
-```ts
-import { Exabase, ExaSchema } from "exabase";
-
-const users = new ExaSchema<{ age: number; name: string }>({
-  table: "USER",
-  columns: {
-    age: { type: Number },
-    name: { type: String },
-  },
-});
-
-const db = new Exabase({ schemas: [users] });
-// ? get Exabase ready
-await db.connect();
-const query = JSON.stringify({
-  table: "USER",
-  query: { insert: { age: 1, name: "friday" } },
-});
-const data = await db.query(query);
-console.log({ data, query });
+  "<query key>": "<query info>"
+}
 ```
 
-
-## ExaSchema Query Methods
+## Example syntax
 
 ```ts
-    /**
-     * Exabase query
-     * find items on the database,
-     * field can be _id string or unique props object
-     * @param field
-     * @param options
-     * @returns void
-     */
-    findMany(field?: Partial<Model> | string, options?: {
-        populate?: string[] | boolean;
-        take?: number;
-        skip?: number;
-    }): Promise<(Model & {
-        _id: string;
-    })[]>;
-    /**
-     * Exabase query
-     * find items on the database,
-     * field can be _id string or unique props object
-     * @param field
-     * @param options
-     * @returns void
-     */
-    findOne(field: Partial<Model> | string, options?: {
-        populate?: string[] | boolean;
-    }): Promise<Model & {
-        _id: string;
-    }>;
-    /**
-     * Exabase query
-     * search items on the database,
-     * @param searchQuery
-     * @param options
-     * @returns void
-     */
-    search(searchQuery: Partial<Model>, options?: {
-        populate?: string[] | boolean;
-        take?: number;
-        skip?: number;
-    }): Promise<(Model & {
-        _id: string;
-    })[]>;
-    /**
-     * Exabase query
-     * insert or update items on the database,
-     * @param data
-     * @returns void
-     */
-    save(data: Partial<Model>): Promise<Model & {
-        _id: string;
-    }>;
-    /**
-     * Exabase query
-     * delete items on the database,
-     * @param _id
-     * @returns void
-     */
-    delete(_id: string): Promise<Model>;
-    /**
-     * Exabase query
-     * count items on the database
-     * @returns void
-     */
-    count(pops?: Partial<Model>): Promise<number>;
-    /**
-     * Exabase query
-     * connect relationship in the table on the database
-     * @param options
-     * @returns void
-     */
-    addRelation(options: {
-        _id: string;
-        foreign_id: string;
-        relationship: string;
-    }): Promise<unknown>;
-    /**
-     * Exabase query
-     * disconnect relationship in the table on the database
-     * @param options
-     * @returns void
-     */
-    removeRelation(options: {
-        _id: string;
-        foreign_id: string;
-        relationship: string;
-    }): Promise<unknown>;
-````
+const user = await db.query(
+  JSON.stringify({
+    table: "USER",
+    insert: { name: "james bond" },
+  })
+);
+
+const user2 = await db.query(JSON.stringify({ table: "USER", one: user._id }));
+expect(user.name).toBe("james bond");
+const user3 = (
+  await db.query(
+    JSON.stringify({
+      table: "USER",
+      search: { name: user.name },
+    })
+  )
+)[0];
+const user4 = await db.query(
+  JSON.stringify({
+    table: "USER",
+    update: { ...user, name: "gregs pola", age: 47 },
+  })
+);
+await db.query(JSON.stringify({ table: "USER", delete: user._id }));
+const user5 = await db.query(JSON.stringify({ table: "USER", one: user._id }));
+
+expect(user._id).toBe(user2._id);
+expect(user._id).toBe(user3._id);
+expect(user._id).toBe(user4._id);
+expect(user4.name).toBe("gregs pola");
+expect(user5).toBe(undefined);
+```
+
+## ExaSchema Query JSON format
+
+```ts
+ {
+  table?: string;
+  one?: string;
+  sort?: {
+    // for search and many
+    [x in keyof Partial<Model>]: "ASC" | "DESC";
+  };
+  many?: true;
+  search?: Partial<Model>;
+  insert?: Record<string, any>;
+  update?: Partial<Model>;
+  delete?: string;
+  unique?: Record<string, any>;
+  populate?: Record<string, any>;
+  skip?: number;
+  take?: number;
+  count?: Record<string, any> | boolean;
+  logIndex?: number;
+  logCount?: boolean;
+};
+
+```
 
 ## A Basic Database setup and queries.
 
 ```ts
-const Order = new ExaSchema<{ ticket: string }>({
-  table: "ORDER",
-  columns: {
-    ticket: { type: String, unique: true },
-  },
-});
-const db = new Exabase({ schemas: [Order] });
-// ? get Exabase ready
-await db.connect();
-const OrderTRX = Order.query;
-// ? operations
-const create_order = await OrderTRX.save({ ticket: Date.now().toString() });
-const find_order = await OrderTRX.findOne(create_order._id);
-expect(create_order._id).toBe(find_order._id);
-const update_order = await OrderTRX.save({
-  ...create_order,
-  ticket: Date.now().toString(),
-});
-const find_order_by_unique_field = await OrderTRX.findOne({
-  ticket: update_order.ticket,
-});
-const search_order = await OrderTRX.search({
-  ticket: update_order.ticket,
-});
-console.log({
-  search_order,
-  create_order,
-  update_order,
-  find_order_by_unique_field,
-});
-expect(create_order._id).toBe(find_order_by_unique_field._id);
-expect(create_order._id).toBe(search_order[0]?._id);
-const delete_order = await OrderTRX.delete(create_order._id);
-const find_deleted_order = await OrderTRX.findOne(create_order._id);
-expect(find_deleted_order).toBe(undefined);
+import { Exabase } from "../dist/index.js";
+
+const db = new Exabase();
+
+await db.query(
+  JSON.stringify({
+    table: "USER",
+    induce: {
+      age: { type: "number", required: true, index: true },
+      name: { type: "string", index: true },
+      kids: {
+        relationType: "MANY",
+        type: "string",
+        target: "CHILD",
+      },
+    },
+  })
+);
+
+await db.query(
+  JSON.stringify({
+    table: "CHILD",
+    induce: {
+      age: { type: "number", required: true, index: true },
+      name: { type: "string", index: true },
+    },
+  })
+);
+
+const user = await db.query(
+  JSON.stringify({
+    table: "USER",
+    insert: {
+      age: i + 20,
+      name: "user name",
+    },
+  })
+);
+const kid = await db.query(
+  JSON.stringify({
+    table: "CHILD",
+    insert: {
+      age: 5,
+      name: "kid name",
+    },
+  })
+);
+user.kids.push(kid);
+
+await db.query(
+  JSON.stringify({
+    table: "USER",
+    update: user,
+  })
+);
 ```
 
 # Benchmarks
@@ -353,14 +293,12 @@ SELECT \* FROM "Employee" Exabase 169.03 µs/iter (108.97 µs … 4.38 ms) 156.3
 The Regularity Cache Tank or RCT is a basic LOG file level cache.
 this means, it stores the entire LOG(n) file of the table in memory, where n is the last active LOG file.
 
-This might not be okay for resource heavy workloads. hence it can be turned off per schema.
-
 ## Apache 2.0 Lincenced
 
 Opensourced And Free.
 
-Join Us on [telegram]("https://t.me/UiedbookHQ").
+[telegram group]("https://t.me/UiedbookHQ").
 
 ### Contribution and License Agreement
 
-If you contribute code to this project, you are implicitly allowing your code to be distributed under the MIT license. You are also implicitly verifying that all code is your original work.
+If you contribute code to this project, you are implicitly allowing your code to be distributed under the Apache License. You are also implicitly verifying that all code is your original work.

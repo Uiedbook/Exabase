@@ -26,29 +26,13 @@ support commands
 1.  schema - create, migration
 2.  connect to another instance
 3.  push data to new replica
-4.
-
-query formart - json
-
-query types
-
-count
-logCount
-select - take, sortBy, skip, populate
-search - take, sortBy, skip, populate
-delete
-update
-save
-add relationship
-remove relationship
+4.  queries
 
 # 3. attachable storage engine
 
 The db should be able to use multiple storage engines like local file system, kv databases like Dynamodb, deno kv, cf kv.
 
 ralationship logs are unnecessary, follow mongodb spec
-
-extension
 
 Planet - WASP-32 b
 Viculus - Viculus is a Latin term for little village, embodying the spirit of the Singaporean people.
