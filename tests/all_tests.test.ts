@@ -148,11 +148,11 @@ describe("queries", () => {
     const userAgain = await db.query(
       JSON.stringify({ table: "USER", one: user._id, populate: true })
     );
-
+    expect(userAgain.requestedOrders.length).toBe(1);
     expect(userAgain.requestedOrders[0]._id).toBe(order._id);
     expect(userAgain.friend._id).toBe(friend._id);
     userAgain.requestedOrders = [];
-    await db.query(JSON.stringify({ table: "USER", update: user }));
+    await db.query(JSON.stringify({ table: "USER", update: userAgain }));
     const userAgain2 = await db.query(
       JSON.stringify({
         table: "USER",

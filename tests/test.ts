@@ -69,13 +69,13 @@ for (let i = 0; i < 10; i++) {
       },
     })
   );
-  // user.kids.push(kid);
+  user.kids.push(kid);
   await db.query(
     JSON.stringify({
       table: "USER",
       update: {
         ...user,
-        kids: [kid],
+        // kids: [kid],
       },
     })
   );

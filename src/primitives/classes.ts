@@ -437,11 +437,9 @@ export class Manager {
       const message = await updateMessage(
         this.tableDir,
         this._schema._unique_field,
-        oldmsg,
         this._validate(query.update),
         this._schema._foreign_field
       );
-
       this._search.disert(oldmsg, false);
       return this.queue(this._getReadingLog(message._id), message, "u");
     }

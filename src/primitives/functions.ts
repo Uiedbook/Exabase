@@ -49,15 +49,12 @@ update mechanism
 export async function updateMessage(
   dir: string,
   _unique_field: Record<string, true> | undefined,
-  oldmsg: Msg = {} as Msg,
   newmsg: Msg,
   relationships: Record<string, { table: string; type: "ONE" | "MANY" }>
 ) {
   if (newmsg._id.length !== 24) {
     throw new ExaError("invalid id - " + newmsg._id);
   }
-  //?  merge old into new
-  newmsg = Object.assign(oldmsg, newmsg);
   // ?mount here
   if (_unique_field) {
     const someIdex = await findIndex(dir + "UINDEX", _unique_field, newmsg);
@@ -411,7 +408,7 @@ export const binarysearch_mutate = (
     if (midId === _id) {
       //? run mutation
       if (flag === "u") {
-        messages[mid] = Object.assign(message, messages[mid]);
+        messages[mid] = Object.assign(messages[mid], message);
       } else {
         messages.splice(mid, 1);
       }
