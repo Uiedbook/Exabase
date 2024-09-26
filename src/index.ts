@@ -65,7 +65,7 @@ export class Exabase {
     }
     const table = GLOBAL_OBJECT.EXABASE_MANAGERS[parsedQuery.table];
     if (!table || table.isActive === false) {
-      if (table.isActive === false) {
+      if (table?.isActive === false) {
         return new Promise((r) => {
           let i = 3;
           const id = setInterval(() => {
