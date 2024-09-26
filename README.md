@@ -256,22 +256,6 @@ We are trilled Exabase performs really well and exceedily beats sqlite.
 And with this confidence we have and encourage everyone to try Exabase for themselves.
 
 ```md
-# without the Exabase RCT cache
-
-cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz
-runtime: bun 1.0.0 (x64-linux)
-
-benchmark time (avg) (min … max) p75 p99 p995
-
----
-
-SELECT _ FROM "Employee" Exabase 155.28 µs/iter (110.63 µs … 5.41 ms) 148.79 µs 645.66 µs 1.25 ms
-SELECT _ FROM "Employee" sqlite 259.3 µs/iter (190.6 µs … 3 ms) 265.46 µs 1.09 ms 1.18 ms
-
-1.7x faster
-
-# with the Exabase RCT cache
-
 cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz
 runtime: bun 1.0.0 (x64-linux)
 
@@ -282,10 +266,6 @@ benchmark time (avg) (min … max) p75 p99 p995
 SELECT _ FROM "Employee" Exabase 1.39 µs/iter (1.23 µs … 3.77 µs) 1.35 µs 3.77 µs 3.77 µs
 SELECT _ FROM "Employee" sqlite 270.73 µs/iter (187.72 µs … 3.24 ms) 267.24 µs 1.19 ms 1.48 ms
 150X faster
-
-# Zero cach mode (RCT: false)
-
-SELECT \* FROM "Employee" Exabase 169.03 µs/iter (108.97 µs … 4.38 ms) 156.34 µs 1.16 ms 1.34 ms
 ```
 
 ### Regularity Cache Tank
