@@ -224,8 +224,8 @@ export class Manager {
         GLOBAL_OBJECT.packr.encode(messages)
       );
       resolveFNs.map((a) => a());
-      this._search.persist();
       this.runningQueue = false;
+      this._search.persist();
     }
   }
   async _sync_logs() {
