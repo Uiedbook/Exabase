@@ -118,10 +118,6 @@ export async function deleteMessage(
   );
   if (message) {
     if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
-  } else {
-    throw new ExaError("item to remove not found");
-
-    console.log("boohoo");
   }
   return message;
 }

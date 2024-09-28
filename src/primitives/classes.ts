@@ -259,7 +259,7 @@ export class Manager {
 
       return this._sync_searchindex(size);
     } catch (err) {
-      console.log({ err }, 3);
+      console.log({ err });
     }
   }
 
