@@ -127,7 +127,34 @@ describe("queries", () => {
     );
     expect(updatedUsers[0].name).toBe("paul");
   });
+  it("search query", async () => {
+    await db.query(
+      JSON.stringify({
+        table: "USER",
+        insert: { name: "john", age: 14 },
+      })
+    );
+    await db.query(
+      JSON.stringify({
+        table: "USER",
+        insert: { name: "john", age: 12 },
+      })
+    );
+    await db.query(
+      JSON.stringify({
+        table: "USER",
+        insert: { name: "john", age: 28 },
+      })
+    );
 
+    // ? this verifies the two properties were intercepted and the currect results were reurned
+    const johns = await db.query(
+      JSON.stringify({ table: "USER", search: { name: "john", age: 28 } })
+    );
+    expect(johns.length).toBe(1);
+    expect(johns[0].name).toBe("john");
+    expect(johns[0].age).toBe(28);
+  });
   it("basic query (relationships) ", async () => {
     const friend = await db.query(
       JSON.stringify({ table: "USER", insert: { name: "zack's friend " } })
