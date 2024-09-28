@@ -705,6 +705,7 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
   return result.concat(left.slice(li)).concat(right.slice(ri));
 }
 
+// ? from https://github.com/lovasoa/fast_array_intersect/blob/master/index.ts
 export function intersect(arrays: ReadonlyArray<number>[]): number[] {
   if (arrays.length === 0) return [];
 

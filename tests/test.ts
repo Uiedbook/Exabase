@@ -85,7 +85,7 @@ console.time();
 const ser = await db.query(
   JSON.stringify({
     table: "USER",
-    many: true,
+    search: { name: "user name", age: 20 },
     populate: true,
     sort: { age: "ASC" },
   })
