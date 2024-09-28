@@ -20,6 +20,7 @@ import { GLOBAL_OBJECT, ExaError } from "./classes.js";
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
+    // console.log({ len: data.length, filePath, info });
     return (GLOBAL_OBJECT.packr.decode(data) || []) as Msgs;
   } catch (_error) {
     // console.log({ filePath, _error }, 1);
@@ -117,8 +118,12 @@ export async function deleteMessage(
   );
   if (message) {
     if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
+  } else {
+    throw new ExaError("item to remove not found");
+
+    console.log("boohoo");
   }
-  return message || ({ _wal_ignore_flag: true } as unknown as Msg);
+  return message;
 }
 
 export async function findMessage(

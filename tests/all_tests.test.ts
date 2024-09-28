@@ -204,6 +204,9 @@ describe("queries", () => {
   });
   it("clean up", async () => {
     const users = await db.query(JSON.stringify({ table: "USER", many: true }));
+    let usersCount = await db.query(
+      JSON.stringify({ table: "USER", count: true })
+    );
     const orders = await db.query(
       JSON.stringify({ table: "ORDER", many: true })
     );
@@ -214,9 +217,7 @@ describe("queries", () => {
       await db.query(JSON.stringify({ table: "ORDER", delete: orders[i]._id }));
     }
 
-    let usersCount = await db.query(
-      JSON.stringify({ table: "USER", count: true })
-    );
+    usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
     let ordersCount = await db.query(
       JSON.stringify({ table: "ORDER", count: true })
     );

@@ -181,9 +181,7 @@ export class Manager {
       this.waiters[file].push([R!, message, flag]);
     }
     if (this.runningQueue === false) {
-      setTimeout(() => {
-        this.write(this.waiters[file].splice(0), file);
-      }, 0);
+      this.write(this.waiters[file].splice(0), file);
     }
     return q as Promise<number | void | Msgs | Msg>;
   }
@@ -192,21 +190,22 @@ export class Manager {
     const resolveFNs = [];
     // ? do the writing by
     const messages = await loadLog(this.tableDir + file);
+    // const messages =
+    //   this.RCT[file] || (await loadLog(this.tableDir + file, "write"));
     for (const [resolve, message, flag] of queries) {
       if (flag === "i") {
-        binarysorted_insert(message, messages);
         this._search.insert(message);
+        binarysorted_insert(message, messages);
       } else {
-        binarysearch_mutate(message, messages, flag);
         // ? update search index
         if (flag === "d") {
           this._search.disert(message, true);
         } else {
           this._search.insert(message);
         }
+        binarysearch_mutate(message, messages, flag);
       }
       // ? update this active RCT
-      this.RCT[file] = messages;
       // ? update _logFile metadata index
       this._LogFiles[file].size = messages.length;
       this._LogFiles[file].last_id = messages.at(-1)?._id!;
@@ -224,8 +223,9 @@ export class Manager {
         this.tableDir + file,
         GLOBAL_OBJECT.packr.encode(messages)
       );
-      resolveFNs.map((a) => a());
+      this.RCT[file] = messages;
       this.runningQueue = false;
+      resolveFNs.map((a) => a());
       this._search.persist();
     }
   }
@@ -313,7 +313,7 @@ export class Manager {
     //? Create a new log file with an incremented number of LOGn filename
     const nln = Object.keys(this._LogFiles).length + 1;
     const lfid = "LOG-" + nln;
-    this._LogFiles[lfid] = { last_id: lfid, size: 0 };
+    this._LogFiles[lfid] = { last_id: "", size: 0 };
     return lfid;
   }
   _constructRelationships() {
@@ -374,7 +374,7 @@ export class Manager {
     }
 
     if (query.many) {
-      if (query.logIndex) {
+      if (query.logIndex && !this.RCT["LOG-" + query.logIndex]) {
         RCTied = await loadLog(this.tableDir + "LOG-" + query.logIndex);
       }
       // ? skip results
@@ -486,10 +486,11 @@ export class Manager {
 
     if (query["count"]) {
       if (query["count"] === true) {
-        return Object.values(this._LogFiles).reduce(
-          (size, { size: fileSize }) => size + fileSize,
-          0
-        );
+        return this._search.keys.length;
+        // return Object.values(this._LogFiles).reduce(
+        //   (size, { size: fileSize }) => size + fileSize,
+        //   0
+        // );
       }
       return this._search.count(query["count"] as Msg);
     }
@@ -509,9 +510,7 @@ export class Manager {
         this._schema._unique_field,
         this.RCT[file] ?? (await loadLog(this.tableDir + file))
       );
-      if (message?._id) {
-        return this.queue(file, message, "d");
-      }
+      return this.queue(file, message, "d");
     }
 
     if (query["logCount"]) {
@@ -521,6 +520,7 @@ export class Manager {
 }
 
 class XNode {
+  // console.log(messages.length, this._name, queries.length);
   map: Record<string, number[]> = {};
   constructor(map?: Record<string, number[]>) {
     this.map = map || {};
@@ -602,14 +602,16 @@ export class XTree {
   }
   disert(data: Msg, drop: boolean) {
     let idk = this.keys.indexOf(data._id);
+    // console.log({ idk, id: this.keys[idk], drop, idr: data._id });
     if (idk === -1) return;
     for (const key in data) {
-      if (!this.indexTable[key]) continue;
+      // if (!this.indexTable[key]) continue;
       if (!this.tree[key]) continue;
       this.tree[key].disert(data[key as "_id"], idk);
     }
     if (drop) {
       this.keys.splice(idk, 1);
+      // console.log(this.keys.length, idk);
     }
   }
   persist() {
@@ -639,5 +641,156 @@ export class XTree {
       return { tree, keys: data.keys };
     }
     return { tree: {}, keys: [] };
+  }
+}
+export class UTree {
+  tree: Record<string, XNode> = {};
+  keys: string[] = [];
+  indexTable: Record<string, boolean>;
+  constructor(init: { indexTable: Record<string, boolean> }) {
+    this.indexTable = init.indexTable;
+  }
+  search(search: Msg, take: number = Infinity) {
+    let idx: string[] = [];
+    const Indexes: number[][] = [];
+    //  ? get the search keys
+    for (const key in search) {
+      if (!this.indexTable[key]) continue;
+      if (this.tree[key]) {
+        const index = this.tree[key].map[search[key as "_id"]];
+        if (!index || index?.length === 0) continue;
+        Indexes.push(index);
+        if (idx.length >= take) break;
+      }
+    }
+    //  ? get return the keys if the length is 1
+    if (Indexes.length === 1) {
+      return Indexes[0].map((idx) => this.keys[idx]);
+    }
+    //  ? get return the keys if the length is more than one
+    return intersect(Indexes).map((idx) => this.keys[idx]);
+  }
+
+  upsert(data: Msg) {
+    let idk = this.keys.indexOf(data._id);
+    if (idk === -1) {
+      idk = this.keys.push(data._id) - 1;
+    }
+    // ? save keys in their corresponding nodes
+    for (const key in data) {
+      if (!this.indexTable[key]) continue;
+      if (!this.tree[key]) {
+        this.tree[key] = new XNode();
+      }
+      this.tree[key].insert(data[key as "_id"], idk);
+    }
+  }
+  disert(data: Msg, drop: boolean) {
+    let idk = this.keys.indexOf(data._id);
+    if (idk === -1) return;
+    for (const key in data) {
+      if (!this.indexTable[key]) continue;
+      if (!this.tree[key]) continue;
+      this.tree[key].disert(data[key as "_id"], idk);
+    }
+    if (drop) {
+      this.keys.splice(idk, 1);
+    }
+  }
+  persist() {
+    const obj: {
+      keys: string[];
+      maps: Record<string, Record<string, number[]>>;
+    } = {
+      keys: this.keys,
+      maps: {},
+    };
+    const map = Object.keys(this.tree);
+    for (let i = 0; i < map.length; i++) {
+      obj.maps[map[i]] = this.tree[map[i]].map;
+    }
+    return obj;
+  }
+  static restore(persistKey: string) {
+    const data = loadLogSync(persistKey, {});
+    const tree: Record<string, any> = {};
+    if (typeof data?.maps === "object") {
+      for (const key in data.maps) {
+        tree[key] = new XNode(data.maps[key]);
+      }
+      return { tree, keys: data.keys };
+    }
+    return { tree: {}, keys: [] };
+  }
+}
+
+/*
+A sidekickManager manages x (search)  and u (unique indexes) log files, we can't allow those to get over 32kv in size either, cause what's the point?
+
+Alright a sidekickManager help us manage these periphera schema(s), 
+
+
+*/
+
+export class sidekickManager {
+  public _name: string;
+  public tableDir: string = "";
+  public isRelatedConstruced = false;
+  public isActive = false;
+  //? Regularity Cache Tank or whatever.
+  public RCT: Record<string, Msgs | undefined> = {};
+  //? number of RCTied log files
+  public rct_level: number = 5;
+  public _LogFiles: LOG_file_type = {};
+  constructor({ name }: { name: string }) {
+    this._name = name;
+  }
+  async write(messages: any, file: string) {
+    // ? update this active RCT
+    this.RCT[file] = messages;
+    // ? update _logFile metadata index
+    this._LogFiles[file].size = messages.length;
+    this._LogFiles[file].last_id = messages.at(-1)?._id!;
+    //? resize RCT
+    resizeRCT(this.rct_level, this.RCT);
+    await SynFileWrit(
+      this.tableDir + file,
+      GLOBAL_OBJECT.packr.encode(messages)
+    );
+  }
+  _getReadingLog(logId: string) {
+    if (!logId) {
+      return this._name + "-" + Object.keys(this._LogFiles).length;
+    }
+    for (const filename in this._LogFiles) {
+      const logFile = this._LogFiles[filename];
+      //? getting log file name for read operations
+      if (String(logFile.last_id) > logId || logFile.last_id === logId) {
+        return filename;
+      }
+      //? getting log file name for inset operation
+      if (!logFile.last_id) {
+        return filename;
+      }
+      if (logFile.size < 32768) {
+        return filename;
+      }
+    }
+    return this._name + "-" + Object.keys(this._LogFiles).length;
+  }
+
+  _getInsertLog(): string {
+    for (const filename in this._LogFiles) {
+      const logFile = this._LogFiles[filename];
+      //? size check is for inserts
+      if (logFile.size < 32768) {
+        return filename;
+      }
+    }
+    //? Create a new log file with an incremented number of LOGn filename
+    const nln = Object.keys(this._LogFiles).length + 1;
+    const lfid = this._name + "-" + nln;
+    this._LogFiles[lfid] = { last_id: lfid, size: 0 };
+    return lfid;
   }
 }
