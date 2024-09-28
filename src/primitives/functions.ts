@@ -699,3 +699,41 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
   }
   return result.concat(left.slice(li)).concat(right.slice(ri));
 }
+
+export function intersect(arrays: ReadonlyArray<number>[]): number[] {
+  if (arrays.length === 0) return [];
+
+  //? Put the smallest array in the beginning
+  for (let i = 1; i < arrays.length; i++) {
+    if (arrays[i].length < arrays[0].length) {
+      let tmp = arrays[0];
+      arrays[0] = arrays[i];
+      arrays[i] = tmp;
+    }
+  }
+
+  // Create a map associating each element to its current count
+  const set = new Map();
+  for (const elem of arrays[0]) {
+    set.set(elem, 1);
+  }
+  for (let i = 1; i < arrays.length; i++) {
+    let found = 0;
+    for (const e of arrays[i]) {
+      const count = set.get(e);
+      if (count === i) {
+        set.set(e, count + 1);
+        found++;
+      }
+    }
+    // Stop early if an array has no element in common with the smallest
+    if (found === 0) return [];
+  }
+
+  // Output only the elements that have been seen as many times as there are arrays
+  return arrays[0].filter((e) => {
+    const count = set.get(e);
+    if (count !== undefined) set.set(e, 0);
+    return count === arrays.length;
+  });
+}

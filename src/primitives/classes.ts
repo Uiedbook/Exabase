@@ -30,6 +30,7 @@ import {
   bucketSort,
   populateForeignKeys,
   setPopulateOptions,
+  intersect,
 } from "./functions.js";
 
 export class GLOBAL_OBJECT {
@@ -553,21 +554,23 @@ export class XTree {
   }
   search(search: Msg, take: number = Infinity) {
     let idx: string[] = [];
+    const Indexes: number[][] = [];
+    //  ? get the search keys
     for (const key in search) {
       if (!this.indexTable[key]) continue;
       if (this.tree[key]) {
         const index = this.tree[key].map[search[key as "_id"]];
         if (!index || index?.length === 0) continue;
-        for (const i of index) {
-          this.keys[i] && idx.push(this.keys[i]);
-        }
+        Indexes.push(index);
         if (idx.length >= take) break;
       }
     }
-    if (idx.length >= take) {
-      idx = idx.slice(0, take);
+    //  ? get return the keys if the length is 1
+    if (Indexes.length === 1) {
+      return Indexes[0].map((idx) => this.keys[idx]);
     }
-    return idx;
+    //  ? get return the keys if the length is more than one
+    return intersect(Indexes).map((idx) => this.keys[idx]);
   }
   count(search: Msg) {
     let resultsCount: number = 0;
