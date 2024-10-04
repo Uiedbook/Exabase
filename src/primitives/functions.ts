@@ -1,4 +1,4 @@
-import { chown as _chown, promises as fsp } from "node:fs";
+import { chown as _chown, promises as fsp, statSync } from "node:fs";
 import { resolve as _resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -6,21 +6,18 @@ import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 import { freemem } from "node:os";
 //
+import { GLOBAL_OBJECT, ExaError } from "./classes.ts";
 import {
   type Msg,
   type Msgs,
   type SchemaColumnOptions,
   type Xtree_flag,
   type columnValidationType,
-  type iTable,
-} from "./types.js";
-
-import { GLOBAL_OBJECT, ExaError } from "./classes.js";
+} from "./types.ts";
 
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
-    // console.log({ len: data.length, filePath, info });
     return (GLOBAL_OBJECT.packr.decode(data) || []) as Msgs;
   } catch (_error) {
     // console.log({ filePath, _error }, 1);
@@ -36,93 +33,13 @@ export const loadLogSync = (filePath: string, defut: any = []) => {
   }
 };
 
-/*
-?
-update mechanism
-
-? get old and new msg 
-? update old msg to new msg
-? check that unique properties are conserved or fail
-? check that foreign key are conserved or fail
-? return to queue for commits
-*/
-
-export async function updateMessage(
-  dir: string,
-  _unique_field: Record<string, true> | undefined,
-  newmsg: Msg,
-  relationships: Record<string, { table: string; type: "ONE" | "MANY" }>
-) {
-  if (newmsg._id.length !== 24) {
-    throw new ExaError("invalid id - " + newmsg._id);
+export const getFileSize = (file: string): number => {
+  try {
+    return statSync(file).size;
+  } catch (err) {
+    return 0;
   }
-  // ?mount here
-  if (_unique_field) {
-    const someIdex = await findIndex(dir + "UINDEX", _unique_field, newmsg);
-    // ? checking for existing specified unique identifiers
-    if (Array.isArray(someIdex) && someIdex[1] !== newmsg._id) {
-      throw new ExaError(
-        "UPDATE on table on ",
-        dir,
-        " is not unique, ",
-        someIdex[1]
-      );
-    }
-  }
-  if (_unique_field) {
-    await updateIndex(dir, _unique_field, newmsg as any);
-  }
-  // ?   conserve
-  await conserveForeignKeys(newmsg, relationships);
-  return newmsg;
-}
-export async function prepareMessage(
-  dir: string,
-  _unique_field: Record<string, true> | undefined,
-  message: Msg,
-  relationships: Record<string, { table: string; type: "ONE" | "MANY" }>
-) {
-  if (_unique_field) {
-    const someIdex = await findIndex(dir + "UINDEX", _unique_field, message);
-    if (Array.isArray(someIdex)) {
-      throw new ExaError(
-        "INSERT on table ",
-        dir,
-        " is not unique, ",
-        someIdex[1]
-      );
-    }
-  }
-  message._id = ExaId();
-  if (_unique_field) {
-    await updateIndex(dir, _unique_field, message);
-  }
-  await conserveForeignKeys(message, relationships);
-  return message;
-}
-/*
-? clean up unique index
-
-*/
-export async function deleteMessage(
-  _id: string,
-  dir: string,
-  _unique_field: Record<string, true> | undefined,
-  RCTiedlog: Msgs
-) {
-  const message = await findMessage(
-    {
-      one: _id,
-    },
-    RCTiedlog
-  );
-  if (message) {
-    if (_unique_field) await dropIndex(dir + "UINDEX", message, _unique_field);
-  } else {
-    throw new ExaError("item to remove not found");
-  }
-  return message;
-}
+};
 
 export async function findMessage(
   query: {
@@ -162,7 +79,7 @@ export async function findMessage(
   }
 }
 
-const conserveForeignKeys = async (
+export const conserveForeignKeys = async (
   message: Msg,
   join: {
     [x: string]: {
@@ -204,7 +121,7 @@ const conserveForeignKeys = async (
 
 const findForeignKeys = async (table: string, one: string) => {
   const foreign_message = await GLOBAL_OBJECT.EXABASE_MANAGERS[
-    table.toUpperCase()
+    table
   ]._trx_runner({ one });
   if (!foreign_message) {
     throw new ExaError(
@@ -243,8 +160,7 @@ export const setPopulateOptions = (
         throw new ExaError("can't POPULATE missing relationship " + lab);
       }
     }
-  }
-
+  } //
   return relationship;
 };
 
@@ -268,7 +184,6 @@ export const populateForeignKeys = async (
         );
         const msgs = await Promise.all(marray);
         message[key as "_id"] = msgs as any;
-        // rela[key] = msgs.flat();
       }
     }
     if (join[key].type === "ONE") {
@@ -283,93 +198,29 @@ export const populateForeignKeys = async (
   }
 };
 
-const updateIndex = async (
-  fileName: string,
-  _unique_field: Record<string, true>,
-  message: Msg
-) => {
-  fileName = fileName.split("/").slice(0, 2).join("/") + "/UINDEX";
-  let messages = (await loadLog(fileName)) as unknown as iTable;
-  if (Array.isArray(messages)) {
-    messages = {};
-  }
-  for (const type in _unique_field) {
-    if (!messages[type]) {
-      messages[type] = {};
-    }
+export function deepMerge(target: any, source: any): any {
+  if (source === undefined || source === null) return target;
+  for (const key in source) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      const targetValue = target[key];
+      const sourceValue = source[key];
 
-    messages[type][message[type as "_id"]] = message._id;
-  }
-
-  await SynFileWritWithWaitList.write(
-    fileName,
-    GLOBAL_OBJECT.packr.encode(messages)
-  );
-};
-
-const findIndex = async (
-  fileName: string,
-  _unique_field: Record<string, true>,
-  data: Record<string, any>
-) => {
-  const messages = (await loadLog(fileName)) as unknown as iTable;
-  if (Array.isArray(messages)) {
-    return false;
-  }
-  for (const uf in _unique_field) {
-    if (!messages[uf]) {
-      return false;
-    }
-    if (messages[uf][data[uf]]) {
-      return [uf, messages[uf][data[uf]]];
+      if (Array.isArray(sourceValue)) {
+        target[key] = Array.isArray(targetValue)
+          ? [...new Set([...targetValue, ...sourceValue])]
+          : [...sourceValue];
+      } else if (typeof sourceValue === "object" && sourceValue !== null) {
+        target[key] =
+          typeof targetValue === "object" && targetValue !== null
+            ? deepMerge(targetValue, sourceValue)
+            : { ...sourceValue };
+      } else {
+        target[key] = sourceValue;
+      }
     }
   }
-  return false;
-};
-
-export const findMessageByUnique = async (
-  fileName: string,
-  _unique_field: Record<string, true>,
-  data: Record<string, any>
-) => {
-  const messages = (await loadLog(fileName)) as unknown as iTable;
-
-  if (Array.isArray(messages)) {
-    return undefined;
-  }
-  for (const uf in _unique_field) {
-    if (!messages[uf]) {
-      return undefined;
-    }
-    if (messages[uf][data[uf]]) {
-      return messages[uf][data[uf]];
-    }
-  }
-  return undefined;
-};
-const dropIndex = async (
-  fileName: string,
-  data: Record<string, any>,
-  _unique_field: Record<string, true>
-) => {
-  if (!_unique_field) {
-    return;
-  }
-  let messages = (await loadLog(fileName)) as unknown as iTable;
-  if (Array.isArray(messages)) {
-    messages = {};
-  }
-  for (const key in _unique_field) {
-    if (!messages[key]) {
-      continue;
-    }
-    delete messages[key][data[key]];
-  }
-  await SynFileWritWithWaitList.write(
-    fileName,
-    GLOBAL_OBJECT.packr.encode(messages)
-  );
-};
+  return target;
+}
 
 //? binary search it
 export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
@@ -550,7 +401,7 @@ export function validator(
 //? ------------------------------------
 
 export const getComputedUsage = (
-  allowedUsagePercent: number = 10,
+  allowedUsagePercent: number = 15,
   schemaLength: number
 ) => {
   const nuParc = (p: number) => p / 1500; /*
@@ -562,7 +413,7 @@ export const getComputedUsage = (
   // ? usage size per schema derivation
   const usableManagerGB = usableGB / (schemaLength || 1);
   // ? exactly how much logs will fit into memory per table mamanger
-  return Math.round(usableManagerGB / 32768);
+  return Math.round(usableManagerGB / 1048576);
 };
 
 export function resizeRCT(level: number, data: Record<string, any>) {
@@ -585,8 +436,6 @@ export async function SynFileWrit(file: string, data: Buffer) {
     await fd.write(data, 0, data.length, 0);
     await fd.sync();
     await fsp.rename(tmpfile, file);
-  } catch (err) {
-    // console.log({ err }, 1);
   } finally {
     if (fd !== undefined) {
       await fd.close();
@@ -617,15 +466,13 @@ export const SynFileWritWithWaitList = {
       await fd.write(data, 0, data.length, 0);
       await fd.sync();
       await fsp.rename(tmpfile, file);
-    } catch (err) {
-      // console.log({ err, tmpfile }, 2);
     } finally {
       if (fd !== undefined) {
         await fd.close();
       }
     }
     // ? adjusting the wait list
-    this.waiters[file].shift();
+    this.waiters[file].shift(); // ? waiting list does not leak
     if (this.waiters[file].length > 0) {
       this.waiters[file][0](undefined);
     }
@@ -715,8 +562,6 @@ export function intersect(arrays: ReadonlyArray<number>[]): number[] {
       arrays[i] = tmp;
     }
   }
-
-  // Create a map associating each element to its current count
   const set = new Map();
   for (const elem of arrays[0]) {
     set.set(elem, 1);
@@ -730,11 +575,8 @@ export function intersect(arrays: ReadonlyArray<number>[]): number[] {
         found++;
       }
     }
-    // Stop early if an array has no element in common with the smallest
     if (found === 0) return [];
   }
-
-  // Output only the elements that have been seen as many times as there are arrays
   return arrays[0].filter((e) => {
     const count = set.get(e);
     if (count !== undefined) set.set(e, 0);

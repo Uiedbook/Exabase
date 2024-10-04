@@ -1,6 +1,6 @@
 {
   "name": "exabase",
-  "version": "0.0.0-rc-27",
+  "version": "0.0.0-rc-28",
   "description": "A scaling focused distributed nosql database with surprising performance and strong data consistency.",
   "main": "dist/index.js",
   "type": "module",
@@ -27,9 +27,9 @@
   ],
   "scripts": {
     "compile": "rm -rf ./DB && rm -rf ./dist && bun bundle.ts",
-    "test": " bun test --timeout 20000",
+    "test": "node --test --experimental-strip-types  tests/**est.ts",
     "build": "bun bundle.ts && npm pack && mv **.tgz ~/",
-    "bench": "bun ./tests/benchmark.ts"
+    "bench": "bun ./z/benchmark.ts"
   },
   "author": "Friday Candour",
   "license": "Apache",
@@ -39,6 +39,7 @@
   "devDependencies": {
     "@types/bun": "^1.0.1",
     "@types/node": "^18.7.15",
+    "benchmark": "^2.1.4",
     "mitata": "^0.1.6"
   }
 }

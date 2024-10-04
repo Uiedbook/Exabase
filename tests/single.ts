@@ -1,4 +1,4 @@
-import { Exabase } from "../dist/index.js";
+import { Exabase } from "../src/index.ts";
 
 const db = new Exabase();
 

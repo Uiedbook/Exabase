@@ -1,12 +1,12 @@
 import { mkdirSync } from "node:fs";
-import { type ExabaseOptions } from "./primitives/types.js";
+import { type ExabaseOptions } from "./primitives/types.ts";
 import {
   ExaError,
   GLOBAL_OBJECT,
   Manager,
   ExaSchema,
-} from "./primitives/classes.js";
-import { getComputedUsage } from "./primitives/functions.js";
+} from "./primitives/classes.ts";
+import { getComputedUsage } from "./primitives/functions.ts";
 
 export class Exabase {
   private dbDir: string;
@@ -14,7 +14,7 @@ export class Exabase {
   constructor(init: ExabaseOptions = {}) {
     GLOBAL_OBJECT._db = this;
     //? [1] directories
-    this.dbDir = (init.name || "DB").trim().toUpperCase();
+    this.dbDir = (init.name || "DB").trim();
     // ? setting up memory allocation for RCT enabled cache managers
     GLOBAL_OBJECT.MEMORY_PERCENT = init.EXABASE_MEMORY_PERCENT || 10;
     // ? create main dir
@@ -44,7 +44,7 @@ export class Exabase {
       _exabaseDirectory: this.dbDir,
       schemas: this.schemas,
     });
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._sync_logs();
+    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._synchronize();
     //? update query makers and RCT level per manager
     this.schemas.forEach((schema) => {
       GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].rct_level =
