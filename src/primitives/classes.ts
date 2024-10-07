@@ -31,6 +31,7 @@ import {
   deepMerge,
   ExaId,
   conserveForeignKeys,
+  intersect,
 } from "./functions.js";
 
 export class GLOBAL_OBJECT {
@@ -512,17 +513,19 @@ export class XTree {
       if (index?.length) Indexes.push(index);
     }
     if (Indexes.length === 0) return [];
-    const result = new Set<number>();
-    const smallestIndex = Indexes.reduce((a, b) =>
-      a.length < b.length ? a : b
-    );
-    for (const id of smallestIndex) {
-      if (Indexes.every((index) => index.includes(id))) {
-        result.add(id);
-        if (result.size >= take) break;
+    //  ? get return the keys if the length is 1
+    if (Indexes.length === 1) {
+      if (Indexes[0].length >= take) {
+        return Indexes[0].slice(0, take).map((idx) => this.keys[idx]);
       }
+      return Indexes[0].map((idx) => this.keys[idx]);
     }
-    return Array.from(result).map((idx) => this.keys[idx]);
+    //  ? get return the keys if the length is more than one
+    const intersected = intersect(Indexes).map((idx) => this.keys[idx]);
+    if (intersected.length >= take) {
+      return intersected.slice(0, take);
+    }
+    return intersected;
   }
   log_search(id: string = "") {
     const logKey = this.tree["_exa_log_index"].map?.[id];
