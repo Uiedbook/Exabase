@@ -293,7 +293,6 @@ export const binarySorted_insert = (message: Msg, messages: Msgs) => {
   }
   //? insert message
   messages.splice(low, 0, message);
-
   return messages;
 };
 
@@ -587,35 +586,4 @@ export function intersect(arrays: ReadonlyArray<number>[]): number[] {
     if (count !== undefined) set.set(e, 0);
     return count === arrays.length;
   });
-}
-
-//  please fix
-// fix function has a bug
-// it adds up a one log file more than once, hence doubling the items in the entire db
-async function _find(query: QueryType<Record<string, any>>) {
-  let RCTied = await getLog(query.one);
-  if (query.many) {
-    // ? skip results
-    if (query.skip && query.skip < RCTied.length) {
-      RCTied = RCTied.slice(query.skip);
-    }
-    const take = query.take || 1000;
-    if (RCTied.length > take) {
-      RCTied = RCTied.slice(0);
-    } else {
-      const logsCount = Object.keys(_LogFiles).length;
-      for (let log = 2; RCTied.length < take; log++) {
-        console.log({ RCTied: RCTied.length, logsCount, log });
-        const RCTied2 = await getLog(undefined, log);
-        Array.prototype.push.apply(RCTied, RCTied2);
-        if (query.skip && query.skip < RCTied.length) {
-          RCTied = RCTied.slice(query.skip);
-        }
-        // ? break an endless loop.
-        if (log > logsCount) {
-          break;
-        }
-      }
-    }
-  }
 }
