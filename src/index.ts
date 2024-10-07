@@ -26,7 +26,7 @@ export class Exabase {
     console.log("Exabase: running!");
   }
 
-  //? this is a function that creates/updates schemas also ajusting RCT memory
+  //? this is a function that creates/updates schemas also adjusting RCT memory
   public async _induce(schema: ExaSchema<any>) {
     if (!(schema instanceof ExaSchema)) {
       throw new Error("invalid object passed as exabase schema");
@@ -48,7 +48,7 @@ export class Exabase {
     //? update query makers and RCT level per manager
     this.schemas.forEach((schema) => {
       GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].rct_level =
-        BEST_RCT_LEVEL_PER_MANAGER;
+        BEST_RCT_LEVEL_PER_MANAGER > 5 ? BEST_RCT_LEVEL_PER_MANAGER : 5;
     });
     GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].isActive = true;
   }
@@ -83,7 +83,7 @@ export class Exabase {
           }, 1000);
         });
       }
-      throw new ExaError("unkown table '" + parsedQuery.table + "'");
+      throw new ExaError("unknown table '" + parsedQuery.table + "'");
     }
     return table._trx_runner(parsedQuery) as T;
   }

@@ -31,7 +31,7 @@ export interface SchemaOptions<Model> {
    * ***
    * Exabase RCT is a log file level cache, which makes log files retrieve cheap
    *
-   * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cach only
+   * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cache only
    */
 
   /**
@@ -131,10 +131,7 @@ export interface SchemaColumnOptions {
 /**
  * All together
  */
-export type ColumnType =
-  | BooleanConstructor
-  | NumberConstructor
-  | StringConstructor;
+export type ColumnType = "string" | "number" | "boolean";
 
 export type columnValidationType = {
   type?: ColumnType;
@@ -149,7 +146,10 @@ export type columnValidationType = {
 
 export type searchQuery<Model> =
   | Partial<Model>
-  | Record<"$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte", Partial<Model>>;
+  | Record<
+      "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte" | "$pick",
+      Partial<Model>
+    >;
 
 export type QueryType<Model> = {
   table?: string;
@@ -163,13 +163,10 @@ export type QueryType<Model> = {
   insert?: Record<string, any>;
   update?: Partial<Model>;
   delete?: string;
-  unique?: Record<string, any>;
   populate?: Record<string, any>;
   skip?: number;
   take?: number;
   count?: Record<string, any> | boolean;
-  logIndex?: number;
-  logCount?: boolean;
 };
 
 export type Msg = {
@@ -189,4 +186,5 @@ export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
 export type xPersistType = {
   maps: Record<string, Record<string, number[]>>;
   keys: string[];
+  logKeys: string[];
 };

@@ -24,12 +24,12 @@ export const loadLog = async (filePath: string) => {
     return [] as Msgs;
   }
 };
-export const loadLogSync = (filePath: string, defut: any = []) => {
+export const loadLogSync = (filePath: string, defaults: any = []) => {
   try {
     return GLOBAL_OBJECT.packr.decode(readFileSync(filePath)) || [];
   } catch (_error) {
     // console.log({ filePath, _error });
-    return defut;
+    return defaults;
   }
 };
 
@@ -89,11 +89,11 @@ export const conserveForeignKeys = async (
   }
 ) => {
   for (const key in join) {
-    const rela = join[key];
-    if (rela.type === "ONE") {
+    const relation = join[key];
+    if (relation.type === "ONE") {
       if (typeof message[key as "_id"] === "object") {
         //  @ts-ignore
-        await findForeignKeys(rela.table, message[key]._id);
+        await findForeignKeys(relation.table, message[key]._id);
         //  @ts-ignore
         message[key] = message[key]._id;
       }
@@ -104,7 +104,7 @@ export const conserveForeignKeys = async (
         for (let i = 0; i < msgLen; i++) {
           if (typeof msgArr[i] === "object") {
             //  @ts-ignore
-            await findForeignKeys(rela.table, msgArr[i]._id);
+            await findForeignKeys(relation.table, msgArr[i]._id);
             //  @ts-ignore
             msgArr[i] = msgArr[i]._id;
             //  @ts-ignore
@@ -150,8 +150,8 @@ export const setPopulateOptions = (
   if (Array.isArray(populate)) {
     for (let i = 0; i < populate.length; i++) {
       const lab = populate[0];
-      const relaName = fields[lab];
-      if (relaName) {
+      const relationshipName = fields[lab];
+      if (relationshipName) {
         relationship[lab] = {
           table: fields[lab].table,
           type: fields[lab].type,
@@ -177,22 +177,22 @@ export const populateForeignKeys = async (
     if (join[key].type === "MANY") {
       const fk = message[key as "_id"];
       if (fk && Array.isArray(fk)) {
-        const marray = fk.map((id) =>
+        const array = fk.map((id) =>
           GLOBAL_OBJECT.EXABASE_MANAGERS[join[key].table]._trx_runner({
             one: id,
           })
         );
-        const msgs = await Promise.all(marray);
+        const msgs = await Promise.all(array);
         message[key as "_id"] = msgs as any;
       }
     }
     if (join[key].type === "ONE") {
       const fk = message[key as "_id"];
       if (typeof fk === "string") {
-        const marray = await GLOBAL_OBJECT.EXABASE_MANAGERS[
+        const array = await GLOBAL_OBJECT.EXABASE_MANAGERS[
           join[key].table
         ]._trx_runner({ one: fk });
-        message[key as "_id"] = marray as any;
+        message[key as "_id"] = array as any;
       }
     }
   }
@@ -223,7 +223,7 @@ export function deepMerge(target: any, source: any): any {
 }
 
 //? binary search it
-export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
+export const binarySearch_find = (_id: string, messages: { _id: string }[]) => {
   let left = 0;
   let right = messages.length - 1;
   for (; left <= right; ) {
@@ -241,7 +241,7 @@ export const binarysearch_find = (_id: string, messages: { _id: string }[]) => {
   return undefined;
 };
 //? binary search and mutate it
-export const binarysearch_mutate = (
+export const binarySearch_mutate = (
   message: Msg,
   messages: Msgs,
   flag: Xtree_flag
@@ -277,7 +277,7 @@ export const binarysearch_mutate = (
 };
 
 //? binary sort insert it
-export const binarysorted_insert = (message: Msg, messages: Msgs) => {
+export const binarySorted_insert = (message: Msg, messages: Msgs) => {
   const _id = message._id;
   let low = 0;
   let high = messages.length - 1;
@@ -412,7 +412,7 @@ export const getComputedUsage = (
       ? normalize any 0% of falsy values to 10% */
   // ? usage size per schema derivation
   const usableManagerGB = usableGB / (schemaLength || 1);
-  // ? exactly how much logs will fit into memory per table mamanger
+  // ? exactly how much logs will fit into memory per table manager
   return Math.round(usableManagerGB / 1048576);
 };
 
@@ -429,17 +429,22 @@ export function resizeRCT(level: number, data: Record<string, any>) {
 
 //? SynFileWrit tree
 export async function SynFileWrit(file: string, data: Buffer) {
-  let fd;
-  const tmpfile = file + "-SYNC";
-  try {
-    fd = await fsp.open(tmpfile, "w");
-    await fd.write(data, 0, data.length, 0);
-    await fd.sync();
-    await fsp.rename(tmpfile, file);
-  } finally {
-    if (fd !== undefined) {
-      await fd.close();
+  if (data.length > 1) {
+    let fd;
+    const tmpfile = file + "-SYNC";
+    try {
+      fd = await fsp.open(tmpfile, "w");
+
+      await fd.write(data, 0, data.length, 0);
+      await fd.sync();
+      await fsp.rename(tmpfile, file);
+    } finally {
+      if (fd !== undefined) {
+        await fd.close();
+      }
     }
+  } else {
+    fsp.unlink(file);
   }
 }
 
@@ -582,4 +587,35 @@ export function intersect(arrays: ReadonlyArray<number>[]): number[] {
     if (count !== undefined) set.set(e, 0);
     return count === arrays.length;
   });
+}
+
+//  please fix
+// fix function has a bug
+// it adds up a one log file more than once, hence doubling the items in the entire db
+async function _find(query: QueryType<Record<string, any>>) {
+  let RCTied = await getLog(query.one);
+  if (query.many) {
+    // ? skip results
+    if (query.skip && query.skip < RCTied.length) {
+      RCTied = RCTied.slice(query.skip);
+    }
+    const take = query.take || 1000;
+    if (RCTied.length > take) {
+      RCTied = RCTied.slice(0);
+    } else {
+      const logsCount = Object.keys(_LogFiles).length;
+      for (let log = 2; RCTied.length < take; log++) {
+        console.log({ RCTied: RCTied.length, logsCount, log });
+        const RCTied2 = await getLog(undefined, log);
+        Array.prototype.push.apply(RCTied, RCTied2);
+        if (query.skip && query.skip < RCTied.length) {
+          RCTied = RCTied.slice(query.skip);
+        }
+        // ? break an endless loop.
+        if (log > logsCount) {
+          break;
+        }
+      }
+    }
+  }
 }

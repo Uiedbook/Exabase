@@ -1,14 +1,14 @@
-import { Exabase } from "../src/index.ts";
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { Exabase } from "./src";
+import { it, describe, expect } from "bun:test";
 
 // ? setup db
 const db = new Exabase();
+
 await db.query(
   JSON.stringify({
     table: "ORDER",
     induce: {
-      ticket: { type: String, unique: true, index: true },
+      ticket: { type: String, search: true, index: true },
     },
   })
 );
@@ -33,24 +33,20 @@ await db.query(
 
 let usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
 
+while (usersCount !== 0) {
+  const allusers = await db.query(
+    JSON.stringify({ table: "USER", many: true })
+  );
+  for (let u = 0; u < allusers.length; u++) {
+    const user = allusers[u];
+    await db.query(JSON.stringify({ table: "USER", delete: user._id }));
+  }
+  usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
+}
+
 let ordersCount = await db.query(
   JSON.stringify({ table: "ORDER", count: true })
 );
-
-if (usersCount !== 0) {
-  const usersLogCount = await db.query(
-    JSON.stringify({ table: "USER", logCount: true })
-  );
-  for (let i = 0; i < usersLogCount; i++) {
-    const allusers = await db.query(
-      JSON.stringify({ table: "USER", many: true, logIndex: i + 1 })
-    );
-    for (let u = 0; u < allusers.length; u++) {
-      const user = allusers[u];
-      await db.query(JSON.stringify({ table: "USER", delete: user._id }));
-    }
-  }
-}
 if (ordersCount !== 0) {
   const allorders = await db.query(
     JSON.stringify({ table: "ORDER", many: true })
@@ -64,12 +60,12 @@ if (ordersCount !== 0) {
 usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
 ordersCount = await db.query(JSON.stringify({ table: "ORDER", count: true }));
 
-assert.strictEqual(usersCount, 0);
-assert.strictEqual(ordersCount, 0);
+expect(usersCount).toBe(0);
+expect(ordersCount).toBe(0);
 console.log("Done cleaning");
 
-describe("tests to ensure embedded operations", (test) => {
-  //? tests
+//? tests
+describe("queries", () => {
   it("basic CRUD", async () => {
     const user = await db.query(
       JSON.stringify({
@@ -81,7 +77,7 @@ describe("tests to ensure embedded operations", (test) => {
     const user2 = await db.query(
       JSON.stringify({ table: "USER", one: user._id })
     );
-    assert.strictEqual(user.name, "james bond");
+    expect(user.name).toBe("james bond");
     const user3 = (
       await db.query(
         JSON.stringify({
@@ -93,7 +89,7 @@ describe("tests to ensure embedded operations", (test) => {
     const user4 = await db.query(
       JSON.stringify({
         table: "USER",
-        update: { ...user, name: "gregs pola", age: 47 },
+        update: { ...user, name: "greg paul", age: 47 },
       })
     );
     await db.query(JSON.stringify({ table: "USER", delete: user._id }));
@@ -101,16 +97,15 @@ describe("tests to ensure embedded operations", (test) => {
       JSON.stringify({ table: "USER", one: user._id })
     );
 
-    assert.strictEqual(user._id, user2._id);
-    assert.strictEqual(user._id, user3._id);
-    assert.strictEqual(user._id, user4._id);
-    assert.strictEqual(user4.name, "gregs pola");
-    assert.strictEqual(user5, undefined);
+    expect(user._id).toBe(user2._id);
+    expect(user._id).toBe(user3._id);
+    expect(user._id).toBe(user4._id);
+    expect(user4.name).toBe("greg paul");
+    expect(user5).toBe(undefined);
   });
 
-  // ? large inset
   it("large inset", async () => {
-    const usersCount = 5;
+    const usersCount = 500;
     for (let i = 0; i < usersCount; i++) {
       const user = { name: "saul" };
       await db.query(JSON.stringify({ table: "USER", insert: user }));
@@ -118,13 +113,12 @@ describe("tests to ensure embedded operations", (test) => {
     const usersLength = await db.query(
       JSON.stringify({ table: "USER", count: true })
     );
-    assert.strictEqual(usersLength, usersCount);
+    expect(usersLength).toBe(usersCount);
   });
 
-  // ? large update
   it("large update", async () => {
     const users = await db.query(JSON.stringify({ table: "USER", many: true }));
-    assert.strictEqual(users[0].name, "saul");
+    expect(users[0].name).toBe("saul");
     for (let i = 0; i < users.length; i++) {
       users[i].name = "paul";
       await db.query(JSON.stringify({ table: "USER", update: users[i] }));
@@ -132,24 +126,20 @@ describe("tests to ensure embedded operations", (test) => {
     const updatedUsers = await db.query(
       JSON.stringify({ table: "USER", many: true })
     );
-    assert.strictEqual(updatedUsers[0].name, "paul");
+    expect(updatedUsers[0].name).toBe("paul");
   });
-  // ? large delete
   it("large delete", async () => {
     const users = await db.query(JSON.stringify({ table: "USER", many: true }));
-    let deletedUsersCount = await db.query(
-      JSON.stringify({ table: "USER", count: true })
-    );
-    console.log(users.length, deletedUsersCount);
+    console.log(users.length);
+
     for (let i = 0; i < users.length; i++) {
-      await db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
+      db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
     }
-    deletedUsersCount = await db.query(
+    const deletedUsersCount = await db.query(
       JSON.stringify({ table: "USER", count: true })
     );
-    assert.strictEqual(deletedUsersCount, 0);
+    expect(deletedUsersCount).toEqual(0);
   });
-  // ? search query
   it("search query", async () => {
     await db.query(
       JSON.stringify({
@@ -170,29 +160,14 @@ describe("tests to ensure embedded operations", (test) => {
       })
     );
 
-    // ? this verifies the two properties were intercepted and the correct results were returned
+    // ? this verifies the two properties were intercepted and the currect results were reurned
     const johns = await db.query(
       JSON.stringify({ table: "USER", search: { name: "john", age: 28 } })
     );
-    assert.strictEqual(johns.length, 1);
-    assert.strictEqual(johns[0].name, "john");
-    assert.strictEqual(johns[0].age, 28);
+    expect(johns.length).toBe(1);
+    expect(johns[0].name).toBe("john");
+    expect(johns[0].age).toBe(28);
   });
-  // ? unique field queries
-  it("unique field queries ", async () => {
-    const order = await db.query(
-      JSON.stringify({ table: "ORDER", insert: { ticket: String(Date.now()) } })
-    );
-    const uniqueOrder = await db.query(
-      JSON.stringify({
-        table: "ORDER",
-        search: { ticket: order.ticket },
-      })
-    );
-    assert.strictEqual(order._id, uniqueOrder[0]._id);
-  });
-
-  // ? basic query (relationships)
   it("basic query (relationships) ", async () => {
     const friend = await db.query(
       JSON.stringify({ table: "USER", insert: { name: "zack's friend " } })
@@ -208,15 +183,13 @@ describe("tests to ensure embedded operations", (test) => {
       })
     );
     user.requestedOrders.push(order);
-    user.friend = friend;
-
     await db.query(JSON.stringify({ table: "USER", update: user }));
     const userAgain = await db.query(
       JSON.stringify({ table: "USER", one: user._id, populate: true })
     );
-    assert.strictEqual(userAgain.requestedOrders.length, 1);
-    assert.strictEqual(userAgain.requestedOrders[0]._id, order._id);
-    assert.strictEqual(userAgain.friend._id, friend._id);
+    expect(userAgain.requestedOrders.length).toBe(1);
+    expect(userAgain.requestedOrders[0]._id).toBe(order._id);
+    expect(userAgain.friend._id).toBe(friend._id);
     userAgain.requestedOrders = [];
     await db.query(JSON.stringify({ table: "USER", update: userAgain }));
     const userAgain2 = await db.query(
@@ -227,6 +200,31 @@ describe("tests to ensure embedded operations", (test) => {
       })
     );
     // ? check that the relationship is empty
-    assert.strictEqual(userAgain2.requestedOrders.length, 0);
+    expect(userAgain2.requestedOrders.length).toBe(0);
+  });
+  it("unique field queries ", async () => {
+    const order = await db.query(
+      JSON.stringify({ table: "ORDER", insert: { ticket: String(Date.now()) } })
+    );
+    const uniqueOrder = await db.query(
+      JSON.stringify({
+        table: "ORDER",
+        search: { ticket: order.ticket },
+      })
+    );
+    expect(order._id).toBe(uniqueOrder[0]._id);
   });
 });
+
+usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
+
+while (usersCount !== 0) {
+  const allusers = await db.query(
+    JSON.stringify({ table: "USER", many: true })
+  );
+  for (let u = 0; u < allusers.length; u++) {
+    const user = allusers[u];
+    await db.query(JSON.stringify({ table: "USER", delete: user._id }));
+  }
+  usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
+}
