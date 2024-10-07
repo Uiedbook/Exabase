@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
   <a href="https://github.com/uiedbook/Exabase">
-     <img src="icon-transparent.webp" alt="Exabase" width="190" height="190">
+     <img src="https://raw.githubusercontent.com/Uiedbook/Exabase/refs/heads/main/icon-transparent.webp" alt="Exabase" width="190" height="190">
   </a>
 
   <h1 align="center">Exabase</h1>
