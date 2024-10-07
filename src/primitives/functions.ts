@@ -4,8 +4,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
-import { freemem } from "node:os";
-//
+// ?
 import { GLOBAL_OBJECT, ExaError } from "./classes.ts";
 import {
   type Msg,
@@ -120,9 +119,9 @@ export const conserveForeignKeys = async (
 };
 
 const findForeignKeys = async (table: string, one: string) => {
-  const foreign_message = await GLOBAL_OBJECT.EXABASE_MANAGERS[
-    table
-  ]._trx_runner({ one });
+  const foreign_message = await GLOBAL_OBJECT.EXABASE_MANAGERS[table].runner({
+    one,
+  });
   if (!foreign_message) {
     throw new ExaError(
       "relationship failed: '",
@@ -178,7 +177,7 @@ export const populateForeignKeys = async (
       const fk = message[key as "_id"];
       if (fk && Array.isArray(fk)) {
         const array = fk.map((id) =>
-          GLOBAL_OBJECT.EXABASE_MANAGERS[join[key].table]._trx_runner({
+          GLOBAL_OBJECT.EXABASE_MANAGERS[join[key].table].runner({
             one: id,
           })
         );
@@ -191,7 +190,7 @@ export const populateForeignKeys = async (
       if (typeof fk === "string") {
         const array = await GLOBAL_OBJECT.EXABASE_MANAGERS[
           join[key].table
-        ]._trx_runner({ one: fk });
+        ].runner({ one: fk });
         message[key as "_id"] = array as any;
       }
     }
@@ -398,26 +397,9 @@ export function validator(
 
 // ? other functions
 //? ------------------------------------
-
-export const getComputedUsage = (
-  allowedUsagePercent: number = 15,
-  schemaLength: number
-) => {
-  const nuParc = (p: number) => p / 1500; /*
-      ? (100 = convert to percentage, 15 = ?) = 1500 units  */
-  //? percent allowed to be used
-  // ? what can be used by exabase
-  const usableGB = freemem() * nuParc(allowedUsagePercent); /*
-      ? normalize any 0% of falsy values to 10% */
-  // ? usage size per schema derivation
-  const usableManagerGB = usableGB / (schemaLength || 1);
-  // ? exactly how much logs will fit into memory per table manager
-  return Math.round(usableManagerGB / 1048576);
-};
-
-export function resizeRCT(level: number, data: Record<string, any>) {
+export function resizeRCT(data: Record<string, any>) {
+  const level: number = GLOBAL_OBJECT.rct_level;
   const keys = Object.keys(data);
-  //! 99 should calculated memory capacity
   if (keys.length > level) {
     const limit = Math.min(level * 0.5, 50);
     for (let i = 0; i < limit; i++) {
@@ -425,7 +407,6 @@ export function resizeRCT(level: number, data: Record<string, any>) {
     }
   }
 }
-
 //? SynFileWrit tree
 export async function SynFileWrit(file: string, data: Buffer) {
   if (data.length > 1) {

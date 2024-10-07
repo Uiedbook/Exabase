@@ -7,7 +7,7 @@
 //     this._Manager = Manager;
 //     if (Manager) {
 //       this.premature = false;
-//       this._table = Manager._name;
+//       this._table = Manager.name;
 //     }
 //   }
 
@@ -67,7 +67,7 @@
 //       query.one = undefined;
 //       const key: string = Object.keys(field)[0];
 //       const value = field[key as keyof typeof field];
-//       const fieldT = (this._Manager._schema.columns as any)[key as string];
+//       const fieldT = (this._Manager.schema.columns as any)[key as string];
 //       if (fieldT && fieldT.unique) {
 //         query["unique"] = {
 //           [key]: value,
@@ -157,6 +157,6 @@
 //    * @returns
 //    */
 //   logCount() {
-//     return Object.keys(this._Manager._LogFiles).length;
+//     return Object.keys(this._Manager.LogFiles).length;
 //   }
 // }

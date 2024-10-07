@@ -6,7 +6,6 @@ import {
   Manager,
   ExaSchema,
 } from "./primitives/classes.ts";
-import { getComputedUsage } from "./primitives/functions.ts";
 
 export class Exabase {
   private dbDir: string;
@@ -27,29 +26,23 @@ export class Exabase {
   }
 
   //? this is a function that creates/updates schemas also adjusting RCT memory
-  public async _induce(schema: ExaSchema<any>) {
+  public async induce(schema: ExaSchema<any>) {
     if (!(schema instanceof ExaSchema)) {
       throw new Error("invalid object passed as exabase schema");
     }
     this.schemas.push(schema);
     // ? setup rct level
-    const BEST_RCT_LEVEL_PER_MANAGER = getComputedUsage(
-      GLOBAL_OBJECT.MEMORY_PERCENT,
-      this.schemas.length || 10
-    );
     //? setup managers
     GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!] = new Manager(schema);
     // ? setup relationships
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._setup({
-      _exabaseDirectory: this.dbDir,
+    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].setup({
+      exabaseDirectory: this.dbDir,
       schemas: this.schemas,
     });
     await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._synchronize();
     //? update query makers and RCT level per manager
-    this.schemas.forEach((schema) => {
-      GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].rct_level =
-        BEST_RCT_LEVEL_PER_MANAGER > 5 ? BEST_RCT_LEVEL_PER_MANAGER : 5;
-    });
+    const rct_level = Math.round(150 / this.schemas.length);
+    GLOBAL_OBJECT.rct_level = rct_level > 5 ? rct_level : 5;
     GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].isActive = true;
   }
   async query<T = any>(query: string): Promise<T> {
@@ -72,7 +65,7 @@ export class Exabase {
             i -= 1;
             if (table.isActive === true) {
               clearInterval(id);
-              r(table._trx_runner(parsedQuery) as T);
+              r(table.runner(parsedQuery) as T);
             }
             if (i === 0) {
               clearInterval(id);
@@ -85,6 +78,6 @@ export class Exabase {
       }
       throw new ExaError("unknown table '" + parsedQuery.table + "'");
     }
-    return table._trx_runner(parsedQuery) as T;
+    return table.runner(parsedQuery) as T;
   }
 }
