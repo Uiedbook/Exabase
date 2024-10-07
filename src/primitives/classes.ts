@@ -13,7 +13,7 @@ import {
   type SchemaRelation,
   type wTrainType,
   type xPersistType,
-} from "./types.ts";
+} from "./types.js";
 import {
   findMessage,
   loadLog,
@@ -31,7 +31,7 @@ import {
   deepMerge,
   ExaId,
   conserveForeignKeys,
-} from "./functions.ts";
+} from "./functions.js";
 
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};

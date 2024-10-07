@@ -5,14 +5,14 @@ import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { Buffer } from "node:buffer";
 // ?
-import { GLOBAL_OBJECT, ExaError } from "./classes.ts";
+import { GLOBAL_OBJECT, ExaError } from "./classes.js";
 import {
   type Msg,
   type Msgs,
   type SchemaColumnOptions,
   type Xtree_flag,
   type columnValidationType,
-} from "./types.ts";
+} from "./types.js";
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);

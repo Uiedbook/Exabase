@@ -1,11 +1,11 @@
 import { mkdirSync } from "node:fs";
-import { type ExabaseOptions } from "./primitives/types.ts";
+import { type ExabaseOptions } from "./primitives/types.js";
 import {
   ExaError,
   GLOBAL_OBJECT,
   Manager,
   ExaSchema,
-} from "./primitives/classes.ts";
+} from "./primitives/classes.js";
 
 export class Exabase {
   private dbDir: string;
