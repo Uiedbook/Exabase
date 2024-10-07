@@ -404,12 +404,11 @@ export class Manager {
           seachConstruct[key] = message[key];
         }
         const someIdex = this.xIndex.search(seachConstruct);
-        if (someIdex.length) {
+        if (someIdex.length && someIdex[0] !== message._id) {
           throw new ExaError(
             "INSERT on table ",
             this.tableDir,
-            " is not unique, ",
-            someIdex[0]
+            " is not unique "
           );
         }
       }
@@ -430,12 +429,11 @@ export class Manager {
           seachConstruct[key] = message[key];
         }
         const someIdex = this.xIndex.search(seachConstruct);
-        if (someIdex.length) {
+        if (someIdex.length && someIdex[0] !== message._id) {
           throw new ExaError(
             "UPDATE on table ",
             this.tableDir,
-            " is not unique, ",
-            someIdex[0]
+            " is not unique"
           );
         }
       }
