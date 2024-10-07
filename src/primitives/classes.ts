@@ -27,7 +27,6 @@ import {
   bucketSort,
   populateForeignKeys,
   setPopulateOptions,
-  intersect,
   getFileSize,
   deepMerge,
   ExaId,
@@ -42,7 +41,7 @@ export class GLOBAL_OBJECT {
   static RCT: Record<string, Record<string, Msgs | undefined> | boolean> = {
     none: false, //? none is default for use with identifiers that has no need to cache
   };
-  static _db: any;
+  static db: any;
   static rct_level: number;
 }
 
@@ -114,10 +113,10 @@ export class ExaSchema<Model> {
     } else {
       throw new ExaError("No table name provided!");
     }
-    if (!GLOBAL_OBJECT._db) {
+    if (!GLOBAL_OBJECT.db) {
       throw new ExaError("database has not yet been created!");
     }
-    GLOBAL_OBJECT._db.induce(this);
+    GLOBAL_OBJECT.db.induce(this);
   }
 }
 
@@ -158,7 +157,7 @@ export class Manager {
     }
   }
   constructRelationships() {
-    const allSchemas: ExaSchema<{}>[] = GLOBAL_OBJECT._db.schemas;
+    const allSchemas: ExaSchema<{}>[] = GLOBAL_OBJECT.db.schemas;
     if (this.schema.table) {
       //? keep a easy track of relationships
       if (this.schema.relationship) {
@@ -195,7 +194,7 @@ export class Manager {
     }
     this.isRelatedConstructed = true;
   }
-  async _synchronize() {
+  async synchronize() {
     try {
       const dir = await opendir(this.tableDir!);
       const logFiles: string[] = [];
@@ -229,8 +228,7 @@ export class Manager {
     for (const filename in this.LogFiles) {
       const logFile = this.LogFiles[filename];
       //? size check is for inserts
-      //       //? 3142656
-      if (logFile.size < 124 /*3mb*/) {
+      if (logFile.size < 3142656 /*3mb*/) {
         return filename;
       }
     }
@@ -280,7 +278,7 @@ export class Manager {
       } else {
         // ? update search index
         if (flag === "d") {
-          await this.xIndex.removeIndex(message, file);
+          await this.xIndex.removeIndex(message, file, true);
         } else {
           await this.xIndex.createIndex(message);
         }
@@ -318,7 +316,7 @@ export class Manager {
       }
       return RCTied;
     }
-    const file = this.xIndex.log_search(id as string) || "LOG-1";
+    const file = this.xIndex.log_search(id);
     let RCTied = this.RCT[file];
     if (!RCTied) {
       RCTied = await loadLog(this.tableDir + file);
@@ -326,36 +324,25 @@ export class Manager {
     }
     return RCTied;
   }
-  async _find(query: QueryType<Record<string, any>>) {
+  async find(query: QueryType<Record<string, any>>) {
     let RCTied = await this.getLog(query.one);
     if (query.many) {
-      // ? skip results
-      if (query.skip && query.skip < RCTied.length) {
-        RCTied = RCTied.slice(query.skip);
-      }
+      const skip = query.skip || 0;
       const take = query.take || 1000;
-      if (RCTied.length > take) {
-        RCTied = RCTied.slice(0);
-      } else {
-        const logsCount = Object.keys(this.LogFiles).length;
-        let log = 2;
-        for (; RCTied.length < take; ) {
-          // ? break an endless loop.
-          if (log > logsCount) {
-            break;
+      let result: any[] = [];
+      for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
+        const RCTied = await this.getLog(
+          log === 1 ? query.one : undefined,
+          log
+        );
+        for (let i = 0; i < RCTied.length && result.length < take; i++) {
+          if (i >= skip) {
+            result.push(RCTied[i]);
           }
-          const RCTied2 = await this.getLog(undefined, log);
-          Array.prototype.push.apply(RCTied, RCTied2);
-          if (query.skip && query.skip < RCTied.length) {
-            RCTied = RCTied.slice(query.skip);
-          }
-          log += 1;
         }
-        if (RCTied.length > take) {
-          RCTied = RCTied.slice(0);
-        }
+        if (result.length >= take) break;
       }
-      // ? cutdown results
+      RCTied = result;
       // ? sort results using bucketed merge.sort algorithm
       if (query.sort) {
         const key = Object.keys(query.sort)[0] as "_id";
@@ -388,14 +375,14 @@ export class Manager {
   }
   async runner(query: QueryType<Msg>): Promise<Msg | Msgs | number | void> {
     if (query.many || query.one) {
-      return this._find(query);
+      return this.find(query);
     }
     if (query["search"]) {
       const indexes = this.xIndex.search(query.search as Msg, query.take);
       const searches = await Promise.all(
         indexes.map(
           (_id: string) =>
-            this._find({
+            this.find({
               one: _id,
               populate: query.populate,
               sort: query.sort,
@@ -455,6 +442,12 @@ export class Manager {
       const file = this.xIndex.log_search(message._id);
       if (typeof file !== "string")
         throw new ExaError("item to update not found");
+      const oldMessage = (await this.find({ one: query.update._id })) as Msg;
+      if (!oldMessage) {
+        throw new ExaError("item to update not found");
+      } else {
+        await this.xIndex.removeIndex(oldMessage, file, false);
+      }
       // ?   conserve foreign relationships
       await conserveForeignKeys(message, this.schema.foreign_field);
       return this.queue(file, message, "u");
@@ -473,8 +466,7 @@ export class Manager {
       if (typeof file !== "string")
         throw new ExaError("item to delete not found");
 
-      const message = (await this._find({ one: query.delete })) as Msg;
-
+      const message = (await this.find({ one: query.delete })) as Msg;
       if (!message) {
         throw new ExaError("item to delete not found");
       }
@@ -516,30 +508,28 @@ export class XTree {
     this.indexTable = init.indexTable;
   }
   search(search: Msg, take: number = Infinity) {
-    let idx: string[] = [];
     const Indexes: number[][] = [];
-    //  ? get the search keys
     for (const key in search) {
-      if (!this.indexTable[key]) continue;
-      if (this.tree[key]) {
-        const index = this.tree[key].map[search[key as "_id"]];
-        if (!index || index?.length === 0) continue;
-        Indexes.push(index);
-        if (idx.length >= take) break;
+      const index = this.tree[key]?.map[search[key as "_id"]];
+      if (index?.length) Indexes.push(index);
+    }
+    if (Indexes.length === 0) return [];
+    const result = new Set<number>();
+    const smallestIndex = Indexes.reduce((a, b) =>
+      a.length < b.length ? a : b
+    );
+    for (const id of smallestIndex) {
+      if (Indexes.every((index) => index.includes(id))) {
+        result.add(id);
+        if (result.size >= take) break;
       }
     }
-    //  ? get return the keys if the length is 1
-    if (Indexes.length === 1) {
-      return Indexes[0].map((idx) => this.keys[idx]);
-    }
-    //  ? get return the keys if the length is more than one
-    return intersect(Indexes).map((idx) => this.keys[idx]);
+    return Array.from(result).map((idx) => this.keys[idx]);
   }
-  // ? for keep _id indexes and possibly unique indexes on the XTree algorithm
-  log_search(id: string) {
-    // ? remove log tree index
+  log_search(id: string = "") {
     const logKey = this.tree["_exa_log_index"].map?.[id];
     if (logKey) return this.logKeys[logKey[0]];
+    return " LOG-1";
   }
   count(search: Msg) {
     let resultsCount: number = 0;
@@ -557,15 +547,10 @@ export class XTree {
       let logKey = this.logKeys.indexOf(logFile);
       if (logKey === -1) {
         logKey = this.logKeys.push(logFile) - 1;
-        if (!this.tree["_exa_log_index"]) {
-          this.tree["_exa_log_index"] = new XNode();
-        }
       }
       //  ? index it log file
       this.tree["_exa_log_index"].create(data._id, logKey);
     }
-    //
-    //
     // ? retrieve msg key index
     let idk = this.keys.indexOf(data._id);
     if (idk === -1) {
@@ -581,7 +566,7 @@ export class XTree {
     }
     return this.persist();
   }
-  removeIndex(data: Msg, logFile: string) {
+  removeIndex(data: Msg, logFile: string, drop: boolean) {
     //  ? remove other attributes indexes
     let idk = this.keys.indexOf(data._id);
     if (idk === -1) return;
@@ -589,11 +574,12 @@ export class XTree {
       if (!this.tree[key]) continue;
       this.tree[key].drop(data[key as "_id"], idk);
     }
-
-    this.keys.splice(idk, 1);
-    // ? remove log tree index
-    const logKey = this.logKeys.indexOf(logFile);
-    this.tree["_exa_log_index"].drop(data._id, logKey);
+    if (drop) {
+      this.keys.splice(idk, 1);
+      // ? remove log tree index
+      const logKey = this.logKeys.indexOf(logFile);
+      this.tree["_exa_log_index"].drop(data._id, logKey);
+    }
 
     return this.persist();
   }
@@ -630,6 +616,9 @@ export class XTree {
       } else {
         this.tree[key] = new XNode(tree[key]);
       }
+    }
+    if (!this.tree["_exa_log_index"]) {
+      this.tree["_exa_log_index"] = new XNode();
     }
   }
 }

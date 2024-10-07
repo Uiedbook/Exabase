@@ -130,10 +130,8 @@ describe("queries", () => {
   });
   it("large delete", async () => {
     const users = await db.query(JSON.stringify({ table: "USER", many: true }));
-    console.log(users.length);
-
     for (let i = 0; i < users.length; i++) {
-      db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
+      await db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
     }
     const deletedUsersCount = await db.query(
       JSON.stringify({ table: "USER", count: true })

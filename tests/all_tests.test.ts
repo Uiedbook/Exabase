@@ -31,26 +31,15 @@ await db.query(
   })
 );
 
-let usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
+const users = await db.query(JSON.stringify({ table: "USER", many: true }));
+for (let i = 0; i < users.length; i++) {
+  await db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
+}
 
 let ordersCount = await db.query(
   JSON.stringify({ table: "ORDER", count: true })
 );
 
-if (usersCount !== 0) {
-  const usersLogCount = await db.query(
-    JSON.stringify({ table: "USER", logCount: true })
-  );
-  for (let i = 0; i < usersLogCount; i++) {
-    const allusers = await db.query(
-      JSON.stringify({ table: "USER", many: true, logIndex: i + 1 })
-    );
-    for (let u = 0; u < allusers.length; u++) {
-      const user = allusers[u];
-      await db.query(JSON.stringify({ table: "USER", delete: user._id }));
-    }
-  }
-}
 if (ordersCount !== 0) {
   const allorders = await db.query(
     JSON.stringify({ table: "ORDER", many: true })
@@ -61,7 +50,9 @@ if (ordersCount !== 0) {
   }
 }
 
-usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
+const usersCount = await db.query(
+  JSON.stringify({ table: "USER", count: true })
+);
 ordersCount = await db.query(JSON.stringify({ table: "ORDER", count: true }));
 
 assert.strictEqual(usersCount, 0);
@@ -110,7 +101,7 @@ describe("tests to ensure embedded operations", (test) => {
 
   // ? large inset
   it("large inset", async () => {
-    const usersCount = 5;
+    const usersCount = 500;
     for (let i = 0; i < usersCount; i++) {
       const user = { name: "saul" };
       await db.query(JSON.stringify({ table: "USER", insert: user }));
@@ -140,7 +131,6 @@ describe("tests to ensure embedded operations", (test) => {
     let deletedUsersCount = await db.query(
       JSON.stringify({ table: "USER", count: true })
     );
-    console.log(users.length, deletedUsersCount);
     for (let i = 0; i < users.length; i++) {
       await db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
     }

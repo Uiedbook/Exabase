@@ -298,14 +298,14 @@
             reader.onload = function () {
               var arrayBuffer = reader.result;
               var data = msgpackr.decode(new Uint8Array(arrayBuffer));
-              renderTable(data, file.name.includes("LOG"));
+              renderTable(data, file.name.includes("LOG-"));
             };
             reader.readAsArrayBuffer(file);
           }
         });
 
       function renderTable(data, table) {
-        console.log(data);
+        console.log({ data, table });
         var tableSection = document.getElementById("table-section");
         var codeSection = document.getElementById("code-section");
         // Populate table headers
@@ -317,7 +317,6 @@
           );
           return;
         }
-
         tableSection.style.display = "block";
         codeSection.style.display = "none";
         var headerRow = document.getElementById("header-row");

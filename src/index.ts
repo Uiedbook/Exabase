@@ -11,7 +11,7 @@ export class Exabase {
   private dbDir: string;
   schemas: ExaSchema<{}>[] = [];
   constructor(init: ExabaseOptions = {}) {
-    GLOBAL_OBJECT._db = this;
+    GLOBAL_OBJECT.db = this;
     //? [1] directories
     this.dbDir = (init.name || "DB").trim();
     // ? setting up memory allocation for RCT enabled cache managers
@@ -24,7 +24,6 @@ export class Exabase {
     }
     console.log("Exabase: running!");
   }
-
   //? this is a function that creates/updates schemas also adjusting RCT memory
   public async induce(schema: ExaSchema<any>) {
     if (!(schema instanceof ExaSchema)) {
@@ -39,7 +38,7 @@ export class Exabase {
       exabaseDirectory: this.dbDir,
       schemas: this.schemas,
     });
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!]._synchronize();
+    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].synchronize();
     //? update query makers and RCT level per manager
     const rct_level = Math.round(150 / this.schemas.length);
     GLOBAL_OBJECT.rct_level = rct_level > 5 ? rct_level : 5;

@@ -10,7 +10,7 @@
 
 import { run, bench } from "mitata";
 import { Database } from "bun:sqlite";
-import { Exabase } from "../dist/index.js";
+import { Exabase } from "../src/index.js";
 
 const db = new Exabase();
 await db.query(

@@ -13,7 +13,6 @@ import {
   type Xtree_flag,
   type columnValidationType,
 } from "./types.ts";
-
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
@@ -276,24 +275,25 @@ export const binarySearch_mutate = (
 };
 
 //? binary sort insert it
-export const binarySorted_insert = (message: Msg, messages: Msgs) => {
-  const _id = message._id;
+export function binarySorted_insert<T extends { _id: string }>(
+  item: T,
+  arr: T[]
+): number {
   let low = 0;
-  let high = messages.length - 1;
-  for (; low <= high; ) {
-    // const mid = Math.floor((low + high) / 2);
+  let high = arr.length;
+
+  while (low < high) {
     const mid = (low + high) >>> 1;
-    const current = messages[mid]._id;
-    if (current < _id) {
+    if (arr[mid]._id < item._id) {
       low = mid + 1;
     } else {
-      high = mid - 1;
+      high = mid;
     }
   }
-  //? insert message
-  messages.splice(low, 0, message);
-  return messages;
-};
+
+  arr.splice(low, 0, item);
+  return low;
+}
 
 const PROCESS_UNIQUE = randomBytes(5);
 const buffer = Buffer.alloc(12);
@@ -479,20 +479,16 @@ export function bucketSort(
   order: "ASC" | "DESC"
 ): Msgs {
   if (arr.length === 0) return arr;
-
   //? Calculate numb values once and store them
   const numbValues = arr.map((item) => numb(item[prop].toString()));
-
   //? Find min and max values to determine the range of the buckets
   const minValue = Math.min(...numbValues);
   const maxValue = Math.max(...numbValues);
   //? Adjust the bucket size based on data distribution
   const bucketCount = Math.max(Math.floor(arr.length / 2), 1);
   const bucketSize = Math.ceil((maxValue - minValue + 1) / bucketCount);
-
   // ? create buckets
   const buckets: Msgs[] = Array.from({ length: bucketCount }, () => []);
-
   for (let i = 0; i < arr.length; i++) {
     const data: Msg = arr[i];
     const bucketIndex = Math.floor(
@@ -500,7 +496,6 @@ export function bucketSort(
     );
     buckets[bucketIndex].push(data);
   }
-
   // ? merge buckets
   const result: Msgs = [];
   for (const bucket of buckets) {
@@ -533,38 +528,4 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
     }
   }
   return result.concat(left.slice(li)).concat(right.slice(ri));
-}
-
-// ? from https://github.com/lovasoa/fast_array_intersect/blob/master/index.ts
-export function intersect(arrays: ReadonlyArray<number>[]): number[] {
-  if (arrays.length === 0) return [];
-
-  //? Put the smallest array in the beginning
-  for (let i = 1; i < arrays.length; i++) {
-    if (arrays[i].length < arrays[0].length) {
-      let tmp = arrays[0];
-      arrays[0] = arrays[i];
-      arrays[i] = tmp;
-    }
-  }
-  const set = new Map();
-  for (const elem of arrays[0]) {
-    set.set(elem, 1);
-  }
-  for (let i = 1; i < arrays.length; i++) {
-    let found = 0;
-    for (const e of arrays[i]) {
-      const count = set.get(e);
-      if (count === i) {
-        set.set(e, count + 1);
-        found++;
-      }
-    }
-    if (found === 0) return [];
-  }
-  return arrays[0].filter((e) => {
-    const count = set.get(e);
-    if (count !== undefined) set.set(e, 0);
-    return count === arrays.length;
-  });
 }
