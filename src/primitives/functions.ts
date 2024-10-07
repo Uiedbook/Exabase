@@ -541,6 +541,7 @@ export function intersect(arrays: ReadonlyArray<number>[]): number[] {
       arrays[i] = tmp;
     }
   }
+  if (arrays[0].length === 0) return [];
   const set = new Map();
   for (const elem of arrays[0]) {
     set.set(elem, 1);
