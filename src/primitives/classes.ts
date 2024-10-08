@@ -506,26 +506,23 @@ export class XTree {
   constructor(init: { indexTable: Record<string, boolean> }) {
     this.indexTable = init.indexTable;
   }
-  search(search: Msg, take: number = Infinity) {
+  search(search: Msg, _take: number = Infinity) {
     const Indexes: number[][] = [];
+    //  ? get the search keys
     for (const key in search) {
-      const index = this.tree[key]?.map[search[key as "_id"]];
-      if (index?.length) Indexes.push(index);
+      if (!this.indexTable[key]) continue;
+      if (this.tree[key]) {
+        const index = this.tree[key].map[search[key as "_id"]];
+        Indexes.push(index || []);
+      }
     }
-    if (Indexes.length === 0) return [];
     //  ? get return the keys if the length is 1
     if (Indexes.length === 1) {
-      if (Indexes[0].length >= take) {
-        return Indexes[0].slice(0, take).map((idx) => this.keys[idx]);
-      }
+      if (Indexes[0].length === 0) return [];
       return Indexes[0].map((idx) => this.keys[idx]);
     }
     //  ? get return the keys if the length is more than one
-    const intersected = intersect(Indexes).map((idx) => this.keys[idx]);
-    if (intersected.length >= take) {
-      return intersected.slice(0, take);
-    }
-    return intersected;
+    return intersect(Indexes).map((idx) => this.keys[idx]);
   }
   log_search(id: string = "") {
     const logKey = this.tree["_exa_log_index"].map?.[id];
