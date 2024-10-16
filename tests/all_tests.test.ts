@@ -10,7 +10,7 @@ await db.query(
     induce: {
       ticket: { type: String, unique: true, index: true },
     },
-  })
+  }),
 );
 
 await db.query(
@@ -28,7 +28,7 @@ await db.query(
         relationType: "ONE",
       },
     },
-  })
+  }),
 );
 
 const users = await db.query(JSON.stringify({ table: "USER", many: true }));
@@ -37,12 +37,12 @@ for (let i = 0; i < users.length; i++) {
 }
 
 let ordersCount = await db.query(
-  JSON.stringify({ table: "ORDER", count: true })
+  JSON.stringify({ table: "ORDER", count: true }),
 );
 
 if (ordersCount !== 0) {
   const allorders = await db.query(
-    JSON.stringify({ table: "ORDER", many: true })
+    JSON.stringify({ table: "ORDER", many: true }),
   );
   for (let u = 0; u < allorders.length; u++) {
     const order = allorders[u];
@@ -51,7 +51,7 @@ if (ordersCount !== 0) {
 }
 
 const usersCount = await db.query(
-  JSON.stringify({ table: "USER", count: true })
+  JSON.stringify({ table: "USER", count: true }),
 );
 ordersCount = await db.query(JSON.stringify({ table: "ORDER", count: true }));
 
@@ -66,11 +66,11 @@ describe("tests to ensure embedded operations", (test) => {
       JSON.stringify({
         table: "USER",
         insert: { name: "james bond" },
-      })
+      }),
     );
 
     const user2 = await db.query(
-      JSON.stringify({ table: "USER", one: user._id })
+      JSON.stringify({ table: "USER", one: user._id }),
     );
     assert.strictEqual(user.name, "james bond");
     const user3 = (
@@ -78,18 +78,18 @@ describe("tests to ensure embedded operations", (test) => {
         JSON.stringify({
           table: "USER",
           search: { name: user.name },
-        })
+        }),
       )
     )[0];
     const user4 = await db.query(
       JSON.stringify({
         table: "USER",
         update: { ...user, name: "gregs pola", age: 47 },
-      })
+      }),
     );
     await db.query(JSON.stringify({ table: "USER", delete: user._id }));
     const user5 = await db.query(
-      JSON.stringify({ table: "USER", one: user._id })
+      JSON.stringify({ table: "USER", one: user._id }),
     );
 
     assert.strictEqual(user._id, user2._id);
@@ -107,7 +107,7 @@ describe("tests to ensure embedded operations", (test) => {
       await db.query(JSON.stringify({ table: "USER", insert: user }));
     }
     const usersLength = await db.query(
-      JSON.stringify({ table: "USER", count: true })
+      JSON.stringify({ table: "USER", count: true }),
     );
     assert.strictEqual(usersLength, usersCount);
   });
@@ -121,7 +121,7 @@ describe("tests to ensure embedded operations", (test) => {
       await db.query(JSON.stringify({ table: "USER", update: users[i] }));
     }
     const updatedUsers = await db.query(
-      JSON.stringify({ table: "USER", many: true })
+      JSON.stringify({ table: "USER", many: true }),
     );
     assert.strictEqual(updatedUsers[0].name, "paul");
   });
@@ -129,13 +129,13 @@ describe("tests to ensure embedded operations", (test) => {
   it("large delete", async () => {
     const users = await db.query(JSON.stringify({ table: "USER", many: true }));
     let deletedUsersCount = await db.query(
-      JSON.stringify({ table: "USER", count: true })
+      JSON.stringify({ table: "USER", count: true }),
     );
     for (let i = 0; i < users.length; i++) {
       await db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
     }
     deletedUsersCount = await db.query(
-      JSON.stringify({ table: "USER", count: true })
+      JSON.stringify({ table: "USER", count: true }),
     );
     assert.strictEqual(deletedUsersCount, 0);
   });
@@ -145,24 +145,24 @@ describe("tests to ensure embedded operations", (test) => {
       JSON.stringify({
         table: "USER",
         insert: { name: "john", age: 14 },
-      })
+      }),
     );
     await db.query(
       JSON.stringify({
         table: "USER",
         insert: { name: "john", age: 12 },
-      })
+      }),
     );
     await db.query(
       JSON.stringify({
         table: "USER",
         insert: { name: "john", age: 28 },
-      })
+      }),
     );
 
     // ? this verifies the two properties were intercepted and the correct results were returned
     const johns = await db.query(
-      JSON.stringify({ table: "USER", search: { name: "john", age: 28 } })
+      JSON.stringify({ table: "USER", search: { name: "john", age: 28 } }),
     );
     assert.strictEqual(johns.length, 1);
     assert.strictEqual(johns[0].name, "john");
@@ -171,13 +171,16 @@ describe("tests to ensure embedded operations", (test) => {
   // ? unique field queries
   it("unique field queries ", async () => {
     const order = await db.query(
-      JSON.stringify({ table: "ORDER", insert: { ticket: String(Date.now()) } })
+      JSON.stringify({
+        table: "ORDER",
+        insert: { ticket: String(Date.now()) },
+      }),
     );
     const uniqueOrder = await db.query(
       JSON.stringify({
         table: "ORDER",
         search: { ticket: order.ticket },
-      })
+      }),
     );
     assert.strictEqual(order._id, uniqueOrder[0]._id);
   });
@@ -185,24 +188,24 @@ describe("tests to ensure embedded operations", (test) => {
   // ? basic query (relationships)
   it("basic query (relationships) ", async () => {
     const friend = await db.query(
-      JSON.stringify({ table: "USER", insert: { name: "zack's friend " } })
+      JSON.stringify({ table: "USER", insert: { name: "zack's friend " } }),
     );
     const user = await db.query(
-      JSON.stringify({ table: "USER", insert: { name: "zack", friend } })
+      JSON.stringify({ table: "USER", insert: { name: "zack", friend } }),
     );
 
     const order = await db.query(
       JSON.stringify({
         table: "ORDER",
         insert: { ticket: String(Date.now()) },
-      })
+      }),
     );
     user.requestedOrders.push(order);
     user.friend = friend;
 
     await db.query(JSON.stringify({ table: "USER", update: user }));
     const userAgain = await db.query(
-      JSON.stringify({ table: "USER", one: user._id, populate: true })
+      JSON.stringify({ table: "USER", one: user._id, populate: true }),
     );
     assert.strictEqual(userAgain.requestedOrders.length, 1);
     assert.strictEqual(userAgain.requestedOrders[0]._id, order._id);
@@ -214,7 +217,7 @@ describe("tests to ensure embedded operations", (test) => {
         table: "USER",
         one: user._id,
         populate: ["requestedOrders"],
-      })
+      }),
     );
     // ? check that the relationship is empty
     assert.strictEqual(userAgain2.requestedOrders.length, 0);

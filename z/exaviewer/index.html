@@ -283,7 +283,7 @@
               cls = "number";
             }
             return '<span class="' + cls + '">' + match + "</span>";
-          }
+          },
         );
       }
 
@@ -313,7 +313,7 @@
           tableSection.style.display = "none";
           codeSection.style.display = "block";
           codeSection.querySelector("#code").innerHTML = syntaxHighlight(
-            JSON.stringify(data)
+            JSON.stringify(data),
           );
           return;
         }

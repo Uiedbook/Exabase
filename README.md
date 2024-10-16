@@ -4,9 +4,9 @@
      <img src="https://raw.githubusercontent.com/Uiedbook/Exabase/refs/heads/main/icon-transparent.webp" alt="Exabase" width="190" height="190">
   </a>
 
-  <h1 align="center">Exabase</h1>
+<h1 align="center">Exabase</h1>
 
-  <p align="center">
+<p align="center">
     A high performance NOSQL database
     <br/>
     <br/>
@@ -45,27 +45,37 @@ Exabase provides support for these features:
 - Backed and maintained by big minds at Uiedbook
 - Super Fast Growing ecosystem
 
-Exabase is designed as a simple, light and but powerful database, using the an intuitive schema, and a concise JSON base query format.
+Exabase is designed as a simple, light and but powerful database, using the an
+intuitive schema, and a concise JSON base query format.
 
 --
 
 # How Exabase works
 
-Exabase achieves a high degree of efficiency by employing the following techniques.
+Exabase achieves a high degree of efficiency by employing the following
+techniques.
 
-- Separation of concerns mechanism across tables. This allows for more efficiency by keeping each table manager in it own space.
+- Separation of concerns mechanism across tables. This allows for more
+  efficiency by keeping each table manager in it own space.
 
-- Exabase uses the most efficient storage mechanism which includes message-pack's serialization and linux based archiving.
+- Exabase uses the most efficient storage mechanism which includes
+  message-pack's serialization and linux based archiving.
 
-- Exabase make an extensive use of Binary search algorithms and custom Binary inset algorithms, allowing for sorted storage and efficient query of data.
+- Exabase make an extensive use of Binary search algorithms and custom Binary
+  inset algorithms, allowing for sorted storage and efficient query of data.
 
-- Exabase employs log file managers and handles log file resizing to makeup for efficient memory usage, log files are totally resizable and durable.
+- Exabase employs log file managers and handles log file resizing to makeup for
+  efficient memory usage, log files are totally resizable and durable.
 
-- Consistency and Durability in log files and other very important files is achieved through an ACID complaint data processing mechanism which is optimized for crash recovery and consistency checks out of the box.
+- Consistency and Durability in log files and other very important files is
+  achieved through an ACID complaint data processing mechanism which is
+  optimized for crash recovery and consistency checks out of the box.
 
-- Exabase achieves a high search query efficiency using a search indexing mechanism called Xtree, written from the ground up.
+- Exabase achieves a high search query efficiency using a search indexing
+  mechanism called Xtree, written from the ground up.
 
-- Exabase excels at sorting data very fast using a combination of bucket & mergesort algorithms.
+- Exabase excels at sorting data very fast using a combination of bucket &
+  mergesort algorithms.
 
 # Requirements to use Exabase.
 
@@ -87,9 +97,12 @@ npm i exabase --save
 
 ## Usage
 
-Exabase is for the cave man, it has carefully designed APIs that allows you to make the most actions against your database in a very easy way.
+Exabase is for the cave man, it has carefully designed APIs that allows you to
+make the most actions against your database in a very easy way.
 
-When improvements and changes rolls out, we will quickly update this page and the currently prepared [web documentation]("https://uiedbook.gitbook.io/exabase/").
+When improvements and changes rolls out, we will quickly update this page and
+the currently prepared
+[web documentation]("https://uiedbook.gitbook.io/exabase/").
 
 ## Using Exabase
 
@@ -142,7 +155,6 @@ Exabase is queried with json. in the format
   take?: number;
   count?: Record<string, any> | boolean;
 };
-
 ```
 
 ## Example syntax
@@ -152,7 +164,7 @@ const user = await db.query(
   JSON.stringify({
     table: "USER",
     insert: { name: "james bond" },
-  })
+  }),
 );
 
 const user2 = await db.query(JSON.stringify({ table: "USER", one: user._id }));
@@ -162,14 +174,14 @@ const user3 = (
     JSON.stringify({
       table: "USER",
       search: { name: user.name },
-    })
+    }),
   )
 )[0];
 const user4 = await db.query(
   JSON.stringify({
     table: "USER",
     update: { ...user, name: "gregs pola", age: 47 },
-  })
+  }),
 );
 await db.query(JSON.stringify({ table: "USER", delete: user._id }));
 const user5 = await db.query(JSON.stringify({ table: "USER", one: user._id }));
@@ -200,7 +212,7 @@ await db.query(
         target: "CHILD",
       },
     },
-  })
+  }),
 );
 
 await db.query(
@@ -210,7 +222,7 @@ await db.query(
       age: { type: "number", required: true, index: true },
       name: { type: "string", index: true },
     },
-  })
+  }),
 );
 
 const user = await db.query(
@@ -220,7 +232,7 @@ const user = await db.query(
       age: i + 20,
       name: "user name",
     },
-  })
+  }),
 );
 const kid = await db.query(
   JSON.stringify({
@@ -229,7 +241,7 @@ const kid = await db.query(
       age: 5,
       name: "kid name",
     },
-  })
+  }),
 );
 user.kids.push(kid);
 
@@ -237,7 +249,7 @@ await db.query(
   JSON.stringify({
     table: "USER",
     update: user,
-  })
+  }),
 );
 ```
 
@@ -245,29 +257,31 @@ await db.query(
 
 This benchmark is Exabase against sqlite.
 
-Sqlite has a tiny footprint and off course really great performance with pure acidity and relational.
+Sqlite has a tiny footprint and off course really great performance with pure
+acidity and relational.
 
 We are trilled Exabase performs really well and exceeding beats sqlite.
 
-And with this confidence we have and encourage everyone to try Exabase for themselves.
+And with this confidence we have and encourage everyone to try Exabase for
+themselves.
 
 ```md
-cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz
-runtime: bun 1.0.0 (x64-linux)
+cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz runtime: bun 1.0.0 (x64-linux)
 
 benchmark time (avg) (min … max) p75 p99 p995
 
 ---
 
-SELECT _ FROM "Employee" Exabase 1.39 µs/iter (1.23 µs … 3.77 µs) 1.35 µs 3.77 µs 3.77 µs
-SELECT _ FROM "Employee" sqlite 270.73 µs/iter (187.72 µs … 3.24 ms) 267.24 µs 1.19 ms 1.48 ms
-150X faster
+SELECT _ FROM "Employee" Exabase 1.39 µs/iter (1.23 µs … 3.77 µs) 1.35 µs 3.77
+µs 3.77 µs SELECT _ FROM "Employee" sqlite 270.73 µs/iter (187.72 µs … 3.24 ms)
+267.24 µs 1.19 ms 1.48 ms 150X faster
 ```
 
 ### Regularity Cache Tank
 
-The Regularity Cache Tank or RCT is a basic LOG file level cache.
-this means, it stores the entire LOG(n) file of the table in memory, where n is the last active LOG file.
+The Regularity Cache Tank or RCT is a basic LOG file level cache. this means, it
+stores the entire LOG(n) file of the table in memory, where n is the last active
+LOG file.
 
 ## Apache 2.0 Licensed
 
@@ -277,4 +291,6 @@ Opensourced And Free.
 
 ### Contribution and License Agreement
 
-If you contribute code to this project, you are implicitly allowing your code to be distributed under the Apache License. You are also implicitly verifying that all code is your original work.
+If you contribute code to this project, you are implicitly allowing your code to
+be distributed under the Apache License. You are also implicitly verifying that
+all code is your original work.

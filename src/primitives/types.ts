@@ -1,16 +1,11 @@
 /**
  * Interface for Exabase init  */
 export type ExabaseOptions = {
-  /**
-   * Exabase DBMS
-   * ---
-   * RCT Memory cache percentage  */
-  EXABASE_MEMORY_PERCENT?: number;
-  /**
-   * Exabase DBMS
-   * ---
-   * name  */
-  name?: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  bucketName: string;
+  endpoint: string;
 };
 
 /**

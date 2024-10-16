@@ -1,15 +1,15 @@
 import {
-  unlinkSync,
-  realpath,
-  stat,
-  open,
-  write,
-  fsync,
-  close,
-  chown as _chown,
   chmod,
+  chown as _chown,
+  close,
+  fsync,
+  open,
+  realpath,
   rename,
+  stat,
   unlink,
+  unlinkSync,
+  write,
 } from "fs";
 import MurmurHash3 from "imurmurhash";
 import { onExit } from "signal-exit";
@@ -133,7 +133,7 @@ async function SynFileWrit(filename: string, data?: any) {
     if (fd) {
       await promisify(close)(fd).catch(
         /* istanbul ignore next */
-        () => {}
+        () => {},
       );
     }
     removeOnExitHandler();

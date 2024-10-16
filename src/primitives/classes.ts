@@ -6,33 +6,34 @@ import {
   type Msg,
   type Msgs,
   type QueryType,
-  type SchemaRelationOptions,
-  type SchemaOptions,
   type SchemaColumnOptions,
-  type Xtree_flag,
+  type SchemaOptions,
   type SchemaRelation,
+  type SchemaRelationOptions,
   type wTrainType,
   type xPersistType,
+  type Xtree_flag,
 } from "./types.js";
 import {
-  findMessage,
-  loadLog,
-  binarySorted_insert,
   binarySearch_mutate,
-  loadLogSync,
-  validator,
-  resizeRCT,
-  SynFileWrit,
-  SynFileWritWithWaitList,
+  binarySorted_insert,
   bucketSort,
-  populateForeignKeys,
-  setPopulateOptions,
-  getFileSize,
+  conserveForeignKeys,
   deepMerge,
   ExaId,
-  conserveForeignKeys,
+  findMessage,
+  getFileSize,
   intersect,
+  loadLog,
+  loadLogSync,
+  populateForeignKeys,
+  resizeRCT,
+  setPopulateOptions,
+  SynFileWrit,
+  SynFileWritWithWaitList,
+  validator,
 } from "./functions.js";
+import type { S3 } from "./blob-lib.js";
 
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
@@ -44,6 +45,7 @@ export class GLOBAL_OBJECT {
   };
   static db: any;
   static rct_level: number;
+  static s3: S3;
 }
 
 export class ExaError extends Error {
@@ -98,8 +100,9 @@ export class ExaSchema<Model> {
               },
             }
           );
-          if (typeof v === "string")
+          if (typeof v === "string") {
             throw new ExaError("table ", this.table, " error ", v);
+          }
         }
         //? let's keep a record of the unique fields we correctly have
         if (this.columns[key].unique) {
@@ -229,7 +232,7 @@ export class Manager {
     for (const filename in this.LogFiles) {
       const logFile = this.LogFiles[filename];
       //? size check is for inserts
-      if (logFile.size < 3142656 /*3mb*/) {
+      if (logFile.size < 102400 /*100kb*/) {
         return filename;
       }
     }
@@ -245,8 +248,9 @@ export class Manager {
     }
     const v = validator(data, this.schema.columns);
     // ? setup relationship
-    if (typeof v === "string")
+    if (typeof v === "string") {
       throw new ExaError(this.schema.table, " table error '", v, "'");
+    }
     return v as Msg;
   }
   public waiters: Record<string, wTrainType[]> = {};
@@ -326,7 +330,7 @@ export class Manager {
     return RCTied;
   }
   async find(query: QueryType<Record<string, any>>) {
-    let RCTied = await this.getLog(query.one);
+    let RCTied = [];
     if (query.many) {
       const skip = query.skip || 0;
       const take = query.take || 1000;
@@ -365,6 +369,7 @@ export class Manager {
       // ?
       return RCTied;
     }
+    RCTied = await this.getLog(query.one);
     // ? populate relations
     if (query.populate) {
       query.populate = setPopulateOptions(
@@ -439,8 +444,9 @@ export class Manager {
         }
       }
       const file = this.xIndex.log_search(message._id);
-      if (typeof file !== "string")
+      if (typeof file !== "string") {
         throw new ExaError("item to update not found");
+      }
       const oldMessage = (await this.find({ one: query.update._id })) as Msg;
       if (!oldMessage) {
         throw new ExaError("item to update not found");
@@ -462,8 +468,9 @@ export class Manager {
         throw new ExaError("invalid id - " + query.delete);
       }
       const file = this.xIndex.log_search(query.delete);
-      if (typeof file !== "string")
+      if (typeof file !== "string") {
         throw new ExaError("item to delete not found");
+      }
 
       const message = (await this.find({ one: query.delete })) as Msg;
       if (!message) {

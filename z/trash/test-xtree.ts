@@ -1,8 +1,8 @@
-import { it, describe, expect } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { GLOBAL_OBJECT } from "../dist/primitives/classes";
 import {
-  SynFileWritWithWaitList,
   loadLogSync,
+  SynFileWritWithWaitList,
 } from "../dist/primitives/functions";
 
 type Msg = { _id: string; name: string };
@@ -128,7 +128,7 @@ export class XTree {
         this.tree[key].upsert(
           olddata[key as keyof Msg],
           newdata[key as keyof Msg],
-          olddata["_id"]
+          olddata["_id"],
         );
       }
     }
@@ -142,7 +142,7 @@ export class XTree {
     }
     return SynFileWritWithWaitList.write(
       this.persistKey,
-      GLOBAL_OBJECT.packr.encode(obj)
+      GLOBAL_OBJECT.packr.encode(obj),
     );
   }
   static restore(persistKey: string) {
@@ -174,7 +174,7 @@ expect(ins1).toBe(5);
 for (let i = 0; i < 5; i++) {
   seg.upsert(
     { _id: "xelncfvb" + i, name: "name1" },
-    { _id: "xelncfvb" + i, name: "name2" }
+    { _id: "xelncfvb" + i, name: "name2" },
   );
 }
 for (let i = 0; i < 5; i++) {

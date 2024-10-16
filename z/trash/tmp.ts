@@ -10,7 +10,7 @@ async function benchSuit(code, runs = 1_000, lab: string = "") {
   console.log(
     `Code took ${totalTime} ms on ${runs} runs with an average of ${
       totalTime / runs
-    } ms per operation`
+    } ms per operation`,
   );
   if (lab) {
     console.log(lab);
@@ -44,12 +44,12 @@ benchSuit(
     ExaId2();
   },
   undefined,
-  "chatgpt"
+  "chatgpt",
 );
 benchSuit(
   () => {
     ExaId();
   },
   undefined,
-  "me"
+  "me",
 );

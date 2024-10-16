@@ -8,7 +8,7 @@
 
 */
 
-import { run, bench } from "mitata";
+import { bench, run } from "mitata";
 import { Database } from "bun:sqlite";
 import { Exabase } from "../src/index.js";
 
@@ -35,13 +35,13 @@ await db.query(
       ReportsTo: { type: "number" },
       PhotoPath: { type: "string" },
     },
-  })
+  }),
 );
 
 const db2 = Database.open("tests/sql_file/Northwind_large.sqlite");
 
 let employeeExabaseCount = await db.query(
-  JSON.stringify({ table: "EMPLOYEE", count: true })
+  JSON.stringify({ table: "EMPLOYEE", count: true }),
 );
 
 const sql = db2.prepare(`SELECT * FROM "Employee"`);
@@ -57,7 +57,7 @@ if (employeeExabaseCount !== employeeSQLITECount.length) {
 
   for (let i = 0; i < employeeSQLITECount.length; i++) {
     await db.query(
-      JSON.stringify({ table: "EMPLOYEE", insert: employeeSQLITECount[i] })
+      JSON.stringify({ table: "EMPLOYEE", insert: employeeSQLITECount[i] }),
     );
   }
 
@@ -66,11 +66,11 @@ if (employeeExabaseCount !== employeeSQLITECount.length) {
 }
 
 employeeExabaseCount = await db.query(
-  JSON.stringify({ table: "EMPLOYEE", count: true })
+  JSON.stringify({ table: "EMPLOYEE", count: true }),
 );
 console.log(
   "read Exabase item count to ensure it's consistent ofc it is",
-  employeeExabaseCount
+  employeeExabaseCount,
 );
 
 const sq = JSON.stringify({ table: "EMPLOYEE", many: true });

@@ -4,39 +4,33 @@ import { resolve as _resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 // ?
-import { ExaError, GLOBAL_OBJECT } from "./classes.js";
+import { ExaError, GLOBAL_OBJECT } from "./src/primitives/classes.js";
 import {
   type columnValidationType,
   type Msg,
   type Msgs,
   type SchemaColumnOptions,
   type Xtree_flag,
-} from "./types.js";
+} from "./src/primitives/types.js";
+
+const getFileAndEtag = GLOBAL_OBJECT.s3.getObjectWithETag;
+const getFile = GLOBAL_OBJECT.s3.get;
+const putFile = GLOBAL_OBJECT.s3.put;
+const listFiles = GLOBAL_OBJECT.s3.list;
+const deleteFile = GLOBAL_OBJECT.s3.delete;
+const fileExists = GLOBAL_OBJECT.s3.fileExists;
+const getEtag = GLOBAL_OBJECT.s3.getEtag;
 
 export const loadLog = async (filePath: string) => {
   try {
-    const data = await readFile(filePath);
+    const data = await getFile(filePath);
     return (GLOBAL_OBJECT.packr.decode(data) || []) as Msgs;
   } catch (_error) {
-    // console.log({ filePath, _error }, 1);
-    return [] as Msgs;
-  }
-};
-
-export const loadLogSync = (filePath: string, defaults: any = []) => {
-  try {
-    return GLOBAL_OBJECT.packr.decode(readFileSync(filePath)) || [];
-  } catch (_error) {
-    // console.log({ filePath, _error });
-    return defaults;
-  }
-};
-
-export const getFileSize = (file: string): number => {
-  try {
-    return statSync(file).size;
-  } catch (err) {
-    return 0;
+    const fexits = await fileExists(filePath);
+    if (!fexits) {
+      return [] as Msgs;
+    }
+    throw _error;
   }
 };
 
@@ -415,7 +409,6 @@ export async function SynFileWrit(file: string, data: Buffer) {
     const tmpfile = file + "-SYNC";
     try {
       fd = await fsp.open(tmpfile, "w");
-
       await fd.write(data, 0, data.length, 0);
       await fd.sync();
       await fsp.rename(tmpfile, file);

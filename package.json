@@ -28,13 +28,16 @@
   "scripts": {
     "compile": "rm -rf ./DB && rm -rf ./dist && bun bundle.ts",
     "test": "node --test --experimental-strip-types  tests/**est.ts",
+    "tbun": "bun test tests/bun.all_tests.spec.ts --timeout 20000",
     "build": "bun bundle.ts && npm pack && mv **.tgz ~/",
     "bench": "bun ./z/benchmark.ts"
   },
   "author": "Friday Candour",
   "license": "Apache",
   "dependencies": {
-    "msgpackr": "^1.10.1"
+    "i": "^0.3.7",
+    "msgpackr": "^1.10.1",
+    "npm": "^10.9.0"
   },
   "devDependencies": {
     "@types/bun": "^1.0.1",

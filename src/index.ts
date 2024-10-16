@@ -2,20 +2,27 @@ import { mkdirSync } from "node:fs";
 import { type ExabaseOptions } from "./primitives/types.js";
 import {
   ExaError,
+  ExaSchema,
   GLOBAL_OBJECT,
   Manager,
-  ExaSchema,
 } from "./primitives/classes.js";
-
+import { S3 } from "./primitives/blob-lib.js";
 export class Exabase {
   private dbDir: string;
   schemas: ExaSchema<{}>[] = [];
-  constructor(init: ExabaseOptions = {}) {
+  constructor(init: ExabaseOptions) {
+    GLOBAL_OBJECT.s3 = new S3({
+      accessKeyId: init.accessKeyId,
+      secretAccessKey: init.secretAccessKey,
+      bucketName: init.bucketName,
+      endpoint: init.endpoint,
+    });
+
     GLOBAL_OBJECT.db = this;
     //? [1] directories
-    this.dbDir = (init.name || "DB").trim();
+    this.dbDir = "DB";
     // ? setting up memory allocation for RCT enabled cache managers
-    GLOBAL_OBJECT.MEMORY_PERCENT = init.EXABASE_MEMORY_PERCENT || 10;
+    GLOBAL_OBJECT.MEMORY_PERCENT = 20;
     // ? create main dir
     try {
       mkdirSync(this.dbDir);

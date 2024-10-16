@@ -38,7 +38,7 @@ function createBuckets(arr: any[], bucketSize: number, prop: string) {
   const buckets = new Map();
   arr.forEach((data) => {
     const bucketIndex = Math.floor(
-      data[prop].toString().charCodeAt(0) / bucketSize
+      data[prop].toString().charCodeAt(0) / bucketSize,
     );
     if (!buckets.has(bucketIndex)) {
       buckets.set(bucketIndex, []);
@@ -92,7 +92,7 @@ function mergeBuckets(buckets: any[], prop: string) {
 function benchmarkSort(
   sortFunction: (arr: any[], prop: string) => any[],
   arr: Record<string, any>[],
-  prop: string
+  prop: string,
 ) {
   const a = [...arr];
   const startTime = performance.now();

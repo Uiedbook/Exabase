@@ -4,7 +4,7 @@ import { type Msg, type Msgs } from "../dist/primitives/types.js";
 export function bucketSort(
   arr: Msgs,
   prop: keyof Msg,
-  order: "ASC" | "DESC"
+  order: "ASC" | "DESC",
 ): Msgs {
   if (arr.length === 0) return arr;
 

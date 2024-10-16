@@ -1,5 +1,5 @@
-import { Exabase } from "./src";
-import { it, describe, expect } from "bun:test";
+import { Exabase } from "../src";
+import { describe, expect, it } from "bun:test";
 
 // ? setup db
 const db = new Exabase();
@@ -10,7 +10,7 @@ await db.query(
     induce: {
       ticket: { type: String, search: true, index: true },
     },
-  })
+  }),
 );
 
 await db.query(
@@ -28,14 +28,14 @@ await db.query(
         relationType: "ONE",
       },
     },
-  })
+  }),
 );
 
 let usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
 
 while (usersCount !== 0) {
   const allusers = await db.query(
-    JSON.stringify({ table: "USER", many: true })
+    JSON.stringify({ table: "USER", many: true }),
   );
   for (let u = 0; u < allusers.length; u++) {
     const user = allusers[u];
@@ -45,11 +45,11 @@ while (usersCount !== 0) {
 }
 
 let ordersCount = await db.query(
-  JSON.stringify({ table: "ORDER", count: true })
+  JSON.stringify({ table: "ORDER", count: true }),
 );
 if (ordersCount !== 0) {
   const allorders = await db.query(
-    JSON.stringify({ table: "ORDER", many: true })
+    JSON.stringify({ table: "ORDER", many: true }),
   );
   for (let u = 0; u < allorders.length; u++) {
     const order = allorders[u];
@@ -71,11 +71,11 @@ describe("queries", () => {
       JSON.stringify({
         table: "USER",
         insert: { name: "james bond" },
-      })
+      }),
     );
 
     const user2 = await db.query(
-      JSON.stringify({ table: "USER", one: user._id })
+      JSON.stringify({ table: "USER", one: user._id }),
     );
     expect(user.name).toBe("james bond");
     const user3 = (
@@ -83,18 +83,18 @@ describe("queries", () => {
         JSON.stringify({
           table: "USER",
           search: { name: user.name },
-        })
+        }),
       )
     )[0];
     const user4 = await db.query(
       JSON.stringify({
         table: "USER",
         update: { ...user, name: "greg paul", age: 47 },
-      })
+      }),
     );
     await db.query(JSON.stringify({ table: "USER", delete: user._id }));
     const user5 = await db.query(
-      JSON.stringify({ table: "USER", one: user._id })
+      JSON.stringify({ table: "USER", one: user._id }),
     );
 
     expect(user._id).toBe(user2._id);
@@ -111,7 +111,7 @@ describe("queries", () => {
       await db.query(JSON.stringify({ table: "USER", insert: user }));
     }
     const usersLength = await db.query(
-      JSON.stringify({ table: "USER", count: true })
+      JSON.stringify({ table: "USER", count: true }),
     );
     expect(usersLength).toBe(usersCount);
   });
@@ -124,7 +124,7 @@ describe("queries", () => {
       await db.query(JSON.stringify({ table: "USER", update: users[i] }));
     }
     const updatedUsers = await db.query(
-      JSON.stringify({ table: "USER", many: true })
+      JSON.stringify({ table: "USER", many: true }),
     );
     expect(updatedUsers[0].name).toBe("paul");
   });
@@ -134,7 +134,7 @@ describe("queries", () => {
       await db.query(JSON.stringify({ table: "USER", delete: users[i]._id }));
     }
     const deletedUsersCount = await db.query(
-      JSON.stringify({ table: "USER", count: true })
+      JSON.stringify({ table: "USER", count: true }),
     );
     expect(deletedUsersCount).toEqual(0);
   });
@@ -143,24 +143,24 @@ describe("queries", () => {
       JSON.stringify({
         table: "USER",
         insert: { name: "john", age: 14 },
-      })
+      }),
     );
     await db.query(
       JSON.stringify({
         table: "USER",
         insert: { name: "john", age: 12 },
-      })
+      }),
     );
     await db.query(
       JSON.stringify({
         table: "USER",
         insert: { name: "john", age: 28 },
-      })
+      }),
     );
 
     // ? this verifies the two properties were intercepted and the currect results were reurned
     const johns = await db.query(
-      JSON.stringify({ table: "USER", search: { name: "john", age: 28 } })
+      JSON.stringify({ table: "USER", search: { name: "john", age: 28 } }),
     );
     expect(johns.length).toBe(1);
     expect(johns[0].name).toBe("john");
@@ -168,22 +168,22 @@ describe("queries", () => {
   });
   it("basic query (relationships) ", async () => {
     const friend = await db.query(
-      JSON.stringify({ table: "USER", insert: { name: "zack's friend " } })
+      JSON.stringify({ table: "USER", insert: { name: "zack's friend " } }),
     );
     const user = await db.query(
-      JSON.stringify({ table: "USER", insert: { name: "zack", friend } })
+      JSON.stringify({ table: "USER", insert: { name: "zack", friend } }),
     );
 
     const order = await db.query(
       JSON.stringify({
         table: "ORDER",
         insert: { ticket: String(Date.now()) },
-      })
+      }),
     );
     user.requestedOrders.push(order);
     await db.query(JSON.stringify({ table: "USER", update: user }));
     const userAgain = await db.query(
-      JSON.stringify({ table: "USER", one: user._id, populate: true })
+      JSON.stringify({ table: "USER", one: user._id, populate: true }),
     );
     expect(userAgain.requestedOrders.length).toBe(1);
     expect(userAgain.requestedOrders[0]._id).toBe(order._id);
@@ -195,20 +195,23 @@ describe("queries", () => {
         table: "USER",
         one: user._id,
         populate: ["requestedOrders"],
-      })
+      }),
     );
     // ? check that the relationship is empty
     expect(userAgain2.requestedOrders.length).toBe(0);
   });
   it("unique field queries ", async () => {
     const order = await db.query(
-      JSON.stringify({ table: "ORDER", insert: { ticket: String(Date.now()) } })
+      JSON.stringify({
+        table: "ORDER",
+        insert: { ticket: String(Date.now()) },
+      }),
     );
     const uniqueOrder = await db.query(
       JSON.stringify({
         table: "ORDER",
         search: { ticket: order.ticket },
-      })
+      }),
     );
     expect(order._id).toBe(uniqueOrder[0]._id);
   });
@@ -218,7 +221,7 @@ usersCount = await db.query(JSON.stringify({ table: "USER", count: true }));
 
 while (usersCount !== 0) {
   const allusers = await db.query(
-    JSON.stringify({ table: "USER", many: true })
+    JSON.stringify({ table: "USER", many: true }),
   );
   for (let u = 0; u < allusers.length; u++) {
     const user = allusers[u];

@@ -1,4 +1,4 @@
-import { run, bench } from "mitata";
+import { bench, run } from "mitata";
 import { time, timeEnd } from "console";
 
 function deepMerge(target: any, source: any) {
@@ -32,10 +32,9 @@ function deepMerge2(target: any, source: any): any {
           : [...sourceValue];
       } else if (typeof sourceValue === "object" && sourceValue !== null) {
         // Merge objects recursively, but only if both are objects
-        target[key] =
-          typeof targetValue === "object" && targetValue !== null
-            ? deepMerge(targetValue, sourceValue)
-            : { ...sourceValue };
+        target[key] = typeof targetValue === "object" && targetValue !== null
+          ? deepMerge(targetValue, sourceValue)
+          : { ...sourceValue };
       } else {
         // Primitive types: overwrite target with source
         target[key] = sourceValue;
@@ -68,10 +67,9 @@ function deepMerge3(target: any, source: any): any {
         }
       } else if (typeof sourceValue === "object" && sourceValue !== null) {
         // Recursive merge for objects
-        target[key] =
-          typeof targetValue === "object" && targetValue !== null
-            ? deepMerge(targetValue, sourceValue)
-            : sourceValue;
+        target[key] = typeof targetValue === "object" && targetValue !== null
+          ? deepMerge(targetValue, sourceValue)
+          : sourceValue;
       } else {
         // Primitive types: overwrite directly
         target[key] = sourceValue;

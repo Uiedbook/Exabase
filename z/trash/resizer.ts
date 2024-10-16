@@ -21,7 +21,7 @@ async function ResizeLogFiles(sources: string[], length = 1_000) {
       leftovers,
       current_index,
       length,
-      false
+      false,
     );
   }
   // ? save leftovers last
@@ -34,7 +34,7 @@ async function ResizeLeftOvers(
   leftovers: any[],
   current_index: number,
   length = 1_000,
-  last = false
+  last = false,
 ) {
   while (leftovers.length >= length) {
     // ? > length

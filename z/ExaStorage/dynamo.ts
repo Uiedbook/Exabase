@@ -17,10 +17,10 @@ import {
   DeleteCommand,
   DynamoDBDocumentClient,
   GetCommand,
-  PutCommand,
-  UpdateCommand,
   paginateQuery,
   paginateScan,
+  PutCommand,
+  UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 
 // These modules are local to our GitHub repository. We recommend cloning
@@ -121,7 +121,7 @@ export const main = async () => {
 
   log("Adding movies from local JSON file.");
   const file = readFileSync(
-    `${dirname}../../../../resources/sample_files/movies.json`
+    `${dirname}../../../../resources/sample_files/movies.json`,
   );
   const movies = JSON.parse(file.toString());
   // chunkArray is a local convenience function. It takes an array and returns
@@ -162,7 +162,7 @@ export const main = async () => {
       ExpressionAttributeNames: { "#y": "year" },
       ExpressionAttributeValues: { ":y": 1981 },
       ConsistentRead: true,
-    }
+    },
   );
   /**
    * @type { Record<string, any>[] };
@@ -191,7 +191,7 @@ export const main = async () => {
       ExpressionAttributeNames: { "#y": "year" },
       ExpressionAttributeValues: { ":y1": 1980, ":y2": 1990 },
       ConsistentRead: true,
-    }
+    },
   );
   /**
    * @type { Record<string, any>[] };
@@ -201,9 +201,11 @@ export const main = async () => {
     movies1980to1990.push(...page.Items);
   }
   log(
-    `Movies: ${movies1980to1990
-      .map((m) => `${m.title} (${m.year})`)
-      .join(", ")}`
+    `Movies: ${
+      movies1980to1990
+        .map((m) => `${m.title} (${m.year})`)
+        .join(", ")
+    }`,
   );
 
   /**
