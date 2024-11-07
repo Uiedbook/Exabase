@@ -534,7 +534,6 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
 // ? from https://github.com/lovasoa/fast_array_intersect/blob/master/index.ts
 export function intersect(arrays: ReadonlyArray<number>[]): number[] {
   if (arrays.length === 0) return [];
-
   //? Put the smallest array in the beginning
   for (let i = 1; i < arrays.length; i++) {
     if (arrays[i].length < arrays[0].length) {
@@ -562,7 +561,6 @@ export function intersect(arrays: ReadonlyArray<number>[]): number[] {
     //? Stop early if an array has no element in common with the smallest
     if (found === 0) return [];
   }
-
   //? Output only the elements that have been seen as many times as there are arrays
   return arrays[0].filter((e) => {
     const count = set.get(e);

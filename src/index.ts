@@ -7,6 +7,7 @@ import {
   Manager,
 } from "./primitives/classes.js";
 import { S3 } from "./primitives/blob-lib.js";
+
 export class Exabase {
   private dbDir: string;
   schemas: ExaSchema<{}>[] = [];
@@ -17,7 +18,6 @@ export class Exabase {
       bucketName: init.bucketName,
       endpoint: init.endpoint,
     });
-
     GLOBAL_OBJECT.db = this;
     //? [1] directories
     this.dbDir = "DB";

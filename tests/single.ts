@@ -1,6 +1,6 @@
 import { Exabase } from "../src/index.ts";
 
-const db = new Exabase();
+const db = new Exabase({});
 
 await db.query(
   JSON.stringify({
@@ -20,7 +20,7 @@ await db.query(
         target: "CHILD",
       },
     },
-  }),
+  })
 );
 
 await db.query(
@@ -30,7 +30,7 @@ await db.query(
       age: { type: "number", required: true, index: true },
       name: { type: "string", index: true, required: true },
     },
-  }),
+  })
 );
 
 await db.query(
@@ -40,7 +40,7 @@ await db.query(
       age: { type: "number", required: true, index: true },
       name: { type: "string", index: true },
     },
-  }),
+  })
 );
 
 for (let i = 0; i < 10; i++) {
@@ -48,7 +48,7 @@ for (let i = 0; i < 10; i++) {
     JSON.stringify({
       table: "MOM",
       insert: { age: i + 40, name: "mom name" },
-    }),
+    })
   );
   const user = await db.query(
     JSON.stringify({
@@ -58,7 +58,7 @@ for (let i = 0; i < 10; i++) {
         name: "user name",
         mom: mom,
       },
-    }),
+    })
   );
   const kid = await db.query(
     JSON.stringify({
@@ -67,7 +67,7 @@ for (let i = 0; i < 10; i++) {
         age: 5,
         name: "kid name",
       },
-    }),
+    })
   );
   user.kids.push(kid);
   await db.query(
@@ -77,7 +77,7 @@ for (let i = 0; i < 10; i++) {
         ...user,
         // kids: [kid],
       },
-    }),
+    })
   );
 }
 console.time();
@@ -88,7 +88,7 @@ const ser = await db.query(
     search: { name: "user name", age: 20 },
     populate: true,
     sort: { age: "ASC" },
-  }),
+  })
 );
 
 // console.log({ all: ser }, ser.length);
