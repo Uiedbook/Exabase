@@ -23,6 +23,7 @@ export class Exabase {
     this.dbDir = "DB";
     // ? setting up memory allocation for RCT enabled cache managers
     GLOBAL_OBJECT.MEMORY_PERCENT = 20;
+    GLOBAL_OBJECT.writeWindow = init.writeWindow || 1000;
     // ? create main dir
     try {
       mkdirSync(this.dbDir);
@@ -87,3 +88,6 @@ export class Exabase {
     return table.runner(parsedQuery) as T;
   }
 }
+
+// mtoto kautaa
+// huyo mtotoooo

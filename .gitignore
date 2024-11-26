@@ -11,3 +11,4 @@ backup.tar.gz
 tests/sql_file/Northwind_large.sqlite
 dist
 plan.md 
+bloomfilter.md

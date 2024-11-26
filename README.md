@@ -7,43 +7,35 @@
 <h1 align="center">Exabase</h1>
 
 <p align="center">
-    A high performance NOSQL database
+    High Performant and Bottonless NOSQL database
     <br/>
     <br/>
     <a href="https://github.com/uiedbook/Exabase#examples"><strong>Explore APIs »</strong></a>
     <br/>
     <br/>
     <a href="https://t.me/Exabase">Join Community</a>
-    .
-    <a href="https://github.com/uiedbook/Exabase/issues">Report Bug</a>
-    .
-    <a href="https://github.com/uiedbook/Exabase/issues">Request Feature</a>
+
   </p>
 </p>
 
-Exabase is a high performance NOSQL database with ACID complaint and scalable.
+### Learn how ⮟
+
+#### ⮞ [Bottonless]() 𐄁 [Strong consistency and consesus]() 𐄁 [High performance]() 𐄁 [Ease of use]() ⮜
 
 ![Contributors](https://img.shields.io/github/contributors/uiedbook/Exabase?color=dark-green)
 [![npm Version](https://img.shields.io/npm/v/exabase.svg)](https://www.npmjs.com/package/exabase)
 ![Forks](https://img.shields.io/github/forks/uiedbook/Exabase?style=social)
 ![Stargazers](https://img.shields.io/github/stars/uiedbook/Exabase?style=social)
 
---
-
-# Rationale
-
 Exabase provides support for these features:
 
+- High performance
+- Bottonless storage.
+- Consistency and Consesus.
 - JSON based query language.
-- ACID Compliant queries.
-- Batch large writes (INSERT, DELETE, UPDATE) as a single query.
 - Efficient data format.
-- Efficient backup system and recovery.
-- High performance and tunable scalability.
-- Swappable storage engine (as part of plugin system).
-- Totally Open sourced and free
-- Backed and maintained by big minds at Uiedbook
-- Super Fast Growing ecosystem
+- Tunable consistency and Scalability.
+- Open sourced
 
 Exabase is designed as a simple, light and but powerful database, using the an
 intuitive schema, and a concise JSON base query format.
@@ -64,15 +56,12 @@ techniques.
 - Exabase make an extensive use of Binary search algorithms and custom Binary
   inset algorithms, allowing for sorted storage and efficient query of data.
 
-- Exabase employs log file managers and handles log file resizing to makeup for
-  efficient memory usage, log files are totally resizable and durable.
-
 - Consistency and Durability in log files and other very important files is
   achieved through an ACID complaint data processing mechanism which is
   optimized for crash recovery and consistency checks out of the box.
 
 - Exabase achieves a high search query efficiency using a search indexing
-  mechanism called Xtree, written from the ground up.
+  mechanism called Xtree, written from the ground up and great at categorical search indexing needs.
 
 - Exabase excels at sorting data very fast using a combination of bucket &
   mergesort algorithms.
@@ -164,7 +153,7 @@ const user = await db.query(
   JSON.stringify({
     table: "USER",
     insert: { name: "james bond" },
-  }),
+  })
 );
 
 const user2 = await db.query(JSON.stringify({ table: "USER", one: user._id }));
@@ -174,14 +163,14 @@ const user3 = (
     JSON.stringify({
       table: "USER",
       search: { name: user.name },
-    }),
+    })
   )
 )[0];
 const user4 = await db.query(
   JSON.stringify({
     table: "USER",
     update: { ...user, name: "gregs pola", age: 47 },
-  }),
+  })
 );
 await db.query(JSON.stringify({ table: "USER", delete: user._id }));
 const user5 = await db.query(JSON.stringify({ table: "USER", one: user._id }));
@@ -212,7 +201,7 @@ await db.query(
         target: "CHILD",
       },
     },
-  }),
+  })
 );
 
 await db.query(
@@ -222,7 +211,7 @@ await db.query(
       age: { type: "number", required: true, index: true },
       name: { type: "string", index: true },
     },
-  }),
+  })
 );
 
 const user = await db.query(
@@ -232,7 +221,7 @@ const user = await db.query(
       age: i + 20,
       name: "user name",
     },
-  }),
+  })
 );
 const kid = await db.query(
   JSON.stringify({
@@ -241,7 +230,7 @@ const kid = await db.query(
       age: 5,
       name: "kid name",
     },
-  }),
+  })
 );
 user.kids.push(kid);
 
@@ -249,7 +238,7 @@ await db.query(
   JSON.stringify({
     table: "USER",
     update: user,
-  }),
+  })
 );
 ```
 
@@ -285,7 +274,7 @@ LOG file.
 
 ## Apache 2.0 Licensed
 
-Opensourced And Free.
+Opensource.
 
 [telegram group]("https://t.me/UiedbookHQ").
 

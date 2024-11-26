@@ -6,6 +6,7 @@ export type ExabaseOptions = {
   region: string;
   bucketName: string;
   endpoint: string;
+  writeWindow: number;
 };
 
 /**

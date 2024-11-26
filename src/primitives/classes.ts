@@ -46,6 +46,7 @@ export class GLOBAL_OBJECT {
   static db: any;
   static rct_level: number;
   static s3: S3;
+  static writeWindow: number;
 }
 
 export class ExaError extends Error {
