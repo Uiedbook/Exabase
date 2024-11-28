@@ -23,12 +23,17 @@ const HEADER_LAST_MODIFIED = "last-modified";
 
 // Error messages
 const ERROR_PREFIX = "ultralight-s3 Module: ";
-const ERROR_ACCESS_KEY_REQUIRED = `${ERROR_PREFIX}accessKeyId must be a non-empty string`;
-const ERROR_SECRET_KEY_REQUIRED = `${ERROR_PREFIX}secretAccessKey must be a non-empty string`;
-const ERROR_ENDPOINT_REQUIRED = `${ERROR_PREFIX}endpoint must be a non-empty string`;
-const ERROR_BUCKET_NAME_REQUIRED = `${ERROR_PREFIX}bucketName must be a non-empty string`;
+const ERROR_ACCESS_KEY_REQUIRED =
+  `${ERROR_PREFIX}accessKeyId must be a non-empty string`;
+const ERROR_SECRET_KEY_REQUIRED =
+  `${ERROR_PREFIX}secretAccessKey must be a non-empty string`;
+const ERROR_ENDPOINT_REQUIRED =
+  `${ERROR_PREFIX}endpoint must be a non-empty string`;
+const ERROR_BUCKET_NAME_REQUIRED =
+  `${ERROR_PREFIX}bucketName must be a non-empty string`;
 const ERROR_KEY_REQUIRED = `${ERROR_PREFIX}key must be a non-empty string`;
-const ERROR_DATA_BUFFER_REQUIRED = `${ERROR_PREFIX}data must be a Buffer or string`;
+const ERROR_DATA_BUFFER_REQUIRED =
+  `${ERROR_PREFIX}data must be a Buffer or string`;
 const ERROR_PREFIX_TYPE = `${ERROR_PREFIX}prefix must be a string`;
 const ERROR_MAX_KEYS_TYPE = `${ERROR_PREFIX}maxKeys must be a positive integer`;
 const ERROR_DELIMITER_REQUIRED = `${ERROR_PREFIX}delimiter must be a string`;
@@ -47,7 +52,7 @@ declare global {
   interface Crypto {
     createHmac: (
       algorithm: string,
-      key: string | Buffer
+      key: string | Buffer,
     ) => {
       update: (data: string | Buffer) => void;
       digest: (encoding?: "hex" | "base64" | "latin1") => string;
@@ -68,7 +73,7 @@ let _createHash = crypto.createHash || (await import("node:crypto")).createHash;
 
 if (typeof _createHmac === "undefined" && typeof _createHash === "undefined") {
   console.error(
-    "ultralight-S3 Module: Crypto functions are not available, please report the issue with necessary description: https://github.com/sentienhq/ultralight-s3/issues"
+    "ultralight-S3 Module: Crypto functions are not available, please report the issue with necessary description: https://github.com/sentienhq/ultralight-s3/issues",
   );
 }
 
@@ -107,7 +112,7 @@ export class S3 {
       accessKeyId,
       secretAccessKey,
       endpoint,
-      bucketName
+      bucketName,
     );
     this.accessKeyId = accessKeyId;
     this.secretAccessKey = secretAccessKey;
@@ -121,19 +126,23 @@ export class S3 {
     accessKeyId: string,
     secretAccessKey: string,
     endpoint: string,
-    bucketName: string
+    bucketName: string,
   ): void {
-    if (typeof accessKeyId !== "string" || accessKeyId.trim().length === 0)
+    if (typeof accessKeyId !== "string" || accessKeyId.trim().length === 0) {
       throw new TypeError(ERROR_ACCESS_KEY_REQUIRED);
+    }
     if (
       typeof secretAccessKey !== "string" ||
       secretAccessKey.trim().length === 0
-    )
+    ) {
       throw new TypeError(ERROR_SECRET_KEY_REQUIRED);
-    if (typeof endpoint !== "string" || endpoint.trim().length === 0)
+    }
+    if (typeof endpoint !== "string" || endpoint.trim().length === 0) {
       throw new TypeError(ERROR_ENDPOINT_REQUIRED);
-    if (typeof bucketName !== "string" || bucketName.trim().length === 0)
+    }
+    if (typeof bucketName !== "string" || bucketName.trim().length === 0) {
       throw new TypeError(ERROR_BUCKET_NAME_REQUIRED);
+    }
   }
 
   private _checkMethodHeadnGet(method: string): void {
@@ -204,15 +213,15 @@ export class S3 {
       props.accessKeyId,
       props.secretAccessKey,
       props.bucketName,
-      props.endpoint
+      props.endpoint,
     );
     this.accessKeyId = props.accessKeyId;
     this.secretAccessKey = props.secretAccessKey;
     this.region = props.region || "auto";
     this.bucketName = props.bucketName;
     this.endpoint = props.endpoint;
-    this.maxRequestSizeInBytes =
-      props.maxRequestSizeInBytes || MIN_MAX_REQUEST_SIZE_IN_BYTES;
+    this.maxRequestSizeInBytes = props.maxRequestSizeInBytes ||
+      MIN_MAX_REQUEST_SIZE_IN_BYTES;
     this.requestAbortTimeout = props.requestAbortTimeout;
   };
 
@@ -233,7 +242,7 @@ export class S3 {
       encodedKey,
       {},
       headers,
-      ""
+      "",
     );
     const res = await this._sendRequest(url, "HEAD", signedHeaders);
     const contentLength = res.headers.get(HEADER_CONTENT_LENGTH);
@@ -242,7 +251,7 @@ export class S3 {
 
   async fileExists(
     key: string,
-    opts: Record<string, any> = {}
+    opts: Record<string, any> = {},
   ): Promise<ExistResponseCode> {
     this._checkKey(key);
     const { filteredOpts, conditionalHeaders } = this._filterIfHeaders(opts);
@@ -256,7 +265,7 @@ export class S3 {
       encodedKey,
       filteredOpts,
       headers,
-      ""
+      "",
     );
     try {
       const res = await this._sendRequest(
@@ -264,7 +273,7 @@ export class S3 {
         "HEAD",
         signedHeaders,
         "",
-        [200, 404, 412, 304]
+        [200, 404, 412, 304],
       );
       if (res.status === 404) {
         return false;
@@ -276,11 +285,12 @@ export class S3 {
       else this._handleErrorResponse(res);
       return false; // should never happen
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error);
 
       throw new Error(
-        `${ERROR_PREFIX}Failed to check if file exists: ${errorMessage}`
+        `${ERROR_PREFIX}Failed to check if file exists: ${errorMessage}`,
       );
     }
   }
@@ -289,13 +299,12 @@ export class S3 {
     keyPath: string,
     query: Object = {},
     headers: Record<string, string | number>,
-    body: string | Buffer
+    body: string | Buffer,
   ): Promise<{ url: string; headers: Record<string, any> }> {
     const datetime = new Date().toISOString().replace(/[:-]|\.\d{3}/g, "");
-    const url =
-      typeof keyPath === "string" && keyPath.length > 0
-        ? new URL(keyPath, this.endpoint)
-        : new URL(this.endpoint);
+    const url = typeof keyPath === "string" && keyPath.length > 0
+      ? new URL(keyPath, this.endpoint)
+      : new URL(this.endpoint);
     url.pathname = `/${encodeURI(this.bucketName)}${url.pathname}`;
     headers[HEADER_AMZ_CONTENT_SHA256] = body
       ? await _hash(body)
@@ -314,24 +323,24 @@ export class S3 {
       query,
       canonicalHeaders,
       signedHeaders,
-      body
+      body,
     );
     const stringToSign = await this._buildStringToSign(
       datetime,
-      canonicalRequest
+      canonicalRequest,
     );
     const signature = await this._calculateSignature(datetime, stringToSign);
     const authorizationHeader = this._buildAuthorizationHeader(
       datetime,
       signedHeaders,
-      signature
+      signature,
     );
     headers[HEADER_AUTHORIZATION] = authorizationHeader;
     return { url: url.toString(), headers };
   }
 
   private _buildCanonicalHeaders(
-    headers: Record<string, string | number>
+    headers: Record<string, string | number>,
   ): string {
     return Object.entries(headers)
       .map(([key, value]) => `${key.toLowerCase()}:${String(value).trim()}`)
@@ -345,7 +354,7 @@ export class S3 {
     query: Object,
     canonicalHeaders: string,
     signedHeaders: string,
-    body: string | Buffer
+    body: string | Buffer,
   ): Promise<string> {
     return [
       method,
@@ -359,7 +368,7 @@ export class S3 {
 
   async _buildStringToSign(
     datetime: string,
-    canonicalRequest: string
+    canonicalRequest: string,
   ): Promise<string> {
     const credentialScope = [
       datetime.slice(0, 8),
@@ -377,7 +386,7 @@ export class S3 {
 
   async _calculateSignature(
     datetime: string,
-    stringToSign: string
+    stringToSign: string,
   ): Promise<string> {
     const signingKey = await this._getSignatureKey(datetime.slice(0, 8));
     return _hmac(signingKey, stringToSign, "hex");
@@ -386,7 +395,7 @@ export class S3 {
   private _buildAuthorizationHeader(
     datetime: string,
     signedHeaders: string,
-    signature: string
+    signature: string,
   ): string {
     const credentialScope = [
       datetime.slice(0, 8),
@@ -439,7 +448,7 @@ export class S3 {
     prefix: string = "",
     maxKeys: number = 1000,
     method: HttpMethod = "GET",
-    opts: Object = {}
+    opts: Object = {},
   ): Promise<Object | Array<Object>> {
     this._checkDelimiter(delimiter);
     this._checkPrefix(prefix);
@@ -465,7 +474,7 @@ export class S3 {
       encodedKey,
       query,
       headers,
-      ""
+      "",
     );
     const urlWithQuery = `${url}?${new URLSearchParams(query)}`;
     const res = await this._sendRequest(urlWithQuery, "GET", signedHeaders);
@@ -496,7 +505,7 @@ export class S3 {
    */
   async get(
     key: string,
-    opts: Record<string, any> = {}
+    opts: Record<string, any> = {},
   ): Promise<Response | null> {
     this._checkKey(key);
     const { filteredOpts, conditionalHeaders } = this._filterIfHeaders(opts);
@@ -511,14 +520,14 @@ export class S3 {
       encodedKey,
       filteredOpts,
       headers,
-      ""
+      "",
     );
     const res = await this._sendRequest(
       url,
       "GET",
       signedHeaders,
       "",
-      [200, 404, 412, 304]
+      [200, 404, 412, 304],
     );
     if (res.status === 404 || res.status === 412 || res.status === 304) {
       return null;
@@ -530,14 +539,13 @@ export class S3 {
   }
 
   /**
-   *
    * @param {string} key - The key of the object to get.
    * @param {Object} [opts={}] - Additional options for the get operation.
    * @returns {Promise<{ etag: string|null; data: string|null }>} The content of the object. If the object does not exist, etag and data will be null.
    */
   async getObjectWithETag(
     key: string,
-    opts: Record<string, any> = {}
+    opts: Record<string, any> = {},
   ): Promise<{ etag: string | null; data: string | null }> {
     this._checkKey(key);
     const { filteredOpts, conditionalHeaders } = this._filterIfHeaders(opts);
@@ -552,7 +560,7 @@ export class S3 {
       encodedKey,
       filteredOpts,
       headers,
-      ""
+      "",
     );
     try {
       const res = await this._sendRequest(
@@ -560,7 +568,7 @@ export class S3 {
         "GET",
         signedHeaders,
         "",
-        [200, 404, 412, 304]
+        [200, 404, 412, 304],
       );
       if (res.status === 404 || res.status === 412 || res.status === 304) {
         return { etag: null, data: null };
@@ -588,7 +596,7 @@ export class S3 {
    */
   async getEtag(
     key: string,
-    opts: Record<string, any> = {}
+    opts: Record<string, any> = {},
   ): Promise<string | null> {
     this._checkKey(key);
     const { filteredOpts, conditionalHeaders } = this._filterIfHeaders(opts);
@@ -603,7 +611,7 @@ export class S3 {
       encodedKey,
       filteredOpts,
       headers,
-      ""
+      "",
     );
 
     const res = await this._sendRequest(
@@ -611,7 +619,7 @@ export class S3 {
       "HEAD",
       signedHeaders,
       "",
-      [200, 412, 304]
+      [200, 412, 304],
     );
     // etag does not match
     if (res.status === 412 || res.status === 304) {
@@ -639,7 +647,7 @@ export class S3 {
     wholeFile: boolean = true,
     rangeFrom: number = 0,
     rangeTo: number = this.maxRequestSizeInBytes,
-    opts: Record<string, any> = {}
+    opts: Record<string, any> = {},
   ): Promise<Response> {
     this._checkKey(key);
     const { filteredOpts, conditionalHeaders } = this._filterIfHeaders({
@@ -657,7 +665,7 @@ export class S3 {
       encodedKey,
       filteredOpts,
       headers,
-      ""
+      "",
     );
     const urlWithQuery = `${url}?${new URLSearchParams(filteredOpts)}`;
 
@@ -677,8 +685,9 @@ export class S3 {
       throw new TypeError(ERROR_DATA_BUFFER_REQUIRED);
     }
     // const encodedKey = encodeURIComponent(key);
-    const contentLength =
-      typeof data === "string" ? Buffer.byteLength(data) : data.length;
+    const contentLength = typeof data === "string"
+      ? Buffer.byteLength(data)
+      : data.length;
     const headers = {
       [HEADER_CONTENT_LENGTH]: contentLength,
     };
@@ -688,7 +697,7 @@ export class S3 {
       encodedKey,
       {},
       headers,
-      data
+      data,
     );
     return this._sendRequest(url, "PUT", signedHeaders, data, [200]);
   }
@@ -710,7 +719,7 @@ export class S3 {
       encodedKey,
       {},
       headers,
-      ""
+      "",
     );
     const res = await this._sendRequest(url, "DELETE", signedHeaders);
     if (res.status === 204 || res.status === 200) {
@@ -724,16 +733,15 @@ export class S3 {
     method: HttpMethod,
     headers: Record<string, string | any>,
     body?: string | Buffer,
-    toleratedStatusCodes: number[] = []
+    toleratedStatusCodes: number[] = [],
   ): Promise<Response> {
     const res = await fetch(url, {
       method,
       headers,
       body: ["GET", "HEAD"].includes(method) ? undefined : body,
-      signal:
-        this.requestAbortTimeout !== undefined
-          ? AbortSignal.timeout(this.requestAbortTimeout)
-          : undefined,
+      signal: this.requestAbortTimeout !== undefined
+        ? AbortSignal.timeout(this.requestAbortTimeout)
+        : undefined,
     });
     if (!res.ok && !toleratedStatusCodes.includes(res.status)) {
       await this._handleErrorResponse(res);
@@ -744,11 +752,11 @@ export class S3 {
   async _handleErrorResponse(res: Response) {
     const errorBody = await res.text();
     const errorCode = res.headers.get("x-amz-error-code") || "Unknown";
-    const errorMessage =
-      res.headers.get("x-amz-error-message") || res.statusText;
+    const errorMessage = res.headers.get("x-amz-error-message") ||
+      res.statusText;
 
     throw new Error(
-      `${ERROR_PREFIX}Request failed with status ${res.status}: ${errorCode} - ${errorMessage}, err body: ${errorBody}`
+      `${ERROR_PREFIX}Request failed with status ${res.status}: ${errorCode} - ${errorMessage}, err body: ${errorBody}`,
     );
   }
 
@@ -761,9 +769,11 @@ export class S3 {
       .sort()
       .map(
         (key) =>
-          `${encodeURIComponent(key)}=${encodeURIComponent(
-            (queryParams as Record<string, any>)[key]
-          )}`
+          `${encodeURIComponent(key)}=${
+            encodeURIComponent(
+              (queryParams as Record<string, any>)[key],
+            )
+          }`,
       )
       .join("&");
   }
@@ -784,7 +794,7 @@ const _hash = async (content: string | Buffer): Promise<string> => {
 const _hmac = async (
   key: string | Buffer,
   content: string,
-  encoding?: "hex"
+  encoding?: "hex",
 ): Promise<string> => {
   const hmacSum = _createHmac("sha256", key);
   hmacSum.update(content);
@@ -800,7 +810,7 @@ export const sanitizeETag = (etag: string): string => {
   };
   return etag.replace(
     /^("|&quot;|&#34;)|("|&quot;|&#34;)$/g,
-    (m) => replaceChars[m] as string
+    (m) => replaceChars[m] as string,
   );
 };
 
@@ -825,7 +835,7 @@ const _parseXml = (str: string): string | object | any => {
 
     if (typeof parsedValue === "string") {
       (json as { [key: string]: any })[fullKey] = sanitizeETag(
-        unescapeXml(parsedValue)
+        unescapeXml(parsedValue),
       );
     } else if (Array.isArray((json as { [key: string]: any })[fullKey])) {
       (json as { [key: string]: any })[fullKey].push(parsedValue);

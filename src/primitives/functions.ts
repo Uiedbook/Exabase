@@ -1,17 +1,17 @@
-import { promises as fsp, statSync, readFileSync } from "node:fs";
+import { promises as fsp, readFileSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve as _resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 // ?
-import { ExaError, GLOBAL_OBJECT } from "./classes.js";
+import { ExaError, GLOBAL_OBJECT } from "./classes.ts";
 import {
   type columnValidationType,
   type Msg,
   type Msgs,
   type SchemaColumnOptions,
   type Xtree_flag,
-} from "./types.js";
+} from "./types.ts";
 
 export const loadLog = async (filePath: string) => {
   try {
@@ -297,39 +297,53 @@ export function binarySorted_insert<T extends { _id: string }>(
 }
 
 const PROCESS_UNIQUE = randomBytes(5);
-const buffer = Buffer.alloc(12);
-export const ExaId = (): string => {
+
+export const ExaId = (log: string): string => {
+  const logLength = log.length;
+  const buffer = Buffer.allocUnsafe(12 + logLength);
   let index = ~~(Math.random() * 0xffffff);
   const time = ~~(Date.now() / 1000);
   const inc = (index = (index + 1) % 0xffffff);
   // 4-byte timestamp
-  buffer[3] = time & 0xff;
-  buffer[2] = (time >> 8) & 0xff;
-  buffer[1] = (time >> 16) & 0xff;
-  buffer[0] = (time >> 24) & 0xff;
+  buffer.writeUInt32BE(time, 0);
   // 5-byte process unique
-  buffer[4] = PROCESS_UNIQUE[0];
-  buffer[5] = PROCESS_UNIQUE[1];
-  buffer[6] = PROCESS_UNIQUE[2];
-  buffer[7] = PROCESS_UNIQUE[3];
-  buffer[8] = PROCESS_UNIQUE[4];
+  buffer.set(PROCESS_UNIQUE, 4);
   // 3-byte counter
-  buffer[11] = inc & 0xff;
-  buffer[10] = (inc >> 8) & 0xff;
-  buffer[9] = (inc >> 16) & 0xff;
+  buffer.writeUIntBE(inc, 9, 3);
+  // Encode log string into the buffer
+  buffer.write(log, 12, logLength, "utf8");
+  // Convert to hexadecimal string
   return buffer.toString("hex");
 };
 
-export const encode_timestamp = (timestamp: string): string => {
-  const time = ~~(new Date(timestamp).getTime() / 1000);
-  const buffer = Buffer.alloc(4);
-  // 4-byte timestamp
-  buffer[3] = time & 0xff;
-  buffer[2] = (time >> 8) & 0xff;
-  buffer[1] = (time >> 16) & 0xff;
-  buffer[0] = (time >> 24) & 0xff;
-  return buffer.toString("hex");
-};
+// export const decodeExaId = (
+//   id: string,
+// ): {
+//   timestamp: number;
+//   processUnique: string;
+//   counter: number;
+//   log: string;
+// } => {
+//   // Convert hex string back to Buffer
+//   const buffer = Buffer.from(id, "hex");
+//   // Decode the timestamp (4 bytes)
+//   const timestamp = buffer.readUInt32BE(0) * 1000;
+//   // Decode the process-unique identifier (5 bytes)
+//   const processUnique = Buffer.from(buffer.subarray(4, 9)).toString("hex");
+//   // Decode the incrementing counter (3 bytes)
+//   const counter = buffer.readUIntBE(9, 3);
+//   // Decode the log string (remaining bytes)
+//   const log = Buffer.from(buffer.subarray(12)).toString("utf8");
+//   return {
+//     timestamp,
+//     processUnique,
+//     counter,
+//     log,
+//   };
+// };
+
+export const msgId = (_id: string): string =>
+  Buffer.from(_id, "hex").subarray(12).toString("utf8");
 
 // ExaSchema validator
 export function validator(

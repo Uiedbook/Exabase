@@ -1,23 +1,23 @@
 import { mkdirSync } from "node:fs";
-import { type ExabaseOptions } from "./primitives/types.js";
+import { type ExabaseOptions } from "./primitives/types.ts";
 import {
   ExaError,
   ExaSchema,
   GLOBAL_OBJECT,
   Manager,
-} from "./primitives/classes.js";
-import { S3 } from "./primitives/blob-lib.js";
+} from "./primitives/classes.ts";
+import { S3 } from "./primitives/blob-lib.ts";
 
 export class Exabase {
   private dbDir: string;
   schemas: ExaSchema<{}>[] = [];
   constructor(init: ExabaseOptions) {
-    GLOBAL_OBJECT.s3 = new S3({
-      accessKeyId: init.accessKeyId,
-      secretAccessKey: init.secretAccessKey,
-      bucketName: init.bucketName,
-      endpoint: init.endpoint,
-    });
+    // GLOBAL_OBJECT.s3 = new S3({
+    //   accessKeyId: init.accessKeyId,
+    //   secretAccessKey: init.secretAccessKey,
+    //   bucketName: init.bucketName,
+    //   endpoint: init.endpoint,
+    // });
     GLOBAL_OBJECT.db = this;
     //? [1] directories
     this.dbDir = "DB";

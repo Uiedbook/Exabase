@@ -143,9 +143,9 @@ export type columnValidationType = {
 export type searchQuery<Model> =
   | Partial<Model>
   | Record<
-      "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte" | "$pick",
-      Partial<Model>
-    >;
+    "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte" | "$pick",
+    Partial<Model>
+  >;
 
 export type QueryType<Model> = {
   table?: string;
@@ -175,12 +175,11 @@ export interface iTable {
   [x: string]: { [x: string]: string };
 }
 
-export type LOG_file_type = Record<string, { last_id: string; size: number }>;
+export type LOG_file_type = Record<string, { size: number }>;
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
 
 export type xPersistType = {
   maps: Record<string, Record<string, number[]>>;
   keys: string[];
-  logKeys: string[];
 };
