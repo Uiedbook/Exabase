@@ -37,20 +37,26 @@ export class Exabase {
     if (!(schema instanceof ExaSchema)) {
       throw new Error("invalid object passed as exabase schema");
     }
-    this.schemas.push(schema);
-    // ? setup rct level
-    //? setup managers
-    GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!] = new Manager(schema);
+    const table = schema.table;
+    //? CHECK IF THE SCHEMA ALREADY EXISTED UPDATE IT
+    const existedIdx = this.schemas.findIndex((s) => s.table === table);
+    if (existedIdx !== -1) {
+      this.schemas.splice(existedIdx, 1, schema);
+    } else {
+      this.schemas.push(schema);
+    }
+    // ? setup rct level && setup managers
+    GLOBAL_OBJECT.EXABASE_MANAGERS[table] = new Manager(schema);
     // ? setup relationships
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].setup({
+    await GLOBAL_OBJECT.EXABASE_MANAGERS[table!].setup({
       exabaseDirectory: this.dbDir,
       schemas: this.schemas,
     });
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].synchronize();
+    await GLOBAL_OBJECT.EXABASE_MANAGERS[table].synchronize();
     //? update query makers and RCT level per manager
     const rct_level = Math.round(150 / this.schemas.length);
     GLOBAL_OBJECT.rct_level = rct_level > 5 ? rct_level : 5;
-    GLOBAL_OBJECT.EXABASE_MANAGERS[schema?.table!].isActive = true;
+    GLOBAL_OBJECT.EXABASE_MANAGERS[table].isActive = true;
   }
   async query<T = any>(query: string): Promise<T> {
     //? verify query validity

@@ -1,5 +1,5 @@
 import { opendir, unlink } from "node:fs/promises";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { Packr } from "msgpackr";
 import {
   type LOG_file_type,
@@ -13,6 +13,7 @@ import {
   type wTrainType,
   type xPersistType,
   type Xtree_flag,
+  type xTreeType,
 } from "./types.ts";
 import {
   binarySearch_mutate,
@@ -132,7 +133,7 @@ export class Manager {
   public tableDir: string = "";
   public isRelatedConstructed = false;
   public isActive = false;
-  public RCT: Record<string, Msgs | undefined> = {};
+  public RCT: Record<string, Msgs | xTreeType | undefined> = {};
   public LogFiles: LOG_file_type = {};
   public xIndex: XTree;
   constructor(schema: ExaSchema<any>) {
@@ -155,8 +156,7 @@ export class Manager {
     // ? setup steps
     this.tableDir = init.exabaseDirectory + "/" + this.schema.table + "/";
     // ? provide Xtree search index dir
-    const persistKey = this.tableDir + "XLOG";
-    this.xIndex.persistKey = persistKey;
+    this.xIndex.tableDir = this.tableDir;
     //? setup table directories
     if (!existsSync(this.tableDir)) {
       mkdirSync(this.tableDir);
@@ -203,8 +203,6 @@ export class Manager {
   async synchronize() {
     try {
       const dir = await opendir(this.tableDir!);
-      const logFiles: string[] = [];
-      const XLogFiles: string[] = [];
       for await (const dirent of dir) {
         // ? here we destroy invalid sync files, availability of such files
         // ? signifies an application crash stopping exabase from completing a commit
@@ -214,16 +212,18 @@ export class Manager {
         }
         if (dirent.isFile()) {
           const fn = dirent.name;
-          logFiles.push(fn);
-          if ("XLOG".includes(fn)) {
-            XLogFiles.push(fn);
-            continue;
+          if (fn.includes("XLOG-")) continue;
+          if (fn.includes("LOG-")) {
+            const name = this.tableDir + dirent.name;
+            const length = loadLogSync(name, []).length;
+            this.LogFiles[fn] = { size: getFileSize(name), length };
+            await this.xIndex.sync(this.tableDir, "X" + fn);
           }
-          const name = this.tableDir + dirent.name;
-          this.LogFiles[fn] = { size: getFileSize(name) };
         }
       }
-      await this.xIndex.load(this.tableDir, XLogFiles);
+      console.log(
+        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!"
+      );
     } catch (err) {
       console.log({ err });
     }
@@ -239,7 +239,7 @@ export class Manager {
     //? Create a new log file with an incremented number of LOG filename
     const nln = Object.keys(this.LogFiles).length + 1;
     const lfid = "LOG-" + nln;
-    this.LogFiles[lfid] = { size: 0 };
+    this.LogFiles[lfid] = { size: 0, length: 0 };
     return lfid;
   }
   validate(data: any) {
@@ -275,17 +275,25 @@ export class Manager {
     const resolveFNs = [];
     // ? do the writing by
     const name = this.tableDir + file;
+
     const messages = await loadLog(name);
+
     for (const [resolve, message, flag] of queries) {
+      const xFile = "X" + file;
+      let sRCTied: xTreeType = this.RCT[xFile] as xTreeType;
+      if (!sRCTied) {
+        sRCTied = await this.xIndex.load(xFile);
+        this.RCT[xFile] = sRCTied;
+      }
       if (flag === "i") {
-        await this.xIndex.createIndex(message);
+        await this.xIndex.createIndex(sRCTied, message, file);
         binarySorted_insert(message, messages);
       } else {
         // ? update search index
         if (flag === "d") {
-          await this.xIndex.removeIndex(message, true);
+          await this.xIndex.removeIndex(sRCTied, message, file, true);
         } else {
-          await this.xIndex.createIndex(message);
+          await this.xIndex.createIndex(sRCTied, message, file);
         }
         binarySearch_mutate(message, messages, flag);
       }
@@ -306,6 +314,7 @@ export class Manager {
       this.RCT[file] = messages;
       // ? update _logFile metadata index
       this.LogFiles[file].size = getFileSize(name);
+      this.LogFiles[file].length = messages.length;
       resolveFNs.map((a) => a());
       this.runningQueue = false;
     }
@@ -318,7 +327,7 @@ export class Manager {
       let result: any[] = [];
       for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
         const file = "LOG-" + log;
-        let RCTied = this.RCT[file];
+        let RCTied = this.RCT[file] as Msgs;
         if (!RCTied) {
           RCTied = await loadLog(this.tableDir + file);
           this.RCT[file] = RCTied;
@@ -366,16 +375,45 @@ export class Manager {
           this.schema.foreign_field
         );
       }
-      return await findMessage(query, RCTied);
+      return await findMessage(query, RCTied as Msgs);
     }
+  }
+  async search(search: Msg, take = 1000) {
+    const result: string[] = [];
+    for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
+      const file = "XLOG-" + log;
+      let RCTied = this.RCT[file] as xTreeType;
+      if (!RCTied) {
+        RCTied = await this.xIndex.load(file);
+        this.RCT[file] = RCTied;
+      }
+      const indexes = this.xIndex.search(RCTied, search, take);
+      // @ts-ignore
+      result.push(indexes);
+      if (result.length >= take) break;
+    }
+    return result.flat();
+  }
+  async count(search: Msg) {
+    let result: number = 0;
+    for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
+      const file = "XLOG-" + log;
+      let RCTied = this.RCT[file] as xTreeType;
+      if (!RCTied) {
+        RCTied = await this.xIndex.load(file);
+        this.RCT[file] = RCTied;
+      }
+      result += this.xIndex.count(RCTied, search);
+    }
+    return result;
   }
   async runner(query: QueryType<Msg>): Promise<Msg | Msgs | number | void> {
     if (query.many || query.one) {
       return this.find(query);
     }
     if (query["search"]) {
-      const indexes = this.xIndex.search(query.search as Msg, query.take);
-      const searches = await Promise.all(
+      const indexes = await this.search(query.search as Msg, query.take);
+      return await Promise.all(
         indexes.map(
           (_id: string) =>
             this.find({
@@ -385,11 +423,6 @@ export class Manager {
             }) as Promise<Msg>
         )
       );
-      if (query.sort) {
-        const key = Object.keys(query.sort)[0] as "_id";
-        return bucketSort(searches, key, query.sort[key] as "ASC");
-      }
-      return searches;
     }
     if (query["insert"]) {
       const message = this.validate(query.insert);
@@ -399,7 +432,7 @@ export class Manager {
         for (const key in this.schema.unique_field) {
           searchConstruct[key] = message[key];
         }
-        const someIdex = this.xIndex.search(searchConstruct);
+        const someIdex = await this.search(searchConstruct, 1);
         if (someIdex.length && someIdex[0] !== message._id) {
           throw new ExaError(
             "INSERT on table ",
@@ -422,7 +455,7 @@ export class Manager {
         for (const key in this.schema.unique_field) {
           searchConstruct[key] = message[key];
         }
-        const someIdex = this.xIndex.search(searchConstruct);
+        const someIdex = await this.search(searchConstruct, 1);
         if (someIdex.length && someIdex[0] !== message._id) {
           throw new ExaError(
             "UPDATE on table ",
@@ -439,7 +472,13 @@ export class Manager {
       if (!oldMessage) {
         throw new ExaError("item to update not found");
       } else {
-        await this.xIndex.removeIndex(oldMessage, false);
+        const xFile = "X" + file;
+        let sRCTied: xTreeType = this.RCT[xFile] as xTreeType;
+        if (!sRCTied) {
+          sRCTied = await this.xIndex.load(xFile);
+          this.RCT[xFile] = sRCTied;
+        }
+        await this.xIndex.removeIndex(sRCTied, oldMessage, file, false);
       }
       // ?   conserve foreign relationships
       await conserveForeignKeys(message, this.schema.foreign_field);
@@ -447,9 +486,14 @@ export class Manager {
     }
     if (query["count"]) {
       if (query["count"] === true) {
-        return this.xIndex.keys.length;
+        const logFiles = Object.values(this.LogFiles);
+        if (!logFiles.length) return 0;
+        return logFiles.reduce((a, b) => {
+          b.length += a.length + b.length;
+          return b;
+        }).length;
       }
-      return this.xIndex.count(query["count"] as Msg);
+      return this.count(query["count"] as Msg);
     }
     if (query["delete"]) {
       const file = msgId(query.delete);
@@ -489,113 +533,122 @@ class XNode {
 }
 
 export class XTree {
-  persistKey?: string;
-  tree: Record<string, XNode> = {};
-  keys: string[] = [];
+  tableDir?: string;
   indexTable: Record<string, boolean>;
   constructor(init: { indexTable: Record<string, boolean> }) {
     this.indexTable = init.indexTable;
   }
-  search(search: Msg, _take: number = Infinity) {
+  search(xtree: xTreeType, search: Msg, _take: number = Infinity) {
     const Indexes: number[][] = [];
     //  ? get the search keys
     for (const key in search) {
       if (!this.indexTable[key]) continue;
       const value = search[key] as "_id";
-      if (this.tree[key]) {
+      if (xtree.tree[key]) {
         // ? allow text term searching
         if (typeof value === "string") {
-          const labels = Object.keys(this.tree[key].map).filter((cur) =>
+          const labels = Object.keys(xtree.tree[key].map).filter((cur) =>
             cur.includes(value)
           );
+          const pack: number[][] = [];
           for (const label of labels) {
-            Indexes.push(this.tree[key].map[label]);
+            pack.push(xtree.tree[key].map[label]);
           }
+          Indexes.push(pack.flat());
         } else {
           // ? allow other data type searching
-          Indexes.push(this.tree[key].map[value] || []);
+          Indexes.push(xtree.tree[key].map[value] || []);
         }
       }
     }
     //  ? get return the keys if the length is 1
-
     if (Indexes.length === 0) return [];
-    if (Indexes.length === 1) return Indexes[0].map((idx) => this.keys[idx]);
+    if (Indexes.length === 1) return Indexes[0].map((idx) => xtree.keys[idx]);
     //  ? get return the keys if the length is more than one
-    return intersect(Indexes).map((idx) => this.keys[idx]);
+    return intersect(Indexes).map((idx) => xtree.keys[idx]);
   }
-  count(search: Msg) {
+  count(xtree: xTreeType, search: Msg) {
     let resultsCount: number = 0;
     for (const key in search) {
       if (!this.indexTable[key]) continue;
-      if (this.tree[key]) {
-        resultsCount += this.tree[key].map[search[key as "_id"]].length;
+      if (xtree.tree[key]) {
+        resultsCount += xtree.tree[key].map[search[key as "_id"]].length;
       }
     }
     return resultsCount;
   }
-  createIndex(data: Msg) {
+  async createIndex(xtree: xTreeType, data: Msg, log: string) {
     // ? retrieve msg key index
-    let idk = this.keys.indexOf(data._id);
+    let idk = xtree.keys.indexOf(data._id);
     if (idk === -1) {
-      idk = this.keys.push(data._id) - 1;
+      idk = xtree.keys.push(data._id) - 1;
     }
     // ? save keys in their corresponding nodes
     for (const key in data) {
       if (!this.indexTable[key]) continue;
-      if (!this.tree[key]) {
-        this.tree[key] = new XNode();
+      if (!xtree.tree[key]) {
+        xtree.tree[key] = new XNode();
       }
-      this.tree[key].create(data[key as "_id"], idk);
+      xtree.tree[key].create(data[key as "_id"], idk);
     }
-    return this.persist();
+    await this.persist(xtree, this.tableDir + "X" + log);
   }
-  removeIndex(data: Msg, drop: boolean) {
+  async removeIndex(xtree: xTreeType, data: Msg, log: string, drop: boolean) {
     //  ? remove other attributes indexes
-    let idk = this.keys.indexOf(data._id);
+    let idk = xtree.keys.indexOf(data._id);
     if (idk === -1) return;
     for (const key in data) {
-      if (!this.tree[key]) continue;
-      this.tree[key].drop(data[key as "_id"], idk);
+      if (!xtree.tree[key]) continue;
+      xtree.tree[key].drop(data[key as "_id"], idk);
     }
     if (drop) {
-      this.keys.splice(idk, 1);
+      xtree.keys.splice(idk, 1);
     }
-    return this.persist();
+    return this.persist(xtree, this.tableDir + "X" + log);
   }
-  private persist() {
+  private persist(xtree: xTreeType, file: string) {
     const obj: xPersistType = {
-      keys: this.keys,
+      keys: xtree.keys,
       maps: {},
     };
-    const map = Object.keys(this.tree);
+    const map = Object.keys(xtree.tree);
     for (let i = 0; i < map.length; i++) {
-      obj.maps[map[i]] = this.tree[map[i]].map;
+      obj.maps[map[i]] = xtree.tree[map[i]].map;
     }
-    return SynFileWritWithWaitList.write(
-      this.persistKey!,
-      GLOBAL_OBJECT.packr.encode(obj)
-    );
+    return SynFileWritWithWaitList.write(file, GLOBAL_OBJECT.packr.encode(obj));
   }
-  async load(persistKey: string, logFiles: string[]) {
-    const tree: Record<string, Record<string, number[]>> = {};
-
-    // Load logs in parallel
-    const logData = await Promise.all(
-      logFiles.map((log) => loadLogSync(persistKey + log, {}))
-    );
-
-    for (const data of logData) {
-      if (data.keys) Array.prototype.push.apply(this.keys, data.keys);
-      if (data.maps) deepMerge(tree, data.maps);
-    }
-
-    for (const key in tree) {
-      if (this.tree[key]) {
-        this.tree[key].map = deepMerge(this.tree[key].map, tree[key]);
+  async load(log: string) {
+    let nodesTree: Record<string, Record<string, number[]>> = {};
+    const xtree: xTreeType = { keys: [], tree: {} };
+    //? Load logs in parallel
+    const data: xPersistType = (await loadLog(this.tableDir + log)) as any;
+    if (data.keys) Array.prototype.push.apply(xtree.keys, data.keys);
+    if (data.maps) nodesTree = data.maps;
+    for (const key in nodesTree) {
+      if (xtree.tree[key]) {
+        xtree.tree[key].map = deepMerge(xtree.tree[key].map, nodesTree[key]);
       } else {
-        this.tree[key] = new XNode(tree[key]);
+        xtree.tree[key] = new XNode(nodesTree[key]);
       }
+    }
+    return xtree;
+  }
+  async sync(tableDir: string, log: string) {
+    //? check if xlog-n exist and is fresher than log-n else rebuild xlog-n
+    const file = tableDir + log;
+    // console.log(
+    //   { xlog: log, tableDir, file, log: log.slice(1) },
+    //   new Date(statSync(file).atimeMs).toString(),
+    //   "\n",
+    //   new Date(statSync(tableDir + log.slice(1)).atimeMs).toString()
+    // );
+    if (statSync(file).atimeMs < statSync(tableDir + log.slice(1)).atimeMs) {
+      return;
+    }
+    const LOG = loadLogSync(file, {});
+    const xtree = await this.load(file);
+    for (let i = 0; i < LOG.length; i++) {
+      await this.createIndex(xtree, LOG[i], file);
     }
   }
 }

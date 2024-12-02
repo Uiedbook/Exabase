@@ -175,11 +175,23 @@ export interface iTable {
   [x: string]: { [x: string]: string };
 }
 
-export type LOG_file_type = Record<string, { size: number }>;
+export type LOG_file_type = Record<string, { size: number; length: number }>;
 export type Xtree_flag = "i" | "u" | "d" | "n";
 export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
 
 export type xPersistType = {
   maps: Record<string, Record<string, number[]>>;
+  keys: string[];
+};
+
+interface XNode {
+  map: Record<string, number[]>;
+  // constructor(map?: Record<string, number[]>);
+  create(val: string, idk: number): void;
+  drop(val: string, idk: number): void;
+}
+
+export type xTreeType = {
+  tree: Record<string, XNode>;
   keys: string[];
 };

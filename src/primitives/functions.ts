@@ -45,7 +45,7 @@ export async function findMessage(
     one?: string;
     populate?: Record<string, { table: string; type: "MANY" | "ONE" }>;
   },
-  messages: Msgs
+  messages: Msgs,
 ) {
   const { one = "", populate } = query;
   if (messages[0]?._id === one) {
@@ -85,7 +85,7 @@ export const conserveForeignKeys = async (
       table: string;
       type: "ONE" | "MANY";
     };
-  }
+  },
 ) => {
   for (const key in join) {
     const relation = join[key];
@@ -127,14 +127,14 @@ const findForeignKeys = async (table: string, one: string) => {
       "relationship failed: '",
       one,
       "' not found on table ",
-      table
+      table,
     );
   }
 };
 
 export const setPopulateOptions = (
   populate: Record<string, true> | true,
-  fields: Record<string, { table: string; type: "ONE" | "MANY" }> = {}
+  fields: Record<string, { table: string; type: "ONE" | "MANY" }> = {},
 ) => {
   if (populate === true) {
     return fields;
@@ -170,7 +170,7 @@ export const populateForeignKeys = async (
       table: string;
       type: "ONE" | "MANY";
     };
-  }
+  },
 ) => {
   for (const key in join) {
     if (join[key].type === "MANY") {
@@ -209,10 +209,9 @@ export function deepMerge(target: any, source: any): any {
           ? [...new Set([...targetValue, ...sourceValue])]
           : [...sourceValue];
       } else if (typeof sourceValue === "object" && sourceValue !== null) {
-        target[key] =
-          typeof targetValue === "object" && targetValue !== null
-            ? deepMerge(targetValue, sourceValue)
-            : { ...sourceValue };
+        target[key] = typeof targetValue === "object" && targetValue !== null
+          ? deepMerge(targetValue, sourceValue)
+          : { ...sourceValue };
       } else {
         target[key] = sourceValue;
       }
@@ -225,7 +224,7 @@ export function deepMerge(target: any, source: any): any {
 export const binarySearch_find = (_id: string, messages: { _id: string }[]) => {
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right; ) {
+  for (; left <= right;) {
     const mid = (left + right) >>> 1;
 
     const midId = messages[mid]._id;
@@ -243,7 +242,7 @@ export const binarySearch_find = (_id: string, messages: { _id: string }[]) => {
 export const binarySearch_mutate = (
   message: Msg,
   messages: Msgs,
-  flag: Xtree_flag
+  flag: Xtree_flag,
 ) => {
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
@@ -255,7 +254,7 @@ export const binarySearch_mutate = (
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right; ) {
+  for (; left <= right;) {
     const mid = (left + right) >>> 1;
     const midId = messages[mid]._id;
     if (midId === _id) {
@@ -278,7 +277,7 @@ export const binarySearch_mutate = (
 //? binary sort insert it
 export function binarySorted_insert<T extends { _id: string }>(
   item: T,
-  arr: T[]
+  arr: T[],
 ): number {
   let low = 0;
   let high = arr.length;
@@ -291,7 +290,6 @@ export function binarySorted_insert<T extends { _id: string }>(
       high = mid;
     }
   }
-
   arr.splice(low, 0, item);
   return low;
 }
@@ -348,7 +346,7 @@ export const msgId = (_id: string): string =>
 // ExaSchema validator
 export function validator(
   data: Record<string, any> = {},
-  schema: Record<string, SchemaColumnOptions> = {}
+  schema: Record<string, SchemaColumnOptions> = {},
 ) {
   //? check for valid input
   if (typeof data !== "object") return "input is invalid ";
@@ -491,7 +489,7 @@ const numb = (str: string) => {
 export function bucketSort(
   arr: Msgs,
   prop: keyof Msg,
-  order: "ASC" | "DESC"
+  order: "ASC" | "DESC",
 ): Msgs {
   if (arr.length === 0) return arr;
   //? Calculate numb values once and store them
@@ -507,7 +505,7 @@ export function bucketSort(
   for (let i = 0; i < arr.length; i++) {
     const data: Msg = arr[i];
     const bucketIndex = Math.floor(
-      (numb(data[prop].toString()) - minValue) / bucketSize
+      (numb(data[prop].toString()) - minValue) / bucketSize,
     );
     buckets[bucketIndex].push(data);
   }
