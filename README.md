@@ -7,7 +7,7 @@
 <h1 align="center">Exabase</h1>
 
 <p align="center">
-    High Performant and Bottomless NOSQL database
+    High Performant and Bottomless database
     <br/>
     <br/>
     <a href="https://github.com/uiedbook/Exabase#examples"><strong>Explore APIs »</strong></a>
@@ -31,12 +31,10 @@ Exabase provides support for these features:
 - High performance
 - Bottomless storage.
 - Consistency and Consensus.
-- JSON based query.
-- Strong Consistency and Scalability.
-- Open sourced
+- Scalability.
+- Open source
 
-Exabase is designed as a simple, light and but powerful database, using the an
-intuitive schema, and a concise JSON base query format.
+Exabase is lightweight embedded and powerful distributed database.
 
 --
 
@@ -47,22 +45,16 @@ techniques.
 
 - Separation of concerns mechanism across tables. This allows for more
   efficiency by keeping each table manager in it own space.
-- Exabase make an extensive use of Binary search algorithms and custom Binary
-  inset algorithms, allowing for sorted storage and efficient query of data.
-
+- Exabase make an extensive use efficient algorithms for storage and query of data.
 - Consistency and Durability in log files and other very important files is
   achieved through an ACID complaint data processing mechanism which is
   optimized for crash recovery and consistency checks out of the box.
-
-- Exabase achieves a high search query efficiency using a search indexing
+- Exabase achieves a high search query efficiency using a custom search indexing
   mechanism called Xtree, written from the ground up and great at categorical search indexing needs.
 
-- Exabase excels at sorting data very fast using a combination of bucket &
-  merge-sort algorithms.
+# Current support runtimes.
 
-# Requirements to use Exabase.
-
-Exabase support all server-side Javascript runtime:
+Exabase support server-side Javascript runtime like:
 
 - Nodejs.
 - Bunjs.
@@ -77,15 +69,6 @@ Install Exabase right on your project using npm.
 ```
 npm i exabase --save
 ```
-
-## Usage
-
-Exabase is for the cave man, it has carefully designed APIs that allows you to
-make the most actions against your database in a very easy way.
-
-When improvements and changes rolls out, we will quickly update this page and
-the currently prepared
-[web documentation]("https://uiedbook.gitbook.io/exabase/").
 
 ## Using Exabase
 
@@ -108,7 +91,7 @@ export type ExabaseOptions = {
 };
 ```
 
-## Exabase JSON Query format
+## Exabase JSON Query format | <Depreciated>
 
 Exabase is queried with json. in the format
 
@@ -119,7 +102,7 @@ Exabase is queried with json. in the format
 }
 ```
 
-## ExaSchema Query Properties
+## ExaSchema Query Properties | <Depreciated>
 
 ```ts
  {
@@ -140,7 +123,7 @@ Exabase is queried with json. in the format
 };
 ```
 
-## Example syntax
+## Example syntax | <Depreciated>
 
 ```ts
 const user = await db.query(
@@ -176,7 +159,7 @@ expect(user4.name).toBe("greg pola");
 expect(user5).toBe(undefined);
 ```
 
-## A Basic Database setup and queries.
+## A Basic Database setup and queries. | <Depreciated>
 
 ```ts
 import { Exabase } from "../dist/index.js";
@@ -236,17 +219,12 @@ await db.query(
 );
 ```
 
-# Benchmarks
+# Benchmarks | <Old>
 
 This benchmark is Exabase against sqlite.
 
 Sqlite has a tiny footprint and off course really great performance with pure
 acidity and relational.
-
-We are trilled Exabase performs really well and exceeding beats sqlite.
-
-And with this confidence we have and encourage everyone to try Exabase for
-themselves.
 
 ```md
 cpu: Intel(R) Celeron(R) CPU 4205U @ 1.80GHz runtime: bun 1.0.0 (x64-linux)
