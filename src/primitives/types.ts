@@ -1,12 +1,12 @@
 /**
  * Interface for Exabase init  */
 export type ExabaseOptions = {
-  accessKeyId: string;
+  // accessKeyId: string;
+  // region: string;
+  // bucketName: string;
+  // writeWindow: number;
   secretAccessKey: string;
-  region: string;
-  bucketName: string;
   endpoint: string;
-  writeWindow: number;
 };
 
 /**
@@ -16,19 +16,6 @@ export interface SchemaOptions<Model> {
    * Table name.
    */
   table: Uppercase<string>;
-  /**
-   * Exabase RCT
-   * ---
-   *
-   * Enables Regularity Cache Tank for this table?.
-   *
-   * ***
-   * synopsis
-   * ***
-   * Exabase RCT is a log file level cache, which makes log files retrieve cheap
-   *
-   * this is integrated because Exabase is not does not cache in any form by default and Exabase only implement RCT cache only
-   */
 
   /**
    * Indicates properties and  relationship definitions for the schema

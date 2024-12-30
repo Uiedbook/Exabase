@@ -29,7 +29,7 @@ import {
   loadLogSync,
   msgId,
   populateForeignKeys,
-  resizeRCT,
+  resizeLOG_CACHE,
   setPopulateOptions,
   SynFileWrit,
   SynFileWritWithWaitList,
@@ -41,12 +41,8 @@ export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
   static MEMORY_PERCENT: number;
   static packr = new Packr();
-  //? Regularity Cache Tank or whatever.
-  static RCT: Record<string, Record<string, Msgs | undefined> | boolean> = {
-    none: false, //? none is default for use with identifiers that has no need to cache
-  };
   static db: any;
-  static rct_level: number;
+  static logCount: number;
   static s3: S3;
   static writeWindow: number;
 }
@@ -101,7 +97,7 @@ export class ExaSchema<Model> {
                 default: undefined,
                 required: false,
               },
-            }
+            },
           );
           if (typeof v === "string") {
             throw new ExaError("table ", this.table, " error ", v);
@@ -133,7 +129,7 @@ export class Manager {
   public tableDir: string = "";
   public isRelatedConstructed = false;
   public isActive = false;
-  public RCT: Record<string, Msgs | xTreeType | undefined> = {};
+  public LOG_CACHE: Record<string, Msgs | xTreeType | undefined> = {};
   public LogFiles: LOG_file_type = {};
   public xIndex: XTree;
   constructor(schema: ExaSchema<any>) {
@@ -172,7 +168,7 @@ export class Manager {
           if (typeof this.schema.relationship![key].target === "string") {
             const table = this.schema.relationship![key].target;
             const findSchema = allSchemas.find(
-              (schema) => schema.table === table
+              (schema) => schema.table === table,
             );
             if (findSchema) {
               this.schema.foreign_field[key] = {
@@ -185,14 +181,14 @@ export class Manager {
                 table,
                 " schema not found, make sure it is created before ",
                 this.schema.table,
-                " schema"
+                " schema",
               );
             }
           } else {
             throw new ExaError(
               " Error on schema ",
               this.schema.table,
-              " relationship target must be a string of a table and connected "
+              " relationship target must be a string of a table and connected ",
             );
           }
         }
@@ -222,7 +218,7 @@ export class Manager {
         }
       }
       console.log(
-        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!"
+        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!",
       );
     } catch (err) {
       console.log({ err });
@@ -280,20 +276,20 @@ export class Manager {
 
     for (const [resolve, message, flag] of queries) {
       const xFile = "X" + file;
-      let sRCTied: xTreeType = this.RCT[xFile] as xTreeType;
-      if (!sRCTied) {
-        sRCTied = await this.xIndex.load(xFile);
-        this.RCT[xFile] = sRCTied;
+      let cachedXlog: xTreeType = this.LOG_CACHE[xFile] as xTreeType;
+      if (!cachedXlog) {
+        cachedXlog = await this.xIndex.load(xFile);
+        this.LOG_CACHE[xFile] = cachedXlog;
       }
       if (flag === "i") {
-        await this.xIndex.createIndex(sRCTied, message, file);
+        await this.xIndex.createIndex(cachedXlog, message, file);
         binarySorted_insert(message, messages);
       } else {
         // ? update search index
         if (flag === "d") {
-          await this.xIndex.removeIndex(sRCTied, message, file, true);
+          await this.xIndex.removeIndex(cachedXlog, message, file, true);
         } else {
-          await this.xIndex.createIndex(sRCTied, message, file);
+          await this.xIndex.createIndex(cachedXlog, message, file);
         }
         binarySearch_mutate(message, messages, flag);
       }
@@ -303,15 +299,15 @@ export class Manager {
     if (this.waiters[file].length) {
       this.write(this.waiters[file].splice(0), file);
     } else {
-      //? resize RCT
-      resizeRCT(this.RCT);
+      //? resize LOG_CACHE
+      resizeLOG_CACHE(this.LOG_CACHE);
       // ? synchronies writer
       await SynFileWrit(
         this.tableDir + file,
-        GLOBAL_OBJECT.packr.encode(messages)
+        GLOBAL_OBJECT.packr.encode(messages),
       );
-      // ? update this active RCT
-      this.RCT[file] = messages;
+      // ? update this active LOG_CACHE
+      this.LOG_CACHE[file] = messages;
       // ? update _logFile metadata index
       this.LogFiles[file].size = getFileSize(name);
       this.LogFiles[file].length = messages.length;
@@ -320,74 +316,74 @@ export class Manager {
     }
   }
   async find(query: QueryType<Record<string, any>>) {
-    let RCTied;
+    let cachedLog;
     if (query.many) {
       const skip = query.skip || 0;
       const take = query.take || 1000;
       let result: any[] = [];
       for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
         const file = "LOG-" + log;
-        let RCTied = this.RCT[file] as Msgs;
-        if (!RCTied) {
-          RCTied = await loadLog(this.tableDir + file);
-          this.RCT[file] = RCTied;
+        let cachedLog = this.LOG_CACHE[file] as Msgs;
+        if (!cachedLog) {
+          cachedLog = await loadLog(this.tableDir + file);
+          this.LOG_CACHE[file] = cachedLog;
         }
-        for (let i = 0; i < RCTied.length && result.length < take; i++) {
+        for (let i = 0; i < cachedLog.length && result.length < take; i++) {
           if (i >= skip) {
-            result.push(RCTied[i]);
+            result.push(cachedLog[i]);
           }
         }
         if (result.length >= take) break;
       }
-      RCTied = result;
+      cachedLog = result;
       // ? sort results using bucketed merge.sort algorithm
       if (query.sort) {
         const key = Object.keys(query.sort)[0] as "_id";
-        RCTied = bucketSort(RCTied, key, query.sort[key] as "ASC");
+        cachedLog = bucketSort(cachedLog, key, query.sort[key] as "ASC");
       }
       // ? populate relations
       if (query.populate) {
         query.populate = setPopulateOptions(
           query.populate,
-          this.schema.foreign_field
+          this.schema.foreign_field,
         );
         return Promise.all(
-          RCTied.map(async (item) => {
+          cachedLog.map(async (item) => {
             await populateForeignKeys(item, query.populate!);
             return item;
-          })
+          }),
         );
       }
       // ?
-      return RCTied;
+      return cachedLog;
     }
     if (query.one) {
       const file = msgId(query.one);
-      RCTied = this.RCT[file];
-      if (!RCTied) {
-        RCTied = await loadLog(this.tableDir + file);
-        this.RCT[file] = RCTied;
+      cachedLog = this.LOG_CACHE[file];
+      if (!cachedLog) {
+        cachedLog = await loadLog(this.tableDir + file);
+        this.LOG_CACHE[file] = cachedLog;
       }
       // ? populate relations
       if (query.populate) {
         query.populate = setPopulateOptions(
           query.populate,
-          this.schema.foreign_field
+          this.schema.foreign_field,
         );
       }
-      return await findMessage(query, RCTied as Msgs);
+      return await findMessage(query, cachedLog as Msgs);
     }
   }
   async search(search: Msg, take = 1000) {
     const result: string[] = [];
     for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
       const file = "XLOG-" + log;
-      let RCTied = this.RCT[file] as xTreeType;
-      if (!RCTied) {
-        RCTied = await this.xIndex.load(file);
-        this.RCT[file] = RCTied;
+      let cachedLog = this.LOG_CACHE[file] as xTreeType;
+      if (!cachedLog) {
+        cachedLog = await this.xIndex.load(file);
+        this.LOG_CACHE[file] = cachedLog;
       }
-      const indexes = this.xIndex.search(RCTied, search, take);
+      const indexes = this.xIndex.search(cachedLog, search, take);
       // @ts-ignore
       result.push(indexes);
       if (result.length >= take) break;
@@ -398,12 +394,12 @@ export class Manager {
     let result: number = 0;
     for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
       const file = "XLOG-" + log;
-      let RCTied = this.RCT[file] as xTreeType;
-      if (!RCTied) {
-        RCTied = await this.xIndex.load(file);
-        this.RCT[file] = RCTied;
+      let cachedLog = this.LOG_CACHE[file] as xTreeType;
+      if (!cachedLog) {
+        cachedLog = await this.xIndex.load(file);
+        this.LOG_CACHE[file] = cachedLog;
       }
-      result += this.xIndex.count(RCTied, search);
+      result += this.xIndex.count(cachedLog, search);
     }
     return result;
   }
@@ -420,8 +416,8 @@ export class Manager {
               one: _id,
               populate: query.populate,
               sort: query.sort,
-            }) as Promise<Msg>
-        )
+            }) as Promise<Msg>,
+        ),
       );
     }
     if (query["insert"]) {
@@ -437,7 +433,7 @@ export class Manager {
           throw new ExaError(
             "INSERT on table ",
             this.tableDir,
-            " is not unique "
+            " is not unique ",
           );
         }
       }
@@ -460,7 +456,7 @@ export class Manager {
           throw new ExaError(
             "UPDATE on table ",
             this.tableDir,
-            " is not unique"
+            " is not unique",
           );
         }
       }
@@ -473,12 +469,12 @@ export class Manager {
         throw new ExaError("item to update not found");
       } else {
         const xFile = "X" + file;
-        let sRCTied: xTreeType = this.RCT[xFile] as xTreeType;
-        if (!sRCTied) {
-          sRCTied = await this.xIndex.load(xFile);
-          this.RCT[xFile] = sRCTied;
+        let cachedXlog: xTreeType = this.LOG_CACHE[xFile] as xTreeType;
+        if (!cachedXlog) {
+          cachedXlog = await this.xIndex.load(xFile);
+          this.LOG_CACHE[xFile] = cachedXlog;
         }
-        await this.xIndex.removeIndex(sRCTied, oldMessage, file, false);
+        await this.xIndex.removeIndex(cachedXlog, oldMessage, file, false);
       }
       // ?   conserve foreign relationships
       await conserveForeignKeys(message, this.schema.foreign_field);
@@ -488,10 +484,11 @@ export class Manager {
       if (query["count"] === true) {
         const logFiles = Object.values(this.LogFiles);
         if (!logFiles.length) return 0;
-        return logFiles.reduce((a, b) => {
-          b.length += a.length + b.length;
-          return b;
-        }).length;
+        let len = 0;
+        for (const log of logFiles) {
+          len += log.length;
+        }
+        return len;
       }
       return this.count(query["count"] as Msg);
     }
@@ -506,6 +503,7 @@ export class Manager {
       }
       return this.queue(file, message, "d");
     }
+    console.log({ query });
     throw new ExaError("Invalid query");
   }
 }

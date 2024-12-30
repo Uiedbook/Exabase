@@ -35,10 +35,7 @@
   "author": "Friday Candour",
   "license": "Apache",
   "dependencies": {
-    "i": "^0.3.7",
-    "msgpackr": "^1.10.1",
-    "npm": "^10.9.0",
-    "zeromq": "^6.1.2"
+    "msgpackr": "^1.10.1"
   },
   "devDependencies": {
     "@types/bun": "^1.0.1",

@@ -349,7 +349,7 @@ export function validator(
   schema: Record<string, SchemaColumnOptions> = {},
 ) {
   //? check for valid input
-  if (typeof data !== "object") return "input is invalid ";
+  if (typeof data !== "object") return "input is invalid";
 
   const out: Record<string, any> = {};
   let info: string | undefined;
@@ -410,8 +410,8 @@ export function validator(
 
 // ? other functions
 //? ------------------------------------
-export function resizeRCT(data: Record<string, any>) {
-  const level: number = GLOBAL_OBJECT.rct_level;
+export function resizeLOG_CACHE(data: Record<string, any>) {
+  const level: number = GLOBAL_OBJECT.logCount;
   const keys = Object.keys(data);
   if (keys.length > level) {
     const limit = Math.min(level * 0.5, 50);

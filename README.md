@@ -7,20 +7,19 @@
 <h1 align="center">Exabase</h1>
 
 <p align="center">
-    High Performant and Bottonless NOSQL database
+    High Performant and Bottomless NOSQL database
     <br/>
     <br/>
     <a href="https://github.com/uiedbook/Exabase#examples"><strong>Explore APIs »</strong></a>
     <br/>
     <br/>
     <a href="https://t.me/Exabase">Join Community</a>
-
   </p>
 </p>
 
 ### Learn how ⮟
 
-#### ⮞ [Bottonless]() 𐄁 [Strong consistency and consesus]() 𐄁 [High performance]() 𐄁 [Ease of use]() ⮜
+#### ⮞ [Bottomless]() 𐄁 [Strong consistency and consensus]() 𐄁 [High performance]() 𐄁 [Ease of use]() ⮜
 
 ![Contributors](https://img.shields.io/github/contributors/uiedbook/Exabase?color=dark-green)
 [![npm Version](https://img.shields.io/npm/v/exabase.svg)](https://www.npmjs.com/package/exabase)
@@ -30,11 +29,10 @@
 Exabase provides support for these features:
 
 - High performance
-- Bottonless storage.
-- Consistency and Consesus.
-- JSON based query language.
-- Efficient data format.
-- Tunable consistency and Scalability.
+- Bottomless storage.
+- Consistency and Consensus.
+- JSON based query.
+- Strong Consistency and Scalability.
 - Open sourced
 
 Exabase is designed as a simple, light and but powerful database, using the an
@@ -49,10 +47,6 @@ techniques.
 
 - Separation of concerns mechanism across tables. This allows for more
   efficiency by keeping each table manager in it own space.
-
-- Exabase uses the most efficient storage mechanism which includes
-  message-pack's serialization and linux based archiving.
-
 - Exabase make an extensive use of Binary search algorithms and custom Binary
   inset algorithms, allowing for sorted storage and efficient query of data.
 
@@ -64,7 +58,7 @@ techniques.
   mechanism called Xtree, written from the ground up and great at categorical search indexing needs.
 
 - Exabase excels at sorting data very fast using a combination of bucket &
-  mergesort algorithms.
+  merge-sort algorithms.
 
 # Requirements to use Exabase.
 
@@ -109,7 +103,7 @@ export type ExabaseOptions = {
   /**
    * Exabase database
    * ---
-   * RCT Memory cache percentage  */
+   * Memory log cache capacity in percentage  */
   EXABASE_MEMORY_PERCENT?: number,
 };
 ```
@@ -266,15 +260,15 @@ SELECT _ FROM "Employee" Exabase 1.39 µs/iter (1.23 µs … 3.77 µs) 1.35 µs 
 267.24 µs 1.19 ms 1.48 ms 150X faster
 ```
 
-### Regularity Cache Tank
+### Log caching
 
-The Regularity Cache Tank or RCT is a basic LOG file level cache. this means, it
+Log caching is a basic LOG file level cache. this means, it
 stores the entire LOG(n) file of the table in memory, where n is the last active
 LOG file.
 
 ## Apache 2.0 Licensed
 
-Opensource.
+Open source.
 
 [telegram group]("https://t.me/UiedbookHQ").
 

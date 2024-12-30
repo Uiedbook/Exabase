@@ -56,7 +56,9 @@ class DistributedKVDB {
       const { key, value, sender } = JSON.parse(msg.toString());
       if (sender !== this.id) {
         this.store[key] = value;
-        console.log(`[${this.id}] Received update: Set key "${key}" to "${value}" from "${sender}"`);
+        console.log(
+          `[${this.id}] Received update: Set key "${key}" to "${value}" from "${sender}"`,
+        );
       }
     }
   }
@@ -79,4 +81,3 @@ class DistributedKVDB {
     console.log(`Instance B reads key1: ${dbB.get("key1")}`);
   }, 2000);
 })();
-

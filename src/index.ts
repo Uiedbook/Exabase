@@ -6,12 +6,12 @@ import {
   GLOBAL_OBJECT,
   Manager,
 } from "./primitives/classes.ts";
-import { S3 } from "./primitives/blob-lib.ts";
 
 export class Exabase {
   private dbDir: string;
   schemas: ExaSchema<{}>[] = [];
   constructor(init: ExabaseOptions) {
+    // import { S3 } from "./primitives/blob-lib.ts";
     // GLOBAL_OBJECT.s3 = new S3({
     //   accessKeyId: init.accessKeyId,
     //   secretAccessKey: init.secretAccessKey,
@@ -21,9 +21,9 @@ export class Exabase {
     GLOBAL_OBJECT.db = this;
     //? [1] directories
     this.dbDir = "DB";
-    // ? setting up memory allocation for RCT enabled cache managers
+    // ? setting up memory allocation for log cache enabled cache managers
     GLOBAL_OBJECT.MEMORY_PERCENT = 20;
-    GLOBAL_OBJECT.writeWindow = init.writeWindow || 1000;
+    // GLOBAL_OBJECT.writeWindow = init.writeWindow || 1000;
     // ? create main dir
     try {
       mkdirSync(this.dbDir);
@@ -32,7 +32,7 @@ export class Exabase {
     }
     console.log("Exabase: running!");
   }
-  //? this is a function that creates/updates schemas also adjusting RCT memory
+  //? this is a function that creates/updates schemas also adjusting log count in memory
   public async induce(schema: ExaSchema<any>) {
     if (!(schema instanceof ExaSchema)) {
       throw new Error("invalid object passed as exabase schema");
@@ -45,7 +45,7 @@ export class Exabase {
     } else {
       this.schemas.push(schema);
     }
-    // ? setup rct level && setup managers
+    // ? setup log count && setup managers
     GLOBAL_OBJECT.EXABASE_MANAGERS[table] = new Manager(schema);
     // ? setup relationships
     await GLOBAL_OBJECT.EXABASE_MANAGERS[table!].setup({
@@ -53,9 +53,9 @@ export class Exabase {
       schemas: this.schemas,
     });
     await GLOBAL_OBJECT.EXABASE_MANAGERS[table].synchronize();
-    //? update query makers and RCT level per manager
-    const rct_level = Math.round(150 / this.schemas.length);
-    GLOBAL_OBJECT.rct_level = rct_level > 5 ? rct_level : 5;
+    //? update query makers and log cache count per manager
+    const logCount = Math.round(150 / this.schemas.length);
+    GLOBAL_OBJECT.logCount = logCount > 5 ? logCount : 5;
     GLOBAL_OBJECT.EXABASE_MANAGERS[table].isActive = true;
   }
   async query<T = any>(query: string): Promise<T> {
@@ -83,13 +83,13 @@ export class Exabase {
             if (i === 0) {
               clearInterval(id);
               r(
-                new ExaError("Table is not active yet, please try again!") as T
+                new ExaError("Table is not active yet, please try again!") as T,
               );
             }
           }, 1000);
         });
       }
-      throw new ExaError("unknown table '" + parsedQuery.table + "'");
+      throw new ExaError("unknown table!");
     }
     return table.runner(parsedQuery) as T;
   }
