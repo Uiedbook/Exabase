@@ -91,7 +91,7 @@ export type ExabaseOptions = {
 };
 ```
 
-## Exabase JSON Query format | <Depreciated>
+## Exabase JSON Query format | \<Depreciated>
 
 Exabase is queried with json. in the format
 
@@ -102,7 +102,7 @@ Exabase is queried with json. in the format
 }
 ```
 
-## ExaSchema Query Properties | <Depreciated>
+## ExaSchema Query Properties | \<Depreciated>
 
 ```ts
  {
@@ -123,7 +123,7 @@ Exabase is queried with json. in the format
 };
 ```
 
-## Example syntax | <Depreciated>
+## Example syntax | \<Depreciated>
 
 ```ts
 const user = await db.query(
@@ -159,7 +159,7 @@ expect(user4.name).toBe("greg pola");
 expect(user5).toBe(undefined);
 ```
 
-## A Basic Database setup and queries. | <Depreciated>
+## A Basic Database setup and queries. | \<Depreciated>
 
 ```ts
 import { Exabase } from "../dist/index.js";
@@ -219,7 +219,7 @@ await db.query(
 );
 ```
 
-# Benchmarks | <Old>
+# Benchmarks | \<Old>
 
 This benchmark is Exabase against sqlite.
 
