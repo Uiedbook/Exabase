@@ -17,9 +17,9 @@
   </p>
 </p>
 
-### Learn how ⮟
+### Learn how ⬇️
 
-#### ⮞ [Bottomless]() 𐄁 [Strong consistency and consensus]() 𐄁 [High performance]() 𐄁 [Ease of use]() ⮜
+#### ➡️ [Bottomless]() 𐄁 [Strong consistency and consensus]() 𐄁 [High performance]() 𐄁 [Ease of use]() ⬅️
 
 ![Contributors](https://img.shields.io/github/contributors/uiedbook/Exabase?color=dark-green)
 [![npm Version](https://img.shields.io/npm/v/exabase.svg)](https://www.npmjs.com/package/exabase)
