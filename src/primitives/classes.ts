@@ -6,10 +6,6 @@ import {
   type Msg,
   type Msgs,
   type QueryType,
-  type SchemaColumnOptions,
-  type SchemaOptions,
-  type SchemaRelation,
-  type SchemaRelationOptions,
   type wTrainType,
   type xPersistType,
   type Xtree_flag,
@@ -19,7 +15,6 @@ import {
   binarySearch_mutate,
   binarySorted_insert,
   bucketSort,
-  conserveForeignKeys,
   deepMerge,
   ExaId,
   findMessage,
@@ -28,12 +23,9 @@ import {
   loadLog,
   loadLogSync,
   msgId,
-  populateForeignKeys,
   resizeLOG_CACHE,
-  setPopulateOptions,
   SynFileWrit,
   SynFileWritWithWaitList,
-  validator,
 } from "./functions.ts";
 import type { S3 } from "./blob-lib.ts";
 
@@ -57,74 +49,7 @@ export class ExaError extends Error {
   }
 }
 
-export class ExaSchema<Model> {
-  table: Uppercase<string>;
-  columns: {
-    [x: string]: SchemaColumnOptions;
-  } = {};
-  relationship: SchemaRelation = {};
-  unique_field?: Record<string, true> = undefined;
-  foreign_field: Record<string, { table: string; type: "ONE" | "MANY" }> = {};
-  constructor(options: SchemaOptions<Model>) {
-    this.table = options?.table?.trim() as Uppercase<string>;
-    // ? parse definitions
-    if (this.table) {
-      this.unique_field = {};
-      this.columns = { ...(options?.columns || {}) };
-      //? setting up _id type on initialization
-      (this.columns as any)._id = { type: String };
-      //? setting up secondary types on initialization
-      for (const key in this.columns) {
-        //? keep a easy track of relationships
-        if (this.columns[key].relationType) {
-          this.relationship[key] = this.columns[key] as SchemaRelationOptions;
-          this.columns[key] = {
-            relationship: key,
-            type: Object as any,
-            relationType: this.columns[key].relationType,
-            default: this.columns[key].relationType === "MANY" ? [] : null,
-            required: this.columns[key].required,
-          };
-        }
-        //? validating default values
-        if (this.columns[key].default !== undefined) {
-          // ? check for type
-          const v = validator(
-            { [key]: this.columns[key].default },
-            {
-              [key]: {
-                ...this.columns[key],
-                default: undefined,
-                required: false,
-              },
-            },
-          );
-          if (typeof v === "string") {
-            throw new ExaError("table ", this.table, " error ", v);
-          }
-        }
-        //? let's keep a record of the unique fields we correctly have
-        if (this.columns[key].unique) {
-          this.unique_field[key] = true;
-          this.columns[key].index = true;
-        }
-      }
-      //? check if theres a unique key entered else make it undefined to avoid a truthiness bug
-      if (Object.keys(this.unique_field).length === 0) {
-        this.unique_field = undefined;
-      }
-    } else {
-      throw new ExaError("No table name provided!");
-    }
-    if (!GLOBAL_OBJECT.db) {
-      throw new ExaError("database has not yet been created!");
-    }
-    GLOBAL_OBJECT.db.induce(this);
-  }
-}
-
 export class Manager {
-  public schema: ExaSchema<any>;
   public name: string;
   public tableDir: string = "";
   public isRelatedConstructed = false;
@@ -132,15 +57,13 @@ export class Manager {
   public LOG_CACHE: Record<string, Msgs | xTreeType | undefined> = {};
   public LogFiles: LOG_file_type = {};
   public xIndex: XTree;
-  constructor(schema: ExaSchema<any>) {
-    this.schema = schema;
-    this.name = schema.table;
-    const columns = schema.columns;
+  constructor(table: string) {
+    this.name = table;
     // ? setup indexTable for searching
     const indexTable: Record<string, boolean> = {};
-    for (const key in columns) {
-      indexTable[key] = columns[key].index || false;
-    }
+    // for (const key in schema.columns) {
+    //   indexTable[key] = schema.columns[key].index || false;
+    // }
     // ? avoid indexing _id ok?
     indexTable["_id"] = false;
     this.xIndex = new XTree({
@@ -148,53 +71,15 @@ export class Manager {
     });
   }
 
-  async setup(init: { exabaseDirectory: string; schemas: ExaSchema<any>[] }) {
+  async setup(init: { exabaseDirectory: string }) {
     // ? setup steps
-    this.tableDir = init.exabaseDirectory + "/" + this.schema.table + "/";
+    this.tableDir = init.exabaseDirectory + "/" + this.name + "/";
     // ? provide Xtree search index dir
     this.xIndex.tableDir = this.tableDir;
     //? setup table directories
     if (!existsSync(this.tableDir)) {
       mkdirSync(this.tableDir);
     }
-  }
-  constructRelationships() {
-    const allSchemas: ExaSchema<{}>[] = GLOBAL_OBJECT.db.schemas;
-    if (this.schema.table) {
-      //? keep a easy track of relationships
-      if (this.schema.relationship) {
-        this.schema.foreign_field = {};
-        for (const key in this.schema.relationship) {
-          if (typeof this.schema.relationship![key].target === "string") {
-            const table = this.schema.relationship![key].target;
-            const findSchema = allSchemas.find(
-              (schema) => schema.table === table,
-            );
-            if (findSchema) {
-              this.schema.foreign_field[key] = {
-                table,
-                type: this.schema.relationship![key].relationType,
-              };
-            } else {
-              throw new ExaError(
-                "Relationship - ",
-                table,
-                " schema not found, make sure it is created before ",
-                this.schema.table,
-                " schema",
-              );
-            }
-          } else {
-            throw new ExaError(
-              " Error on schema ",
-              this.schema.table,
-              " relationship target must be a string of a table and connected ",
-            );
-          }
-        }
-      }
-    }
-    this.isRelatedConstructed = true;
   }
   async synchronize() {
     try {
@@ -218,7 +103,7 @@ export class Manager {
         }
       }
       console.log(
-        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!",
+        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!"
       );
     } catch (err) {
       console.log({ err });
@@ -238,17 +123,7 @@ export class Manager {
     this.LogFiles[lfid] = { size: 0, length: 0 };
     return lfid;
   }
-  validate(data: any) {
-    if (!this.isRelatedConstructed) {
-      this.constructRelationships();
-    }
-    const v = validator(data, this.schema.columns);
-    // ? setup relationship
-    if (typeof v === "string") {
-      throw new ExaError(this.schema.table, " table error '", v, "'");
-    }
-    return v as Msg;
-  }
+
   public waiters: Record<string, wTrainType[]> = {};
   runningQueue: boolean = false;
   queue(file: string, message: Msg, flag: Xtree_flag) {
@@ -304,7 +179,7 @@ export class Manager {
       // ? synchronies writer
       await SynFileWrit(
         this.tableDir + file,
-        GLOBAL_OBJECT.packr.encode(messages),
+        GLOBAL_OBJECT.packr.encode(messages)
       );
       // ? update this active LOG_CACHE
       this.LOG_CACHE[file] = messages;
@@ -315,9 +190,23 @@ export class Manager {
       this.runningQueue = false;
     }
   }
-  async find(query: QueryType<Record<string, any>>) {
+
+  async find(
+    query: QueryType<Record<string, any>>
+  ): Promise<(Msg | undefined)[]> {
     let cachedLog;
-    if (query.many) {
+    if (!query.where?.["_id"]) {
+      if (!query.where?.["*"]) {
+        const indexes = await this.search(query.where as Msg, query.take);
+        return Promise.all(
+          indexes.map((_id: string) =>
+            this.find({
+              where: { _id },
+              sort: query.sort,
+            })
+          )
+        );
+      }
       const skip = query.skip || 0;
       const take = query.take || 1000;
       let result: any[] = [];
@@ -341,38 +230,19 @@ export class Manager {
         const key = Object.keys(query.sort)[0] as "_id";
         cachedLog = bucketSort(cachedLog, key, query.sort[key] as "ASC");
       }
-      // ? populate relations
-      if (query.populate) {
-        query.populate = setPopulateOptions(
-          query.populate,
-          this.schema.foreign_field,
-        );
-        return Promise.all(
-          cachedLog.map(async (item) => {
-            await populateForeignKeys(item, query.populate!);
-            return item;
-          }),
-        );
-      }
       // ?
       return cachedLog;
     }
-    if (query.one) {
-      const file = msgId(query.one);
+    if (query.where?.["_id"]) {
+      const file = msgId(query.where?.["_id"]);
       cachedLog = this.LOG_CACHE[file];
       if (!cachedLog) {
         cachedLog = await loadLog(this.tableDir + file);
         this.LOG_CACHE[file] = cachedLog;
       }
-      // ? populate relations
-      if (query.populate) {
-        query.populate = setPopulateOptions(
-          query.populate,
-          this.schema.foreign_field,
-        );
-      }
-      return await findMessage(query, cachedLog as Msgs);
+      return findMessage(query.where?.["_id"], cachedLog as Msgs);
     }
+    return [];
   }
   async search(search: Msg, take = 1000) {
     const result: string[] = [];
@@ -404,67 +274,22 @@ export class Manager {
     return result;
   }
   async runner(query: QueryType<Msg>): Promise<Msg | Msgs | number | void> {
-    if (query.many || query.one) {
+    if (query.get) {
       return this.find(query);
     }
-    if (query["search"]) {
-      const indexes = await this.search(query.search as Msg, query.take);
-      return await Promise.all(
-        indexes.map(
-          (_id: string) =>
-            this.find({
-              one: _id,
-              populate: query.populate,
-              sort: query.sort,
-            }) as Promise<Msg>,
-        ),
-      );
-    }
     if (query["insert"]) {
-      const message = this.validate(query.insert);
-      // ? unique index checks and updates
-      if (this.schema.unique_field) {
-        const searchConstruct = {} as Msg;
-        for (const key in this.schema.unique_field) {
-          searchConstruct[key] = message[key];
-        }
-        const someIdex = await this.search(searchConstruct, 1);
-        if (someIdex.length && someIdex[0] !== message._id) {
-          throw new ExaError(
-            "INSERT on table ",
-            this.tableDir,
-            " is not unique ",
-          );
-        }
-      }
       const log = this.getLogForInsert();
-      message._id = ExaId(log);
-      // ?   conserve foreign relationships
-      await conserveForeignKeys(message, this.schema.foreign_field);
-      return this.queue(log, message, "i");
+      query.insert["_id"] = ExaId(log);
+      return this.queue(log, query.insert as Msg, "i");
     }
     if (query["update"]) {
-      const message = this.validate(query.update);
-      // ? unique index checks and updates
-      if (this.schema.unique_field) {
-        const searchConstruct = {} as Msg;
-        for (const key in this.schema.unique_field) {
-          searchConstruct[key] = message[key];
-        }
-        const someIdex = await this.search(searchConstruct, 1);
-        if (someIdex.length && someIdex[0] !== message._id) {
-          throw new ExaError(
-            "UPDATE on table ",
-            this.tableDir,
-            " is not unique",
-          );
-        }
-      }
-      const file = msgId(message._id);
+      const file = msgId(query.update["_id"]!);
       if (typeof file !== "string") {
         throw new ExaError("item to update not found");
       }
-      const oldMessage = (await this.find({ one: query.update._id })) as Msg;
+      const oldMessage = await this.find({
+        where: { _id: query.update["_id"] },
+      });
       if (!oldMessage) {
         throw new ExaError("item to update not found");
       } else {
@@ -474,11 +299,14 @@ export class Manager {
           cachedXlog = await this.xIndex.load(xFile);
           this.LOG_CACHE[xFile] = cachedXlog;
         }
-        await this.xIndex.removeIndex(cachedXlog, oldMessage, file, false);
+        await this.xIndex.removeIndex(
+          cachedXlog,
+          oldMessage as Msgs,
+          file,
+          false
+        );
       }
-      // ?   conserve foreign relationships
-      await conserveForeignKeys(message, this.schema.foreign_field);
-      return this.queue(file, message, "u");
+      return this.queue(file, query.update as Msg, "u");
     }
     if (query["count"]) {
       if (query["count"] === true) {
@@ -493,11 +321,11 @@ export class Manager {
       return this.count(query["count"] as Msg);
     }
     if (query["delete"]) {
-      const file = msgId(query.delete);
+      const file = msgId(query.where?.["_id"]);
       if (typeof file !== "string") {
         throw new ExaError("item to delete not found");
       }
-      const message = (await this.find({ one: query.delete })) as Msg;
+      const message = await this.find({ where: query.where });
       if (!message) {
         throw new ExaError("item to delete not found");
       }

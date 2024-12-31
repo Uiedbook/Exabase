@@ -12,70 +12,20 @@ import { Exabase } from "./src/index.ts";
 
 */
 
-const db = new Exabase({});
+const db = new Exabase({ endpoint: "", secretAccessKey: "" });
 await db.query(
   JSON.stringify({
     table: "EMPLOYEE",
-    induce: {
-      LastName: { type: "string" },
-      FirstName: { type: "string" },
-      Title: { type: "string" },
-      TitleOfCourtesy: { type: "string" },
-      BirthDate: { type: "string" },
-      HireDate: { type: "string" },
-      Address: { type: "string" },
-      City: { type: "string" },
-      Region: { type: "string" },
-      PostalCode: { type: "string" },
-      Country: { type: "string" },
-      HomePhone: { type: "string" },
-      Extension: { type: "string" },
-      Photo: { type: "string" },
-      Notes: { type: "string" },
-      ReportsTo: { type: "number" },
-      PhotoPath: { type: "string" },
+    execute: {
+      createTable: true,
     },
-  }),
+  })
 );
 
 const db2 = Database.open("z/sql_file/Northwind_large.sqlite");
 
-let employeeExabaseCount = await db.query(
-  JSON.stringify({ table: "EMPLOYEE", count: true }),
-);
-
-const sql = db2.prepare(`SELECT * FROM "Employee"`);
-const employeeSQLITECount = sql.all();
-
-console.log("Exabase item count", employeeExabaseCount);
-console.log("sqlite item count", employeeSQLITECount.length);
-
-console.log(employeeExabaseCount, employeeSQLITECount.length);
-
-if (employeeExabaseCount !== employeeSQLITECount.length) {
-  console.time("Exabase | Insert time");
-
-  for (let i = 0; i < employeeSQLITECount.length; i++) {
-    await db.query(
-      JSON.stringify({ table: "EMPLOYEE", insert: employeeSQLITECount[i] }),
-    );
-  }
-
-  console.timeEnd("Exabase | Insert time");
-  console.log("sqlite data inserted into Exabase");
-}
-
-employeeExabaseCount = await db.query(
-  JSON.stringify({ table: "EMPLOYEE", count: true }),
-);
-console.log(
-  "read Exabase item count to ensure it's consistent ofc it is",
-  employeeExabaseCount,
-);
-
-// ... (Your existing setup code for creating the EMPLOYEE table and importing data)
-
-const dataSizes = [9, 100, 1000, 10000, 100000]; // Test with varying data sizes
+// const dataSizes = [9, 100, 1000, 10000, 100000]; // Test with varying data sizes
+const dataSizes = [1, 10, 100]; // Test with varying data sizes
 
 async function populateExabase(count: number): Promise<void> {
   //generate dummy data, ensure the size match your exabase table scheme
@@ -84,7 +34,10 @@ async function populateExabase(count: number): Promise<void> {
     FirstName: "firstName" + i,
     // ... other fields with sample or test or relevant data
   }));
-
+  // console.log(dummyData);
+  const employeeExabaseCount = await db.query(
+    JSON.stringify({ table: "EMPLOYEE", count: true })
+  );
   if (employeeExabaseCount !== dummyData.length) {
     for (const item of dummyData) {
       await db.query(JSON.stringify({ table: "EMPLOYEE", insert: item }));
@@ -93,38 +46,12 @@ async function populateExabase(count: number): Promise<void> {
 }
 
 async function benchmark(dataSize: number): Promise<void> {
-  //   await db.query(
-  //     JSON.stringify({
-  //       drop: true,
-  //       table: "EMPLOYEE",
-  //     })
-  //   );
   //Recreate and populate according to size, so re-index and refresh.
 
-  await db.query(
-    JSON.stringify({
-      table: "EMPLOYEE",
-      induce: {
-        LastName: { type: "string" },
-        FirstName: { type: "string" },
-        Title: { type: "string" },
-        TitleOfCourtesy: { type: "string" },
-        BirthDate: { type: "string" },
-        HireDate: { type: "string" },
-        Address: { type: "string" },
-        City: { type: "string" },
-        Region: { type: "string" },
-        PostalCode: { type: "string" },
-        Country: { type: "string" },
-        HomePhone: { type: "string" },
-        Extension: { type: "string" },
-        Photo: { type: "string" },
-        Notes: { type: "string" },
-        ReportsTo: { type: "number" },
-        PhotoPath: { type: "string" },
-      },
-    }),
-  );
+  await db.query({
+    table: "EMPLOYEE",
+    operation: {},
+  });
 
   // ... your exabase instance creation code
 
@@ -164,7 +91,7 @@ async function benchmark(dataSize: number): Promise<void> {
   if (dataSize > 0) {
     const itemFirst = (
       await db.query(
-        JSON.stringify({ table: "EMPLOYEE", many: true, limit: 1 }),
+        JSON.stringify({ table: "EMPLOYEE", many: true, limit: 1 })
       )
     )[0];
     const updatedItem = Object.assign({}, itemFirst, {
@@ -173,7 +100,7 @@ async function benchmark(dataSize: number): Promise<void> {
 
     const sqUpdate = JSON.stringify({
       table: "EMPLOYEE",
-      update: { where: { FirstName: itemFirst.FirstName }, with: updatedItem },
+      update: updatedItem,
     });
 
     bench(`Exabase UPDATE (${dataSize})`, async () => {

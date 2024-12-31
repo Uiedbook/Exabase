@@ -11,145 +11,51 @@ export type ExabaseOptions = {
 
 /**
  * Interface for schema metadata mappings  */
-export interface SchemaOptions<Model> {
+export interface SchemaOptions {
   /**
    * Table name.
    */
   table: Uppercase<string>;
-
-  /**
-   * Indicates properties and  relationship definitions for the schema
-   */
-  columns: {
-    [x in keyof Omit<Model, "_id">]: SchemaColumnOptions;
-  };
 }
-
-/**
- * Indicates the relationship
- */
-export type SchemaRelation = Record<string, SchemaRelationOptions>;
-/**
- * Indicates the relationship name
- */
-export type SchemaRelationOptions = {
-  /**
-   * Indicates with which schema this relation is connected to.
-   *
-   * the table of that schema
-   */
-  target: string;
-  /**
-   * Type of relation. Can be one of the value of the RelationTypes class.
-   */
-  relationType: "MANY" | "ONE";
-};
-
-/**
- * Interface for schema column type mappings  */
-export interface SchemaColumnOptions {
-  /**
-   * Exabase DBMS
-   * ----------
-   * Column type. Must be one of the value from the ColumnTypes class.
-   */
-  type: ColumnType;
-  /**
-   * Exabase DBMS
-   * ----------
-   * Column type's value max. For example ( type: String, max: 100 )
-   */
-  max?: number;
-  /**
-   * Exabase DBMS
-   * ----------
-   * Column type's value min. For example ( type: String, min: 100 )
-   */
-  min?: number;
-  /**
-   * Exabase DBMS
-   * ----------
-   * default error when the value is wrong
-   */
-  err?: string;
-  /**
-   * Exabase DBMS
-   * ----------
-   * RegExp
-   */
-  RegExp?: RegExp;
-  /**
-   * Indicates if column's value can be set to NULL.
-   */
-  required?: boolean;
-  /**
-   * Exabase DBMS
-   * ---
-   * Default value.
-   */
-  default?: any;
-  /**
-   * Indicates if column's value is unique
-   */
-  unique?: boolean;
-  /**
-   * Indicates with which schema this relation is connected to.
-   *
-   * the table of that schema
-   */
-  target?: string;
-  /**
-   * Type of relation. Can be one of the value of the RelationTypes class.
-   */
-  relationType?: "MANY" | "ONE";
-  /**
-   * The name of the relationship. YOU DON'T NEED TO PROVIDE THIS.
-   */
-  relationship?: string;
-  /**
-   * Type of relation. Can be one of the value of the RelationTypes class.
-   */
-  index?: boolean;
-}
-/**
- * All together
- */
-export type ColumnType = "string" | "number" | "boolean";
-
-export type columnValidationType = {
-  type?: ColumnType;
-  max: number;
-  min: number;
-  required?: boolean;
-  err?: string;
-  RegExp?: RegExp;
-  default?: any;
-  unique?: boolean;
-};
 
 export type searchQuery<Model> =
   | Partial<Model>
-  | Record<
-    "$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte" | "$pick",
-    Partial<Model>
-  >;
+  | Record<"$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte", Partial<Model>>;
 
 export type QueryType<Model> = {
   table?: string;
-  one?: string;
+  operation?: {
+    dropTable?: boolean;
+    createTable?: boolean;
+    addIndex?: boolean;
+    removeIndex?: boolean;
+  };
   sort?: {
-    // for search and many
     [x in keyof Partial<Model>]: "ASC" | "DESC";
   };
-  many?: true;
-  search?: searchQuery<Model>;
+  where?: {
+    [field: string]:
+      | {
+          eq?: any;
+          lt?: any;
+          gt?: any;
+          lte?: any;
+          gte?: any;
+          like?: string;
+        }
+      | any;
+  };
   insert?: Record<string, any>;
   update?: Partial<Model>;
-  delete?: string;
-  populate?: Record<string, any>;
+  delete?: boolean;
+  get?: boolean;
+  count?: boolean;
   skip?: number;
   take?: number;
-  count?: Record<string, any> | boolean;
+  aggregate?: {
+    [field: string]: "sum" | "avg" | "min" | "max" | "count";
+  };
+  consistency?: "strong" | "eventual";
 };
 
 export type Msg = {

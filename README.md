@@ -91,39 +91,47 @@ export type ExabaseOptions = {
 };
 ```
 
-## Exabase JSON Query format | \<Depreciated>
+## Exabase JSON Query format
 
 Exabase is queried with json. in the format
-
-```json
-{
-  "table": "<table name>",
-  "<query key>": "<query info>"
-}
-```
-
-## ExaSchema Query Properties | \<Depreciated>
 
 ```ts
  {
   table: string;
-  one?: string;
+  operation?: {
+    dropTable?: boolean;
+    createTable?: boolean;
+    addIndex?: boolean;
+    removeIndex?: boolean;
+  }
   sort?: {
     [x in keyof Partial<Model>]: "ASC" | "DESC";
   };
-  many?: true;
-  search?: Partial<Model>;
+  where?: {
+    [field: string]: {
+      eq?: any;
+      lt?: any;
+      gt?: any;
+      lte?: any;
+      gte?: any;
+      like?: string;
+    };
+  };
   insert?: Record<string, any>;
   update?: Partial<Model>;
-  delete?: string;
-  populate?: Record<string, any>;
+  delete?: boolean;
+  get?: boolean;
+  count?: boolean;
   skip?: number;
   take?: number;
-  count?: Record<string, any> | boolean;
+  aggregate?: {
+      [field: string]: "sum" | "avg" | "min" | "max" | "count";
+  };
+  consistency?: "strong" | "eventual";
 };
 ```
 
-## Example syntax | \<Depreciated>
+## Example syntax
 
 ```ts
 const user = await db.query(
@@ -159,7 +167,7 @@ expect(user4.name).toBe("greg pola");
 expect(user5).toBe(undefined);
 ```
 
-## A Basic Database setup and queries. | \<Depreciated>
+## A Basic Database setup and queries.
 
 ```ts
 import { Exabase } from "../dist/index.js";
@@ -219,7 +227,7 @@ await db.query(
 );
 ```
 
-# Benchmarks | \<Old>
+# Benchmarks
 
 This benchmark is Exabase against sqlite.
 

@@ -4,14 +4,8 @@ import { resolve as _resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 // ?
-import { ExaError, GLOBAL_OBJECT } from "./classes.ts";
-import {
-  type columnValidationType,
-  type Msg,
-  type Msgs,
-  type SchemaColumnOptions,
-  type Xtree_flag,
-} from "./types.ts";
+import { GLOBAL_OBJECT } from "./classes.ts";
+import { type Msg, type Msgs, type Xtree_flag } from "./types.ts";
 
 export const loadLog = async (filePath: string) => {
   try {
@@ -40,35 +34,21 @@ export const getFileSize = (file: string): number => {
   }
 };
 
-export async function findMessage(
-  query: {
-    one?: string;
-    populate?: Record<string, { table: string; type: "MANY" | "ONE" }>;
-  },
-  messages: Msgs,
-) {
-  const { one = "", populate } = query;
-  if (messages[0]?._id === one) {
+export async function findMessage(_id: string, messages: Msgs): Msg {
+  if (messages[0]?._id === _id) {
     const message = messages[0];
-    if (populate) {
-      await populateForeignKeys(message, populate);
-    }
     return message;
   }
-
   //? binary search it
   let left = 0;
   let right = messages.length - 1;
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
     const midId = messages[mid]?._id;
-    if (midId === one) {
+    if (midId === _id) {
       const message = messages[mid];
-      if (populate) {
-        await populateForeignKeys(message, populate);
-      }
       return message;
-    } else if (midId < one) {
+    } else if (midId < _id) {
       left = mid + 1;
     } else if (midId === undefined) {
       return undefined;
@@ -77,125 +57,6 @@ export async function findMessage(
     }
   }
 }
-
-export const conserveForeignKeys = async (
-  message: Msg,
-  join: {
-    [x: string]: {
-      table: string;
-      type: "ONE" | "MANY";
-    };
-  },
-) => {
-  for (const key in join) {
-    const relation = join[key];
-    if (relation.type === "ONE") {
-      if (typeof message[key as "_id"] === "object") {
-        //  @ts-ignore
-        await findForeignKeys(relation.table, message[key]._id);
-        //  @ts-ignore
-        message[key] = message[key]._id;
-      }
-    } else {
-      const msgArr = message[key as "_id"] as unknown as string[];
-      const msgLen = msgArr.length;
-      if (Array.isArray(msgArr)) {
-        for (let i = 0; i < msgLen; i++) {
-          if (typeof msgArr[i] === "object") {
-            //  @ts-ignore
-            await findForeignKeys(relation.table, msgArr[i]._id);
-            //  @ts-ignore
-            msgArr[i] = msgArr[i]._id;
-            //  @ts-ignore
-            message[key] = msgArr;
-          }
-        }
-      } else {
-        //  @ts-ignore
-        message[key] = [];
-      }
-    }
-  }
-};
-
-const findForeignKeys = async (table: string, one: string) => {
-  const foreign_message = await GLOBAL_OBJECT.EXABASE_MANAGERS[table].runner({
-    one,
-  });
-  if (!foreign_message) {
-    throw new ExaError(
-      "relationship failed: '",
-      one,
-      "' not found on table ",
-      table,
-    );
-  }
-};
-
-export const setPopulateOptions = (
-  populate: Record<string, true> | true,
-  fields: Record<string, { table: string; type: "ONE" | "MANY" }> = {},
-) => {
-  if (populate === true) {
-    return fields;
-  }
-  const relationship: Record<
-    string,
-    {
-      table: string;
-      type: "ONE" | "MANY";
-    }
-  > = {};
-  if (Array.isArray(populate)) {
-    for (let i = 0; i < populate.length; i++) {
-      const lab = populate[0];
-      const relationshipName = fields[lab];
-      if (relationshipName) {
-        relationship[lab] = {
-          table: fields[lab].table,
-          type: fields[lab].type,
-        };
-      } else {
-        throw new ExaError("can't POPULATE missing relationship " + lab);
-      }
-    }
-  } //
-  return relationship;
-};
-
-export const populateForeignKeys = async (
-  message: Msg,
-  join: {
-    [x: string]: {
-      table: string;
-      type: "ONE" | "MANY";
-    };
-  },
-) => {
-  for (const key in join) {
-    if (join[key].type === "MANY") {
-      const fk = message[key as "_id"];
-      if (fk && Array.isArray(fk)) {
-        const array = fk.map((id) =>
-          GLOBAL_OBJECT.EXABASE_MANAGERS[join[key].table].runner({
-            one: id,
-          })
-        );
-        const msgs = await Promise.all(array);
-        message[key as "_id"] = msgs as any;
-      }
-    }
-    if (join[key].type === "ONE") {
-      const fk = message[key as "_id"];
-      if (typeof fk === "string") {
-        const array = await GLOBAL_OBJECT.EXABASE_MANAGERS[
-          join[key].table
-        ].runner({ one: fk });
-        message[key as "_id"] = array as any;
-      }
-    }
-  }
-};
 
 export function deepMerge(target: any, source: any): any {
   if (source === undefined || source === null) return target;
@@ -209,9 +70,10 @@ export function deepMerge(target: any, source: any): any {
           ? [...new Set([...targetValue, ...sourceValue])]
           : [...sourceValue];
       } else if (typeof sourceValue === "object" && sourceValue !== null) {
-        target[key] = typeof targetValue === "object" && targetValue !== null
-          ? deepMerge(targetValue, sourceValue)
-          : { ...sourceValue };
+        target[key] =
+          typeof targetValue === "object" && targetValue !== null
+            ? deepMerge(targetValue, sourceValue)
+            : { ...sourceValue };
       } else {
         target[key] = sourceValue;
       }
@@ -224,9 +86,8 @@ export function deepMerge(target: any, source: any): any {
 export const binarySearch_find = (_id: string, messages: { _id: string }[]) => {
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right;) {
+  for (; left <= right; ) {
     const mid = (left + right) >>> 1;
-
     const midId = messages[mid]._id;
     if (midId === _id) {
       return mid;
@@ -242,7 +103,7 @@ export const binarySearch_find = (_id: string, messages: { _id: string }[]) => {
 export const binarySearch_mutate = (
   message: Msg,
   messages: Msgs,
-  flag: Xtree_flag,
+  flag: Xtree_flag
 ) => {
   if (messages.length === 1) {
     if (message._id === messages[0]._id) {
@@ -254,7 +115,7 @@ export const binarySearch_mutate = (
   const _id = message._id;
   let left = 0;
   let right = messages.length - 1;
-  for (; left <= right;) {
+  for (; left <= right; ) {
     const mid = (left + right) >>> 1;
     const midId = messages[mid]._id;
     if (midId === _id) {
@@ -277,7 +138,7 @@ export const binarySearch_mutate = (
 //? binary sort insert it
 export function binarySorted_insert<T extends { _id: string }>(
   item: T,
-  arr: T[],
+  arr: T[]
 ): number {
   let low = 0;
   let high = arr.length;
@@ -342,71 +203,6 @@ export const ExaId = (log: string): string => {
 
 export const msgId = (_id: string): string =>
   Buffer.from(_id, "hex").subarray(12).toString("utf8");
-
-// ExaSchema validator
-export function validator(
-  data: Record<string, any> = {},
-  schema: Record<string, SchemaColumnOptions> = {},
-) {
-  //? check for valid input
-  if (typeof data !== "object") return "input is invalid";
-
-  const out: Record<string, any> = {};
-  let info: string | undefined;
-  for (const prop in schema) {
-    const value = schema[prop];
-    const { type, max, min, err, required, RegExp } =
-      value as columnValidationType;
-    // ?
-    if (prop === "_id") {
-      out["_id"] = data["_id"];
-      continue;
-    }
-    data[prop] = data[prop] || value.default || data[prop];
-
-    // ?
-    // ? check for nullability
-    if (
-      data[prop] === undefined ||
-      data[prop] === null ||
-      data[prop]?.length === 0
-    ) {
-      if (!required) {
-        out[prop] = data[prop];
-        continue;
-      } else {
-        info = err || `${prop} is required`;
-        break;
-      }
-    }
-    // ? check for type
-    if (
-      typeof type === "string" &&
-      typeof data[prop] !== type &&
-      !value.relationship
-    ) {
-      info = `${prop} type is invalid -  ${String(typeof data[prop])}`;
-      break;
-    }
-    //? checks for String and Number max
-    if (max && (data[prop]?.["length"] || data[prop] > max)) {
-      info = err || `${prop} must not be lesser than ${max}`;
-      break;
-    }
-    //? checks for String and Number min
-    if (min && (data[prop]?.["length"] || data[prop] > min)) {
-      info = err || `${prop} must not be larger than ${min}`;
-      break;
-    }
-    // ? regex check
-    if (typeof RegExp === "object" && !RegExp.test(data[prop])) {
-      info = err || `${prop} is invalid`;
-      break;
-    }
-    out[prop] = data[prop];
-  }
-  return info || out;
-}
 
 // ? other functions
 //? ------------------------------------
@@ -489,7 +285,7 @@ const numb = (str: string) => {
 export function bucketSort(
   arr: Msgs,
   prop: keyof Msg,
-  order: "ASC" | "DESC",
+  order: "ASC" | "DESC"
 ): Msgs {
   if (arr.length === 0) return arr;
   //? Calculate numb values once and store them
@@ -505,7 +301,7 @@ export function bucketSort(
   for (let i = 0; i < arr.length; i++) {
     const data: Msg = arr[i];
     const bucketIndex = Math.floor(
-      (numb(data[prop].toString()) - minValue) / bucketSize,
+      (numb(data[prop].toString()) - minValue) / bucketSize
     );
     buckets[bucketIndex].push(data);
   }

@@ -1,16 +1,11 @@
 import { mkdirSync } from "node:fs";
-import { type ExabaseOptions } from "./primitives/types.ts";
-import {
-  ExaError,
-  ExaSchema,
-  GLOBAL_OBJECT,
-  Manager,
-} from "./primitives/classes.ts";
+import { type ExabaseOptions, type QueryType } from "./primitives/types.ts";
+import { ExaError, GLOBAL_OBJECT, Manager } from "./primitives/classes.ts";
 
 export class Exabase {
   private dbDir: string;
-  schemas: ExaSchema<{}>[] = [];
-  constructor(init: ExabaseOptions) {
+  tables: string[] = [];
+  constructor(_init: ExabaseOptions) {
     // import { S3 } from "./primitives/blob-lib.ts";
     // GLOBAL_OBJECT.s3 = new S3({
     //   accessKeyId: init.accessKeyId,
@@ -23,7 +18,6 @@ export class Exabase {
     this.dbDir = "DB";
     // ? setting up memory allocation for log cache enabled cache managers
     GLOBAL_OBJECT.MEMORY_PERCENT = 20;
-    // GLOBAL_OBJECT.writeWindow = init.writeWindow || 1000;
     // ? create main dir
     try {
       mkdirSync(this.dbDir);
@@ -33,40 +27,40 @@ export class Exabase {
     console.log("Exabase: running!");
   }
   //? this is a function that creates/updates schemas also adjusting log count in memory
-  public async induce(schema: ExaSchema<any>) {
-    if (!(schema instanceof ExaSchema)) {
-      throw new Error("invalid object passed as exabase schema");
+  public async induce(
+    table: string,
+    _operation: {
+      dropTable?: boolean;
+      createTable?: boolean;
+      addIndex?: boolean;
+      removeIndex?: boolean;
     }
-    const table = schema.table;
+  ) {
     //? CHECK IF THE SCHEMA ALREADY EXISTED UPDATE IT
-    const existedIdx = this.schemas.findIndex((s) => s.table === table);
+    const existedIdx = this.tables.findIndex((t) => t === table);
     if (existedIdx !== -1) {
-      this.schemas.splice(existedIdx, 1, schema);
+      this.tables.splice(existedIdx, 1, table);
     } else {
-      this.schemas.push(schema);
+      this.tables.push(table);
     }
     // ? setup log count && setup managers
-    GLOBAL_OBJECT.EXABASE_MANAGERS[table] = new Manager(schema);
+    GLOBAL_OBJECT.EXABASE_MANAGERS[table] = new Manager(table);
     // ? setup relationships
     await GLOBAL_OBJECT.EXABASE_MANAGERS[table!].setup({
       exabaseDirectory: this.dbDir,
-      schemas: this.schemas,
     });
     await GLOBAL_OBJECT.EXABASE_MANAGERS[table].synchronize();
     //? update query makers and log cache count per manager
-    const logCount = Math.round(150 / this.schemas.length);
+    const logCount = Math.round(150 / this.tables.length);
     GLOBAL_OBJECT.logCount = logCount > 5 ? logCount : 5;
     GLOBAL_OBJECT.EXABASE_MANAGERS[table].isActive = true;
   }
-  async query<T = any>(query: string): Promise<T> {
+  async query<T = any>(query: string | QueryType<T>): Promise<T> {
     //? verify query validity
     if (typeof query !== "string") throw new ExaError("malformed query!");
     const parsedQuery = JSON.parse(query);
-    if (parsedQuery.induce) {
-      new ExaSchema({
-        table: parsedQuery.table,
-        columns: parsedQuery.induce,
-      });
+    if (parsedQuery.operation) {
+      this.induce(parsedQuery.table, parsedQuery.operation);
       return undefined as T;
     }
     const table = GLOBAL_OBJECT.EXABASE_MANAGERS[parsedQuery.table];
@@ -83,7 +77,7 @@ export class Exabase {
             if (i === 0) {
               clearInterval(id);
               r(
-                new ExaError("Table is not active yet, please try again!") as T,
+                new ExaError("Table is not active yet, please try again!") as T
               );
             }
           }, 1000);
@@ -94,6 +88,3 @@ export class Exabase {
     return table.runner(parsedQuery) as T;
   }
 }
-
-// mtoto kautaa
-// huyo mtotoooo
