@@ -2,25 +2,13 @@ import { bench, run } from "mitata";
 import { Database } from "bun:sqlite";
 import { Exabase } from "./src/index.ts";
 
-/*
-
-! ********* STEPS *********** !
-? install bun - from bun.sh
-? get the sqlite file using ./sql_file/download.sh
-? build Exabase -  bun run compile
-? run benchmark - bun run ./tests/benchmark.js
-
-*/
-
-const db = new Exabase({ endpoint: "", secretAccessKey: "" });
-await db.query(
-  JSON.stringify({
-    table: "EMPLOYEE",
-    execute: {
-      createTable: true,
-    },
-  })
-);
+const db1 = new Exabase({ endpoint: "", secretAccessKey: "" });
+await db1.query({
+  table: "PACKET",
+  execute: {
+    createTable: true,
+  },
+});
 
 const db2 = Database.open("z/sql_file/Northwind_large.sqlite");
 
@@ -30,17 +18,18 @@ const dataSizes = [1, 10, 100]; // Test with varying data sizes
 async function populateExabase(count: number): Promise<void> {
   //generate dummy data, ensure the size match your exabase table scheme
   const dummyData = Array.from({ length: count }).map((_, i) => ({
-    LastName: "lastName" + i, // Or any other relevant dummy data
-    FirstName: "firstName" + i,
-    // ... other fields with sample or test or relevant data
+    key: "item-" + i,
+    metadata: JSON.stringify({ time: Date.now() }),
   }));
-  // console.log(dummyData);
-  const employeeExabaseCount = await db.query(
-    JSON.stringify({ table: "EMPLOYEE", count: true })
-  );
-  if (employeeExabaseCount !== dummyData.length) {
+
+  const packetCount = await db1.query({
+    table: "PACKET",
+    count: true,
+  });
+
+  if (packetCount !== dummyData.length) {
     for (const item of dummyData) {
-      await db.query(JSON.stringify({ table: "EMPLOYEE", insert: item }));
+      await db1.query({ table: "PACKET", insert: item });
     }
   }
 }
@@ -48,63 +37,72 @@ async function populateExabase(count: number): Promise<void> {
 async function benchmark(dataSize: number): Promise<void> {
   //Recreate and populate according to size, so re-index and refresh.
 
-  await db.query({
-    table: "EMPLOYEE",
-    operation: {},
+  await db1.query({
+    table: "PACKET",
+    execute: { dropTable: true },
+  });
+  await db1.query({
+    table: "PACKET",
+    execute: { createTable: true },
   });
 
-  // ... your exabase instance creation code
-
-  console.log(`Benchmarking with ${dataSize} items`);
+  console.log(`Benchmarking with ${dataSize} items \n\n\n`);
   await populateExabase(dataSize); // insert items or adjust data
 
   //Exabase benchmarks for each scale:
 
   // 1. SELECT all
-  const sqMany = JSON.stringify({ table: "EMPLOYEE", many: true });
+  const sqMany = {
+    table: "PACKET",
+    where: { "*": true },
+    get: true,
+  };
   bench(`Exabase SELECT * (${dataSize})`, async () => {
-    await db.query(sqMany);
+    await db1.query(sqMany);
   });
 
   // 2. SELECT with filter. Adjust field.  Test index usage, when implemented
-  const sqFilter = JSON.stringify({
-    table: "EMPLOYEE",
-    filter: { LastName: "lastName50" },
-    many: true,
-  }); // Adjust filter value as needed
+  const sqFilter = {
+    table: "PACKET",
+    where: { "*": true },
+    get: true,
+  }; // Adjust filter value as needed
   bench(`Exabase SELECT with filter (${dataSize})`, async () => {
-    await db.query(sqFilter);
+    await db1.query(sqFilter);
   });
 
-  // 3. INSERT test. Important, insert scheme should match Exabase expected fields or otherwise modify tests or database or adjust fields appropriately given Exabase fields expected to provide relevant performance measures.
+  // 3. INSERT test.  insert scheme should match Exabase expected fields or otherwise modify tests or database or adjust fields appropriately given Exabase fields expected to provide relevant performance measures.
   const insertItem = {
     LastName: "lastNameInsert",
     FirstName: "firstNameInsert", // Generate suitable, scheme-compliant sample object
     // ... populate rest
   };
 
-  const sqInsert = JSON.stringify({ table: "EMPLOYEE", insert: insertItem });
+  const sqInsert = { table: "PACKET", insert: insertItem };
 
-  bench(`Exabase INSERT (${dataSize})`, async () => await db.query(sqInsert));
+  bench(`Exabase INSERT (${dataSize})`, async () => await db1.query(sqInsert));
 
   // 4. Update. Select first to be updated and generate change with correct fields to ensure scheme compatible, which depends on fields you expect in exabase..
   if (dataSize > 0) {
     const itemFirst = (
-      await db.query(
-        JSON.stringify({ table: "EMPLOYEE", many: true, limit: 1 })
-      )
+      await db1.query({
+        table: "PACKET",
+        where: { "*": true },
+        get: true,
+        take: 1,
+      })
     )[0];
     const updatedItem = Object.assign({}, itemFirst, {
       LastName: "UpdatedNameTest",
     });
 
-    const sqUpdate = JSON.stringify({
-      table: "EMPLOYEE",
+    const sqUpdate = {
+      table: "PACKET",
       update: updatedItem,
-    });
+    };
 
     bench(`Exabase UPDATE (${dataSize})`, async () => {
-      await db.query(sqUpdate);
+      await db1.query(sqUpdate);
     });
   }
 
@@ -123,10 +121,14 @@ for (const size of dataSizes) {
   await benchmark(size);
 }
 
-const sq = JSON.stringify({ table: "EMPLOYEE", many: true });
+const sq = {
+  table: "PACKET",
+  where: { "*": true },
+  get: true,
+};
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
-    await db.query(sq);
+    await db1.query(sq);
   });
 }
 

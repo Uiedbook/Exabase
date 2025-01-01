@@ -23,8 +23,8 @@ export type searchQuery<Model> =
   | Record<"$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte", Partial<Model>>;
 
 export type QueryType<Model> = {
-  table?: string;
-  operation?: {
+  table: string;
+  execute?: {
     dropTable?: boolean;
     createTable?: boolean;
     addIndex?: boolean;

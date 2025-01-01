@@ -34,7 +34,7 @@ export const getFileSize = (file: string): number => {
   }
 };
 
-export async function findMessage(_id: string, messages: Msgs): Msg {
+export function findMessage(_id: string, messages: Msgs): Msg | undefined {
   if (messages[0]?._id === _id) {
     const message = messages[0];
     return message;
@@ -218,13 +218,14 @@ export function resizeLOG_CACHE(data: Record<string, any>) {
 }
 //? SynFileWrit tree
 export async function SynFileWrit(file: string, data: Buffer) {
-  if (data.length > 1) {
+  const uint8Array = new Uint8Array(data);
+  if (uint8Array.length > 1) {
     let fd;
     const tmpfile = file + "-SYNC";
     try {
       fd = await fsp.open(tmpfile, "w");
 
-      await fd.write(data, 0, data.length, 0);
+      await fd.write(uint8Array, 0, uint8Array.length, 0);
       await fd.sync();
       await fsp.rename(tmpfile, file);
     } finally {
@@ -257,7 +258,7 @@ export const SynFileWritWithWaitList = {
     const tmpfile = file + "-SYNC";
     try {
       fd = await fsp.open(tmpfile, "w");
-      await fd.write(data, 0, data.length, 0);
+      await fd.write(new Uint8Array(data), 0, data.length, 0);
       await fd.sync();
       await fsp.rename(tmpfile, file);
     } finally {
@@ -340,7 +341,7 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
 }
 
 // ? from https://github.com/lovasoa/fast_array_intersect/blob/master/index.ts
-export function intersect(arrays: ReadonlyArray<number>[]): number[] {
+export function intersect(arrays: ReadonlyArray<string>[]): string[] {
   if (arrays.length === 0) return [];
   //? Put the smallest array in the beginning
   for (let i = 1; i < arrays.length; i++) {

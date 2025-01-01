@@ -1,5 +1,5 @@
 import { opendir, unlink } from "node:fs/promises";
-import { existsSync, mkdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, rmdirSync, statSync } from "node:fs";
 import { Packr } from "msgpackr";
 import {
   type LOG_file_type,
@@ -57,8 +57,14 @@ export class Manager {
   public LOG_CACHE: Record<string, Msgs | xTreeType | undefined> = {};
   public LogFiles: LOG_file_type = {};
   public xIndex: XTree;
-  constructor(table: string) {
+  constructor(db_dir: string, table: string) {
     this.name = table;
+    // ? setup steps
+    this.tableDir = db_dir + "/" + this.name + "/";
+    //? setup table directories
+    if (!existsSync(this.tableDir)) {
+      mkdirSync(this.tableDir);
+    }
     // ? setup indexTable for searching
     const indexTable: Record<string, boolean> = {};
     // for (const key in schema.columns) {
@@ -69,17 +75,11 @@ export class Manager {
     this.xIndex = new XTree({
       indexTable,
     });
-  }
-
-  async setup(init: { exabaseDirectory: string }) {
-    // ? setup steps
-    this.tableDir = init.exabaseDirectory + "/" + this.name + "/";
     // ? provide Xtree search index dir
     this.xIndex.tableDir = this.tableDir;
-    //? setup table directories
-    if (!existsSync(this.tableDir)) {
-      mkdirSync(this.tableDir);
-    }
+  }
+  drop() {
+    rmdirSync(this.tableDir, { recursive: true });
   }
   async synchronize() {
     try {
@@ -113,7 +113,7 @@ export class Manager {
     for (const filename in this.LogFiles) {
       const logFile = this.LogFiles[filename];
       //? size check is for inserts
-      if (logFile.size < 102400 /*100kb*/) {
+      if (logFile.size < 1024000 /*1mb*/) {
         return filename;
       }
     }
@@ -200,9 +200,8 @@ export class Manager {
         const indexes = await this.search(query.where as Msg, query.take);
         return Promise.all(
           indexes.map((_id: string) =>
-            this.find({
+            this.findOne({
               where: { _id },
-              sort: query.sort,
             })
           )
         );
@@ -233,16 +232,34 @@ export class Manager {
       // ?
       return cachedLog;
     }
+    return [];
+  }
+  async findOne(query: { where: { _id: string } }): Promise<Msg | undefined> {
     if (query.where?.["_id"]) {
       const file = msgId(query.where?.["_id"]);
-      cachedLog = this.LOG_CACHE[file];
-      if (!cachedLog) {
-        cachedLog = await loadLog(this.tableDir + file);
-        this.LOG_CACHE[file] = cachedLog;
-      }
-      return findMessage(query.where?.["_id"], cachedLog as Msgs);
+      const log = (await this.getLog(file)) as Msgs;
+      return findMessage(query.where?.["_id"], log || []);
     }
-    return [];
+  }
+  async getLog(
+    file: string,
+    x: boolean = false
+  ): Promise<Msgs | xTreeType | undefined> {
+    if (x) {
+      const xFile = "X" + file;
+      let cachedXlog: xTreeType = this.LOG_CACHE[xFile] as xTreeType;
+      if (!cachedXlog) {
+        cachedXlog = await this.xIndex.load(xFile);
+        this.LOG_CACHE[xFile] = cachedXlog;
+      }
+      return cachedXlog;
+    }
+    let cachedLog = this.LOG_CACHE[file];
+    if (!cachedLog && this.LogFiles[file]) {
+      cachedLog = await loadLog(this.tableDir + file);
+      this.LOG_CACHE[file] = cachedLog;
+    }
+    return cachedLog;
   }
   async search(search: Msg, take = 1000) {
     const result: string[] = [];
@@ -273,40 +290,22 @@ export class Manager {
     }
     return result;
   }
-  async runner(query: QueryType<Msg>): Promise<Msg | Msgs | number | void> {
+  async runner(query: QueryType<Msg>): Promise<Msgs | Msg | number | void> {
     if (query.get) {
-      return this.find(query);
+      return this.find(query) as Promise<Msgs>;
     }
-    if (query["insert"]) {
+    if (typeof query["insert"] === "object" && !Array.isArray(query.insert)) {
       const log = this.getLogForInsert();
       query.insert["_id"] = ExaId(log);
       return this.queue(log, query.insert as Msg, "i");
     }
-    if (query["update"]) {
-      const file = msgId(query.update["_id"]!);
-      if (typeof file !== "string") {
-        throw new ExaError("item to update not found");
+    if (typeof query["update"] === "object" && !Array.isArray(query.update)) {
+      if (typeof query.update._id === "string" && query.update._id) {
+        const file = msgId(query.update._id);
+        const Xlog = (await this.getLog(file, true)) as xTreeType;
+        await this.xIndex.removeIndex(Xlog, query.update as Msg, file, false);
+        return this.queue(file, query.update as Msg, "u");
       }
-      const oldMessage = await this.find({
-        where: { _id: query.update["_id"] },
-      });
-      if (!oldMessage) {
-        throw new ExaError("item to update not found");
-      } else {
-        const xFile = "X" + file;
-        let cachedXlog: xTreeType = this.LOG_CACHE[xFile] as xTreeType;
-        if (!cachedXlog) {
-          cachedXlog = await this.xIndex.load(xFile);
-          this.LOG_CACHE[xFile] = cachedXlog;
-        }
-        await this.xIndex.removeIndex(
-          cachedXlog,
-          oldMessage as Msgs,
-          file,
-          false
-        );
-      }
-      return this.queue(file, query.update as Msg, "u");
     }
     if (query["count"]) {
       if (query["count"] === true) {
@@ -322,14 +321,7 @@ export class Manager {
     }
     if (query["delete"]) {
       const file = msgId(query.where?.["_id"]);
-      if (typeof file !== "string") {
-        throw new ExaError("item to delete not found");
-      }
-      const message = await this.find({ where: query.where });
-      if (!message) {
-        throw new ExaError("item to delete not found");
-      }
-      return this.queue(file, message, "d");
+      return this.queue(file, query.where as Msg, "d");
     }
     console.log({ query });
     throw new ExaError("Invalid query");

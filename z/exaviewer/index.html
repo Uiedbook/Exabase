@@ -283,7 +283,7 @@
               cls = "number";
             }
             return '<span class="' + cls + '">' + match + "</span>";
-          },
+          }
         );
       }
 
@@ -310,10 +310,11 @@
         var codeSection = document.getElementById("code-section");
         // Populate table headers
         if (!table) {
+          Object.keys(data[0]);
           tableSection.style.display = "none";
           codeSection.style.display = "block";
           codeSection.querySelector("#code").innerHTML = syntaxHighlight(
-            JSON.stringify(data),
+            JSON.stringify(data)
           );
           return;
         }
@@ -323,7 +324,9 @@
         headerRow.innerHTML = "";
         var dataRows = document.getElementById("data-rows");
         dataRows.innerHTML = "";
-        var headers = Object.keys(data[0]);
+        Object.keys(data[0]);
+        var headers = ["no", ...Object.keys(data[0])];
+        // var headers = Object.keys(data[0]);
         headers.forEach(function (header) {
           var th = document.createElement("th");
           th.scope = "col";
@@ -331,7 +334,8 @@
           headerRow.appendChild(th);
         });
         // Populate table data rows
-        data.forEach(function (item) {
+        data.forEach(function (item, idx) {
+          item.no = idx + 1;
           var row = document.createElement("tr");
           headers.forEach(function (header, idx) {
             var td = document.createElement("td");

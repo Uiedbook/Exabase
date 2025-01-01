@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { type ExabaseOptions, type QueryType } from "./primitives/types.ts";
 import { ExaError, GLOBAL_OBJECT, Manager } from "./primitives/classes.ts";
+export { ExaId } from "./primitives/functions.ts";
 
 export class Exabase {
   private dbDir: string;
@@ -29,41 +30,43 @@ export class Exabase {
   //? this is a function that creates/updates schemas also adjusting log count in memory
   public async induce(
     table: string,
-    _operation: {
+    execute: {
       dropTable?: boolean;
       createTable?: boolean;
       addIndex?: boolean;
       removeIndex?: boolean;
-    }
+    } // All geniuses with rhythm
   ) {
-    //? CHECK IF THE SCHEMA ALREADY EXISTED UPDATE IT
     const existedIdx = this.tables.findIndex((t) => t === table);
-    if (existedIdx !== -1) {
-      this.tables.splice(existedIdx, 1, table);
-    } else {
+    if (execute.createTable && existedIdx === -1) {
       this.tables.push(table);
+      // ? setup log count && setup managers
+      GLOBAL_OBJECT.EXABASE_MANAGERS[table] = new Manager(this.dbDir, table);
+      await GLOBAL_OBJECT.EXABASE_MANAGERS[table].synchronize();
+      //? update query makers and log cache count per manager
+      const logCount = Math.round(150 / this.tables.length);
+      GLOBAL_OBJECT.logCount = logCount > 5 ? logCount : 5;
+      GLOBAL_OBJECT.EXABASE_MANAGERS[table].isActive = true;
     }
-    // ? setup log count && setup managers
-    GLOBAL_OBJECT.EXABASE_MANAGERS[table] = new Manager(table);
-    // ? setup relationships
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[table!].setup({
-      exabaseDirectory: this.dbDir,
-    });
-    await GLOBAL_OBJECT.EXABASE_MANAGERS[table].synchronize();
-    //? update query makers and log cache count per manager
-    const logCount = Math.round(150 / this.tables.length);
-    GLOBAL_OBJECT.logCount = logCount > 5 ? logCount : 5;
-    GLOBAL_OBJECT.EXABASE_MANAGERS[table].isActive = true;
+    if (execute.dropTable && existedIdx !== -1) {
+      GLOBAL_OBJECT.EXABASE_MANAGERS[table].drop();
+      delete GLOBAL_OBJECT.EXABASE_MANAGERS[table];
+      this.tables.splice(existedIdx, 1);
+    }
   }
-  async query<T = any>(query: string | QueryType<T>): Promise<T> {
+  async query<T = any>(q: string | QueryType<T>): Promise<T> {
+    let query = q as QueryType<T>;
     //? verify query validity
-    if (typeof query !== "string") throw new ExaError("malformed query!");
-    const parsedQuery = JSON.parse(query);
-    if (parsedQuery.operation) {
-      this.induce(parsedQuery.table, parsedQuery.operation);
+    if (typeof q === "string") {
+      query = JSON.parse(q);
+    }
+    if (typeof query.table !== "string") throw new ExaError("malformed query!");
+    if (query.execute) {
+      this.induce(query.table, query.execute);
       return undefined as T;
     }
-    const table = GLOBAL_OBJECT.EXABASE_MANAGERS[parsedQuery.table];
+    const table = GLOBAL_OBJECT.EXABASE_MANAGERS[query.table];
+
     if (!table || table.isActive === false) {
       if (table?.isActive === false) {
         return new Promise((r) => {
@@ -72,7 +75,7 @@ export class Exabase {
             i -= 1;
             if (table.isActive === true) {
               clearInterval(id);
-              r(table.runner(parsedQuery) as T);
+              r(table.runner(query as any) as any);
             }
             if (i === 0) {
               clearInterval(id);
@@ -85,6 +88,6 @@ export class Exabase {
       }
       throw new ExaError("unknown table!");
     }
-    return table.runner(parsedQuery) as T;
+    return table.runner(query as any) as any;
   }
 }
