@@ -1,5 +1,3 @@
-import { bench, run } from "mitata";
-
 class Xtree {
   private base: Map<string, any>; // Base storage mapping IDs to data
   private nodes: Map<
@@ -76,6 +74,7 @@ class Xtree {
       const node = this.nodes.get(key);
       const values = node?.valueMap.get(value);
       if (!node || !values) return [];
+
       if (values.size < smallestSize) {
         smallestSize = values.size;
         smallestSet = values;
@@ -87,6 +86,7 @@ class Xtree {
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
       const values = node?.valueMap.get(value);
+
       for (const id of result) {
         if (!values?.has(id)) {
           result.delete(id);
@@ -140,34 +140,9 @@ const indexer = new Xtree({
 });
 
 // Index data
-indexer.index("1", { name: "ChatGPT", age: 1 });
-indexer.index("2", { name: "ChatGPT", age: 2 });
-indexer.index("3", { name: "ChatGPT", age: 3 });
-indexer.index("4", { name: "ChatGPX", age: 4 });
-indexer.index("5", { name: "ChatGPT", age: 5 });
-const a = indexer.search({ name: "ChatGPT", age: 2 });
-console.log(a);
-
-// Count data
-bench("count", () => {
-  indexer.count({ name: "ChatGPT", age: 2 });
-});
-
-// Drop data
-bench("drop", () => {
-  indexer.drop("1");
-});
-
-// Index data
-bench("index", () => {
-  for (let i = 0; i < 1000; i++) {
-    indexer.index(`${i}`, { name: "ChatGPT", age: 2 });
-  }
-});
-
-// Multi-attribute search
-bench("search", async () => {
-  indexer.search({ name: "ChatGPT", age: 2 });
-});
-
-run();
+indexer.index("1", { name: "John Doe", age: 2 });
+indexer.index("2", { name: "John Doe", age: 2 });
+indexer.index("3", { name: "John Doe", age: 5 });
+indexer.index("4", { name: "Jude francis", age: 2 });
+indexer.index("5", { name: "John Doe", age: 2 });
+indexer.search({ name: "John Doe", age: 2 });

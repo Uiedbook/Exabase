@@ -57,6 +57,7 @@ export class Manager {
   public LOG_CACHE: Record<string, Msgs | xTreeType | undefined> = {};
   public LogFiles: LOG_file_type = {};
   public xIndex: XTree;
+  public Xtrees: XTree[] = [];
   constructor(db_dir: string, table: string) {
     this.name = table;
     // ? setup steps

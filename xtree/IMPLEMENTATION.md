@@ -2,7 +2,7 @@
 
 ## Abstract
 
-This paper introduces a novel, highly efficient indexing algorithm implemented in TypeScript. The algorithm is designed to manage large-scale datasets by leveraging a tree-based structure optimized for rapid indexing, search, and deletion operations. It accommodates unique string identifiers, akin to MongoDB ObjectIDs, ensuring clarity and performance. The algorithm is particularly well-suited for applications requiring dynamic attribute-based querying with consistent low-latency performance.
+This paper introduces a novel, highly efficient indexing algorithm implemented in TypeScript. The algorithm is designed to manage large-scale datasets by leveraging a tree-based structure optimized for rapid indexing, search, and deletion operations. It accommodates unique string identifiers, akin to UUIDs, ensuring clarity and performance. The algorithm is particularly well-suited for applications requiring dynamic attribute-based querying with consistent low-latency performance.
 
 ---
 
@@ -23,7 +23,7 @@ Efficient indexing algorithms are pivotal for modern data management systems. Tr
 
 1. **Index Tree**:
 
-   - Composed of a `Map` for the base storage (`idBase`) and a `Map` of attribute nodes (`nodes`).
+   - Composed of a `Map` for the base storage (`base`) and a `Map` of attribute nodes (`nodes`).
    - Each node tracks mappings between attribute values and sets of IDs.
 
 2. **Index Node**:
@@ -36,7 +36,7 @@ Efficient indexing algorithms are pivotal for modern data management systems. Tr
 
 - **Objective**: Insert or update a record in the index.
 - **Steps**:
-  1. Store the data against the provided ID in `idBase`.
+  1. Store the data against the provided ID in `base`.
   2. For each attribute-value pair in the data:
      - Retrieve or create the corresponding attribute node.
      - Add the ID to the set associated with the value.
@@ -59,16 +59,11 @@ Efficient indexing algorithms are pivotal for modern data management systems. Tr
 
 - **Objective**: Remove all mappings associated with a specific ID.
 - **Steps**:
-  1. Retrieve the data using the ID from `idBase`.
+  1. Retrieve the data using the ID from `base`.
   2. For each attribute-value pair in the data:
      - Remove the ID from the corresponding value set.
      - Clean up empty sets or nodes as needed.
-  3. Remove the ID from `idBase`.
-
-#### Deferred Cleanup
-
-- Periodically checks and removes empty sets and nodes.
-- Triggered during batch operations or explicit maintenance calls.
+  3. Remove the ID from `base`.
 
 ---
 
@@ -82,11 +77,7 @@ Efficient indexing algorithms are pivotal for modern data management systems. Tr
 
    - Sorting attributes by set size minimizes computational overhead.
 
-3. **Deferred Cleanup**:
-
-   - Ensures the structure remains compact without frequent runtime interruptions.
-
-4. **String-Based ID Optimization**:
+3. **String-Based ID Optimization**:
 
    - Native JavaScript `Map` and `Set` are leveraged for efficient string key handling.
 
@@ -110,6 +101,60 @@ Efficient indexing algorithms are pivotal for modern data management systems. Tr
 
 ## Experimental Results
 
+### Pseudocode Examples
+
+#### Indexing Operation
+
+```plaintext
+function indexRecord(id, record):
+    base[id] = record
+    for (attribute, value) in record:
+        if nodes[attribute] does not exist:
+            nodes[attribute] = new Map()
+        if value not in nodes[attribute]:
+            nodes[attribute][value] = new Set()
+        nodes[attribute][value].add(id)
+```
+
+#### Search Operation
+
+```plaintext
+function search(attribute, value):
+    if attribute not in nodes:
+        return empty set
+    return nodes[attribute].get(value, empty set)
+```
+
+#### Multi-Attribute Search Operation
+
+```plaintext
+function multiAttributeSearch(query):
+    sortedQuery = sort query attributes by size of their value sets in nodes
+    result = full set of IDs (initial state)
+    for (attribute, value) in sortedQuery:
+        result = result intersect search(attribute, value)
+        if result is empty:
+            break
+    return result
+```
+
+#### Deletion Operation
+
+```plaintext
+function deleteRecord(id):
+    if id not in base:
+        return
+    record = base[id]
+    for (attribute, value) in record:
+        if attribute in nodes and value in nodes[attribute]:
+            nodes[attribute][value].delete(id)
+            if nodes[attribute][value] is empty:
+                remove nodes[attribute][value]
+        if nodes[attribute] is empty:
+            remove nodes[attribute]
+    delete base[id]
+```
+
 (TBD: Benchmark results comparing this algorithm against existing approaches, showcasing improvements in latency and memory efficiency.)
 
 ---
@@ -123,8 +168,8 @@ The proposed indexing algorithm offers a robust and efficient solution for dynam
 ## Future Work
 
 - Extending the algorithm for distributed systems with consistency guarantees.
-- Enhancing batch indexing throughput using parallelism.
 - Investigating adaptive strategies for skewed attribute distributions.
+- Enhancing batch indexing throughput using parallelism.
 
 ---
 
