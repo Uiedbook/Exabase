@@ -6,8 +6,6 @@ class Xtree {
     string,
     Map<any, Set<string>> // Maps attribute values to sets of IDs
   >; // Nodes for different attributes
-
-  indexTable: Record<string, boolean>;
   constructor() {
     this.base = new Map<string, any>(); // ID is now always a string
     this.nodes = new Map<string, any>();
@@ -17,7 +15,6 @@ class Xtree {
   index(id: string, data: Record<string, any>): void {
     this.base.set(id, data);
     for (const [attribute, value] of Object.entries(data)) {
-      if (!this.indexTable[attribute]) continue;
       let node = this.nodes.get(attribute);
       if (!node) {
         node = new Map<any, Set<string>>();

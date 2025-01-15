@@ -10,10 +10,9 @@ import { type Msg, type Struct } from "./types.ts";
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
-    return (GLOBAL_OBJECT.unpack(data) || {}) as Struct;
+    return GLOBAL_OBJECT.unpack(data) as Struct;
   } catch (_error) {
     // console.log({ filePath, _error }, 1);
-    return {} as Struct;
   }
 };
 
@@ -190,6 +189,3 @@ function merge(left: Msg[], right: Msg[], prop: keyof Msg): Msg[] {
   }
   return result.concat(left.slice(li)).concat(right.slice(ri));
 }
-
-const a = new Map();
-Array.from(a.values());

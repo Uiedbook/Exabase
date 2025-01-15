@@ -17,7 +17,9 @@
   </p>
 </p>
 
-### Learn how ⬇️
+## Exabase is still in development do not use!
+
+### Learn our goal ⬇️
 
 #### [Bottomless]() 𐄁 [Strong consistency and consensus]() 𐄁 [High performance]() 𐄁 [Ease of use]()
 
@@ -30,15 +32,13 @@ Exabase provides support for these features:
 
 - High performance
 - Bottomless storage.
-- Consistency and Consensus.
-- Scalability.
-- Open source
+- Consistency.
 
-Exabase is lightweight embedded and powerful distributed database.
+exabase is embedded and scales as you scale your app. instances are light as they are tracked to use less memory and disk footprint.
 
 --
 
-# How Exabase works
+# How Exabase will work
 
 Exabase achieves a high degree of efficiency by employing the following
 techniques.
@@ -47,10 +47,9 @@ techniques.
   efficiency by keeping each table manager in it own space.
 - Exabase make an extensive use efficient algorithms for storage and query of data.
 - Consistency and Durability in log files and other very important files is
-  achieved through an ACID complaint data processing mechanism which is
-  optimized for crash recovery and consistency checks out of the box.
+  achieved through an ACID complaint data processing mechanism.
 - Exabase achieves a high search query efficiency using a custom search indexing
-  mechanism called Xtree, written from the ground up and great at categorical search indexing needs.
+  mechanism called Xtree.
 
 # Current support runtimes.
 
@@ -60,6 +59,11 @@ Exabase support server-side Javascript runtime like:
 - Bunjs.
 - Denojs.
 
+# Goal
+
+Native support to be written in the ig programming language.
+this is still a prototypal phase.
+
 # How to get started with Exabase database.
 
 ### Installation
@@ -67,29 +71,12 @@ Exabase support server-side Javascript runtime like:
 Install Exabase right on your project using npm.
 
 ```
-npm i exabase --save
+npm i exabase@latest --save
 ```
 
 ## Using Exabase
 
 The `Exabase` class accepts an object argument with the following options:
-
-### Options
-
-```js
-export type ExabaseOptions = {
-  /**
-   * Exabase database
-   * ---
-   * name  */
-  name?: string,
-  /**
-   * Exabase database
-   * ---
-   * Memory log cache capacity in percentage  */
-  EXABASE_MEMORY_PERCENT?: number,
-};
-```
 
 ## Exabase JSON Query format
 
@@ -101,13 +88,11 @@ Exabase is queried with json. in the format
   operation?: {
     dropTable?: boolean;
     createTable?: boolean;
-    addIndex?: boolean;
-    removeIndex?: boolean;
   }
   sort?: {
     [x in keyof Partial<Model>]: "ASC" | "DESC";
   };
-  where?: {
+  get?: {
     [field: string]: {
       eq?: any;
       lt?: any;
@@ -124,9 +109,6 @@ Exabase is queried with json. in the format
   count?: boolean;
   skip?: number;
   take?: number;
-  aggregate?: {
-      [field: string]: "sum" | "avg" | "min" | "max" | "count";
-  };
   consistency?: "strong" | "eventual";
 };
 ```
@@ -177,14 +159,8 @@ const db = new Exabase();
 await db.query(
   JSON.stringify({
     table: "USER",
-    induce: {
-      age: { type: "number", required: true, index: true },
-      name: { type: "string", index: true },
-      kids: {
-        relationType: "MANY",
-        type: "string",
-        target: "CHILD",
-      },
+    execute: {
+      createTable: true,
     },
   })
 );
@@ -192,9 +168,8 @@ await db.query(
 await db.query(
   JSON.stringify({
     table: "CHILD",
-    induce: {
-      age: { type: "number", required: true, index: true },
-      name: { type: "string", index: true },
+    execute: {
+      createTable: true,
     },
   })
 );

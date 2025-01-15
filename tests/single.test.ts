@@ -41,7 +41,7 @@ for (let i = 0; i < 10; i++) {
       name: "kid name",
     },
   });
-  user.kids.push(kid);
+
   await db.query({
     table: "USER",
     update: {

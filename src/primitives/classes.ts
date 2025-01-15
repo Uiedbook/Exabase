@@ -20,7 +20,7 @@ if (!isNativeAccelerationEnabled)
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
   static MEMORY_PERCENT: number;
-  static pack = new Packr({ useRecords: true }).pack;
+  static pack = new Packr({ useRecords: false }).pack;
   static unpack = new Unpackr().unpack;
   static db: any;
   static logCount: number;
@@ -110,13 +110,19 @@ export class Manager {
     if (tree) return tree;
     const file = this.tableDir + log;
     const data = await loadLog(file);
-    console.log(data.base);
-
+    console.log({ data });
+    const nodes = Object.keys(data?.nodes);
+    console.log({ nodesl: data?.nodes, nodes });
+    for (let i = 0; i < nodes.length; i++) {
+      const attr = nodes[i];
+      console.log(data?.nodes?.[attr]);
+      // data.nodes[attr] = new Set(data.nodes[attr]);
+      // data.nodes.set[attr] = new Set(data.nodes[attr]);
+    }
     tree = new XTree({ file, log });
-    if (data.base) tree.base = data.base;
-    if (data.nodes) tree.nodes = data.nodes;
+    if (data?.base) tree.base = new Map(Object.entries(data.base || {}));
+    if (data?.nodes) tree.nodes = new Map(Object.entries(data.nodes || []));
     this.LOG_CACHE[log] = tree;
-    // console.log(tree);
     return tree;
   }
   getLogForInsert() {
@@ -229,7 +235,7 @@ class XTree {
         node = new Map<any, Set<string>>();
         this.nodes.set(attribute, node);
       }
-      if (!node.has(value)) {
+      if (!node.values) {
         node.set(value, new Set<string>());
       }
       node.get(value)!.add(id);
@@ -247,6 +253,8 @@ class XTree {
       if (!node || !node.has(value)) continue;
       const idSet = node.get(value)!;
       idSet.delete(id);
+      console.log({ idSet, id, data });
+
       if (idSet.size === 0) {
         node.delete(value); // Deferred cleanup
       }
