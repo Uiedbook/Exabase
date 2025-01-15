@@ -130,7 +130,7 @@ class Xtree {
             match = k <= value;
             break;
           case "eq":
-          default: //  defauts to eq
+          default: //  defaults to eq
             match = k === value;
             break;
         }

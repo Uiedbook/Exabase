@@ -1,38 +1,27 @@
 import { opendir, unlink } from "node:fs/promises";
 import { existsSync, mkdirSync, rmdirSync, statSync } from "node:fs";
-import { Packr } from "msgpackr";
+import { Packr, Unpackr } from "msgpackr";
+import { type LOG_file, type Msg, type QueryType } from "./types.ts";
 import {
-  type LOG_file_type,
-  type Msg,
-  type Msgs,
-  type QueryType,
-  type wTrainType,
-  type xPersistType,
-  type Xtree_flag,
-  type xTreeType,
-} from "./types.ts";
-import {
-  binarySearch_mutate,
-  binarySorted_insert,
   bucketSort,
-  deepMerge,
   ExaId,
-  findMessage,
-  getFileSize,
-  intersect,
   loadLog,
   loadLogSync,
   msgId,
-  resizeLOG_CACHE,
-  SynFileWrit,
   SynFileWritWithWaitList,
 } from "./functions.ts";
 import type { S3 } from "./blob-lib.ts";
+import { isNativeAccelerationEnabled } from "msgpackr";
+if (!isNativeAccelerationEnabled)
+  console.warn(
+    "Native acceleration not enabled, verify that install finished properly"
+  );
 
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
   static MEMORY_PERCENT: number;
-  static packr = new Packr();
+  static pack = new Packr({ useRecords: true }).pack;
+  static unpack = new Unpackr().unpack;
   static db: any;
   static logCount: number;
   static s3: S3;
@@ -54,10 +43,9 @@ export class Manager {
   public tableDir: string = "";
   public isRelatedConstructed = false;
   public isActive = false;
-  public LOG_CACHE: Record<string, Msgs | xTreeType | undefined> = {};
-  public LogFiles: LOG_file_type = {};
-  public xIndex: XTree;
-  public Xtrees: XTree[] = [];
+  public LogFiles: LOG_file = {};
+  public LOG_CACHE: Record<string, XTree> = {};
+  public indexTable: Record<string, boolean> = {};
   constructor(db_dir: string, table: string) {
     this.name = table;
     // ? setup steps
@@ -67,21 +55,15 @@ export class Manager {
       mkdirSync(this.tableDir);
     }
     // ? setup indexTable for searching
-    const indexTable: Record<string, boolean> = {};
-    // for (const key in schema.columns) {
-    //   indexTable[key] = schema.columns[key].index || false;
-    // }
-    // ? avoid indexing _id ok?
-    indexTable["_id"] = false;
-    this.xIndex = new XTree({
-      indexTable,
-    });
-    // ? provide Xtree search index dir
-    this.xIndex.tableDir = this.tableDir;
+    this.indexTable = {};
   }
   drop() {
     rmdirSync(this.tableDir, { recursive: true });
   }
+
+  // deserialize(buffer: Buffer): Struct {
+  //   return GLOBAL_OBJECT.unpack(buffer);
+  // }
   async synchronize() {
     try {
       const dir = await opendir(this.tableDir!);
@@ -94,12 +76,10 @@ export class Manager {
         }
         if (dirent.isFile()) {
           const fn = dirent.name;
-          if (fn.includes("XLOG-")) continue;
-          if (fn.includes("LOG-")) {
-            const name = this.tableDir + dirent.name;
+          if (fn.includes("LOG")) {
+            const name = this.tableDir + fn;
             const length = loadLogSync(name, []).length;
-            this.LogFiles[fn] = { size: getFileSize(name), length };
-            await this.xIndex.sync(this.tableDir, "X" + fn);
+            this.LogFiles[fn] = { size: statSync(name).size, length };
           }
         }
       }
@@ -110,202 +90,102 @@ export class Manager {
       console.log({ err });
     }
   }
-  getLogForInsert(): string {
+  // TODO: make async
+  async aggregate(count = false, query: Record<string, any>, take: number) {
+    if (count) {
+      let results = 0;
+      for (const key in this.LogFiles) {
+        const log = await this.load(key);
+        results += log.count(query);
+      }
+      return results;
+    }
+    let results2 = [];
+    for (const key in this.LogFiles) {
+      const log = await this.load(key);
+      results2.push(log.search(query));
+      if (results2.length > take) break;
+    }
+    return results2.flat();
+  }
+
+  async load(log: string) {
+    let tree = this.LOG_CACHE[log];
+    if (tree) return tree;
+    const file = this.tableDir + log;
+    const data = await loadLog(file);
+    tree = new XTree({ indexTable: this.indexTable, file, log });
+    if (data.base) tree.base = data.base;
+    if (data.nodes) tree.nodes = data.nodes;
+    this.LOG_CACHE[log] = tree;
+    return tree;
+  }
+  getLogForInsert() {
     for (const filename in this.LogFiles) {
       const logFile = this.LogFiles[filename];
       //? size check is for inserts
       if (logFile.size < 1024000 /*1mb*/) {
-        return filename;
+        return this.load(filename);
       }
     }
     //? Create a new log file with an incremented number of LOG filename
     const nln = Object.keys(this.LogFiles).length + 1;
-    const lfid = "LOG-" + nln;
-    this.LogFiles[lfid] = { size: 0, length: 0 };
-    return lfid;
-  }
-
-  public waiters: Record<string, wTrainType[]> = {};
-  runningQueue: boolean = false;
-  queue(file: string, message: Msg, flag: Xtree_flag) {
-    let R: ((value: unknown) => void) | undefined;
-    const q = new Promise((resolve) => {
-      R = resolve;
-    });
-    if (!this.waiters[file]) {
-      this.waiters[file] = [[R!, message, flag]];
-    } else {
-      this.waiters[file].push([R!, message, flag]);
-    }
-    if (this.runningQueue === false) {
-      this.write(this.waiters[file].splice(0), file);
-    }
-    return q as Promise<number | void | Msgs | Msg>;
-  }
-  async write(queries: wTrainType[], file: string) {
-    this.runningQueue = true;
-    const resolveFNs = [];
-    // ? do the writing by
-    const name = this.tableDir + file;
-
-    const messages = await loadLog(name);
-
-    for (const [resolve, message, flag] of queries) {
-      const xFile = "X" + file;
-      let cachedXlog: xTreeType = this.LOG_CACHE[xFile] as xTreeType;
-      if (!cachedXlog) {
-        cachedXlog = await this.xIndex.load(xFile);
-        this.LOG_CACHE[xFile] = cachedXlog;
-      }
-      if (flag === "i") {
-        await this.xIndex.createIndex(cachedXlog, message, file);
-        binarySorted_insert(message, messages);
-      } else {
-        // ? update search index
-        if (flag === "d") {
-          await this.xIndex.removeIndex(cachedXlog, message, file, true);
-        } else {
-          await this.xIndex.createIndex(cachedXlog, message, file);
-        }
-        binarySearch_mutate(message, messages, flag);
-      }
-      resolveFNs.push(() => resolve(message));
-    }
-    // ? run awaiting queries
-    if (this.waiters[file].length) {
-      this.write(this.waiters[file].splice(0), file);
-    } else {
-      //? resize LOG_CACHE
-      resizeLOG_CACHE(this.LOG_CACHE);
-      // ? synchronies writer
-      await SynFileWrit(
-        this.tableDir + file,
-        GLOBAL_OBJECT.packr.encode(messages)
-      );
-      // ? update this active LOG_CACHE
-      this.LOG_CACHE[file] = messages;
-      // ? update _logFile metadata index
-      this.LogFiles[file].size = getFileSize(name);
-      this.LogFiles[file].length = messages.length;
-      resolveFNs.map((a) => a());
-      this.runningQueue = false;
-    }
+    const log = "LOG" + nln;
+    this.LogFiles[log] = { size: 0, length: 0 };
+    return this.load(log);
   }
 
   async find(
     query: QueryType<Record<string, any>>
   ): Promise<(Msg | undefined)[]> {
-    let cachedLog;
     if (!query.where?.["_id"]) {
       if (!query.where?.["*"]) {
-        const indexes = await this.search(query.where as Msg, query.take);
-        return Promise.all(
-          indexes.map((_id: string) =>
-            this.findOne({
-              where: { _id },
-            })
-          )
-        );
+        return this.aggregate(
+          false,
+          query.where as Msg,
+          1000
+        ) as unknown as Msg[];
       }
-      const skip = query.skip || 0;
-      const take = query.take || 1000;
-      let result: any[] = [];
-      for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
-        const file = "LOG-" + log;
-        let cachedLog = this.LOG_CACHE[file] as Msgs;
-        if (!cachedLog) {
-          cachedLog = await loadLog(this.tableDir + file);
-          this.LOG_CACHE[file] = cachedLog;
-        }
-        for (let i = 0; i < cachedLog.length && result.length < take; i++) {
-          if (i >= skip) {
-            result.push(cachedLog[i]);
-          }
-        }
-        if (result.length >= take) break;
+      let result: Msg[] = this.aggregate(
+        false,
+        {},
+        (query.take || 1000) + (query.skip || 0)
+      ) as unknown as Msg[];
+      if (query.skip) {
+        result = result.slice(query.skip);
       }
-      cachedLog = result;
       // ? sort results using bucketed merge.sort algorithm
       if (query.sort) {
         const key = Object.keys(query.sort)[0] as "_id";
-        cachedLog = bucketSort(cachedLog, key, query.sort[key] as "ASC");
+        result = bucketSort(result, key, query.sort[key] as "ASC");
       }
       // ?
-      return cachedLog;
+      return result;
     }
     return [];
   }
   async findOne(query: { where: { _id: string } }): Promise<Msg | undefined> {
     if (query.where?.["_id"]) {
       const file = msgId(query.where?.["_id"]);
-      const log = (await this.getLog(file)) as Msgs;
-      return findMessage(query.where?.["_id"], log || []);
+      const log = await this.load(file);
+      return log.base.get(query.where?.["_id"]);
     }
   }
-  async getLog(
-    file: string,
-    x: boolean = false
-  ): Promise<Msgs | xTreeType | undefined> {
-    if (x) {
-      const xFile = "X" + file;
-      let cachedXlog: xTreeType = this.LOG_CACHE[xFile] as xTreeType;
-      if (!cachedXlog) {
-        cachedXlog = await this.xIndex.load(xFile);
-        this.LOG_CACHE[xFile] = cachedXlog;
-      }
-      return cachedXlog;
-    }
-    let cachedLog = this.LOG_CACHE[file];
-    if (!cachedLog && this.LogFiles[file]) {
-      cachedLog = await loadLog(this.tableDir + file);
-      this.LOG_CACHE[file] = cachedLog;
-    }
-    return cachedLog;
-  }
-  async search(search: Msg, take = 1000) {
-    const result: string[] = [];
-    for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
-      const file = "XLOG-" + log;
-      let cachedLog = this.LOG_CACHE[file] as xTreeType;
-      if (!cachedLog) {
-        cachedLog = await this.xIndex.load(file);
-        this.LOG_CACHE[file] = cachedLog;
-      }
-      const indexes = this.xIndex.search(cachedLog, search, take);
-      // @ts-ignore
-      result.push(indexes);
-      if (result.length >= take) break;
-    }
-    return result.flat();
-  }
-  async count(search: Msg) {
-    let result: number = 0;
-    for (let log = 1; log <= Object.keys(this.LogFiles).length; log++) {
-      const file = "XLOG-" + log;
-      let cachedLog = this.LOG_CACHE[file] as xTreeType;
-      if (!cachedLog) {
-        cachedLog = await this.xIndex.load(file);
-        this.LOG_CACHE[file] = cachedLog;
-      }
-      result += this.xIndex.count(cachedLog, search);
-    }
-    return result;
-  }
-  async runner(query: QueryType<Msg>): Promise<Msgs | Msg | number | void> {
+
+  async runner(query: QueryType<Msg>): Promise<Msg[] | Msg | number | void> {
     if (query.get) {
-      return this.find(query) as Promise<Msgs>;
+      return this.find(query) as Promise<Msg[]>;
     }
     if (typeof query["insert"] === "object" && !Array.isArray(query.insert)) {
-      const log = this.getLogForInsert();
-      query.insert["_id"] = ExaId(log);
-      return this.queue(log, query.insert as Msg, "i");
+      const log = await this.getLogForInsert();
+      query.insert["_id"] = ExaId(log.log);
+      return log.index(query.insert as Msg);
     }
     if (typeof query["update"] === "object" && !Array.isArray(query.update)) {
       if (typeof query.update._id === "string" && query.update._id) {
         const file = msgId(query.update._id);
-        const Xlog = (await this.getLog(file, true)) as xTreeType;
-        await this.xIndex.removeIndex(Xlog, query.update as Msg, file, false);
-        return this.queue(file, query.update as Msg, "u");
+        const log = await this.load(file);
+        log.index(query.update as Msg);
       }
     }
     if (query["count"]) {
@@ -318,156 +198,228 @@ export class Manager {
         }
         return len;
       }
-      return this.count(query["count"] as Msg);
+      return this.aggregate(true, query["count"], 0);
     }
     if (query["delete"]) {
       const file = msgId(query.where?.["_id"]);
-      return this.queue(file, query.where as Msg, "d");
+      const log = await this.load(file);
+      log.index({ _id: query.where?.["id"] }, true);
     }
-    console.log({ query });
+    console.log(query);
+
     throw new ExaError("Invalid query");
   }
 }
 
-class XNode {
-  map: Record<string, number[]> = {};
-  constructor(map?: Record<string, number[]>) {
-    this.map = map || {};
-  }
-  create(val: string, idk: number) {
-    if (!this.map[val]) {
-      this.map[val] = [];
+class XTree {
+  log: string;
+  file: string;
+  base: Map<string, Msg>; // Base storage mapping IDs to data
+  nodes: Map<
+    string,
+    {
+      attribute: string; // The attribute this node indexes
+      valueMap: Map<any, Set<string>>; // Maps attribute values to sets of IDs
     }
-    this.map[val].push(idk);
+  >; // Nodes for different attributes
+  indexTable: Record<string, boolean>;
+  constructor(init: {
+    indexTable: Record<string, boolean>;
+    log: string;
+    file: string;
+  }) {
+    this.indexTable = init.indexTable;
+    this.base = new Map<string, any>(); // ID is now always a string
+    this.nodes = new Map<string, any>();
+    this.log = init.log;
+    this.file = init.file;
   }
-  drop(val: string, idk: number) {
-    if (this.map[val]) {
-      const idp = this.map[val].indexOf(idk);
-      this.map[val].splice(idp, 1);
-      if (this.map[val].length === 0) {
-        delete this.map[val];
+
+  // Add or update data in the tree
+  index(data: Msg, drop: boolean = false): void {
+    const id: string = data._id;
+    // Drop existing mappings first if they exist
+    const prevData = this.base.get(id);
+    if (prevData) this.drop(id);
+    if (drop) return;
+    this.base.set(id, data);
+    for (const [attribute, value] of Object.entries(data)) {
+      if (attribute === "_id") continue;
+      // if (!this.indexTable[attribute]) continue;
+      let node = this.nodes.get(attribute);
+      if (!node) {
+        node = { attribute, valueMap: new Map<any, Set<string>>() };
+        this.nodes.set(attribute, node);
+      }
+      if (!node.valueMap.has(value)) {
+        node.valueMap.set(value, new Set<string>());
+      }
+      node.valueMap.get(value)!.add(id);
+    }
+    SynFileWritWithWaitList.write(this.file, this.serialize());
+  }
+
+  // Drop all mappings for an ID
+  private drop(id: string): void {
+    const data = this.base.get(id);
+    if (!data) return;
+    for (const [attribute, value] of Object.entries(data)) {
+      const node = this.nodes.get(attribute);
+      if (!node || !node.valueMap.has(value)) continue;
+
+      const idSet = node.valueMap.get(value)!;
+      idSet.delete(id);
+      if (idSet.size === 0) {
+        node.valueMap.delete(value); // Deferred cleanup
+      }
+      if (node.valueMap.size === 0) {
+        this.nodes.delete(attribute);
       }
     }
+    this.base.delete(id);
   }
-}
 
-export class XTree {
-  tableDir?: string;
-  indexTable: Record<string, boolean>;
-  constructor(init: { indexTable: Record<string, boolean> }) {
-    this.indexTable = init.indexTable;
-  }
-  search(xtree: xTreeType, search: Msg, _take: number = Infinity) {
-    const Indexes: number[][] = [];
-    //  ? get the search keys
-    for (const key in search) {
-      if (!this.indexTable[key]) continue;
-      const value = search[key] as "_id";
-      if (xtree.tree[key]) {
-        // ? allow text term searching
-        if (typeof value === "string") {
-          const labels = Object.keys(xtree.tree[key].map).filter((cur) =>
-            cur.includes(value)
-          );
-          const pack: number[][] = [];
-          for (const label of labels) {
-            pack.push(xtree.tree[key].map[label]);
-          }
-          Indexes.push(pack.flat());
-        } else {
-          // ? allow other data type searching
-          Indexes.push(xtree.tree[key].map[value] || []);
+  // Multi-attribute search
+  search(query: Record<string, any>): Msg[] {
+    const entries = Object.entries(query);
+    if (entries.length === 0) {
+      return Array.from(this.base.values());
+    }
+    // Start with the smallest set for optimal intersection
+    let smallestSet: Set<string> | null = null;
+    let smallestSize = Infinity;
+    const results: Set<string>[] = [];
+    for (const [key, value] of entries) {
+      const node = this.nodes.get(key);
+      const values = node?.valueMap.get(value);
+      if (!node || !values) return [];
+      results.push(values);
+      if (values.size < smallestSize) {
+        smallestSize = values.size;
+        smallestSet = values;
+      }
+    }
+    if (results.length === 0) return [];
+    // Intersect using Sets
+    main: for (const values of results) {
+      for (const id of smallestSet!) {
+        if (!values?.has(id)) {
+          smallestSet!.delete(id);
+          if (smallestSet!.size === 0) break main;
+          break;
         }
       }
     }
-    //  ? get return the keys if the length is 1
-    if (Indexes.length === 0) return [];
-    if (Indexes.length === 1) return Indexes[0].map((idx) => xtree.keys[idx]);
-    //  ? get return the keys if the length is more than one
-    return intersect(Indexes).map((idx) => xtree.keys[idx]);
+    return Array.from(smallestSet!).map((id) => this.base.get(id)!);
   }
-  count(xtree: xTreeType, search: Msg) {
-    let resultsCount: number = 0;
-    for (const key in search) {
-      if (!this.indexTable[key]) continue;
-      if (xtree.tree[key]) {
-        resultsCount += xtree.tree[key].map[search[key as "_id"]].length;
+  // Multi-attribute relational operations
+  operator<T extends Record<string, any>>(
+    query: T,
+    operator: Record<keyof T, "eq" | "lt" | "gt" | "lte" | "gte" | "like">
+  ): Msg[] {
+    const entries = Object.entries(query);
+    if (entries.length === 0) {
+      return Array.from(this.base.values());
+    }
+    const results: Set<string>[] = [];
+    // Start with the smallest set for optimal intersection
+    let smallestSet: Set<string> | null = null;
+    let smallestSize = Infinity;
+    for (const [key, value] of entries) {
+      const node = this.nodes.get(key);
+      if (!node) return []; // Key not found, return empty results
+      const combinedSet = new Set<string>();
+      const op = operator[key]; //  get the operator
+      for (const [k, valSet] of node.valueMap) {
+        let match = false;
+        switch (op) {
+          case "like":
+            match = k.includes(value);
+            break;
+          case "gt":
+            match = k > value;
+            break;
+          case "lt":
+            match = k < value;
+            break;
+          case "gte":
+            match = k >= value;
+            break;
+          case "lte":
+            match = k <= value;
+            break;
+          case "eq":
+          default: //  defaults to eq
+            match = k === value;
+            break;
+        }
+        if (match) {
+          for (const item of valSet || []) {
+            combinedSet.add(item);
+          }
+        }
+      }
+      if (combinedSet.size > 0) {
+        results.push(combinedSet);
+        // Finding the smallest Set
+        if (combinedSet.size < smallestSize) {
+          smallestSize = combinedSet.size;
+          smallestSet = combinedSet;
+        }
       }
     }
-    return resultsCount;
-  }
-  async createIndex(xtree: xTreeType, data: Msg, log: string) {
-    // ? retrieve msg key index
-    let idk = xtree.keys.indexOf(data._id);
-    if (idk === -1) {
-      idk = xtree.keys.push(data._id) - 1;
-    }
-    // ? save keys in their corresponding nodes
-    for (const key in data) {
-      if (!this.indexTable[key]) continue;
-      if (!xtree.tree[key]) {
-        xtree.tree[key] = new XNode();
-      }
-      xtree.tree[key].create(data[key as "_id"], idk);
-    }
-    await this.persist(xtree, this.tableDir + "X" + log);
-  }
-  async removeIndex(xtree: xTreeType, data: Msg, log: string, drop: boolean) {
-    //  ? remove other attributes indexes
-    let idk = xtree.keys.indexOf(data._id);
-    if (idk === -1) return;
-    for (const key in data) {
-      if (!xtree.tree[key]) continue;
-      xtree.tree[key].drop(data[key as "_id"], idk);
-    }
-    if (drop) {
-      xtree.keys.splice(idk, 1);
-    }
-    return this.persist(xtree, this.tableDir + "X" + log);
-  }
-  private persist(xtree: xTreeType, file: string) {
-    const obj: xPersistType = {
-      keys: xtree.keys,
-      maps: {},
-    };
-    const map = Object.keys(xtree.tree);
-    for (let i = 0; i < map.length; i++) {
-      obj.maps[map[i]] = xtree.tree[map[i]].map;
-    }
-    return SynFileWritWithWaitList.write(file, GLOBAL_OBJECT.packr.encode(obj));
-  }
-  async load(log: string) {
-    let nodesTree: Record<string, Record<string, number[]>> = {};
-    const xtree: xTreeType = { keys: [], tree: {} };
-    //? Load logs in parallel
-    const data: xPersistType = (await loadLog(this.tableDir + log)) as any;
-    if (data.keys) Array.prototype.push.apply(xtree.keys, data.keys);
-    if (data.maps) nodesTree = data.maps;
-    for (const key in nodesTree) {
-      if (xtree.tree[key]) {
-        xtree.tree[key].map = deepMerge(xtree.tree[key].map, nodesTree[key]);
-      } else {
-        xtree.tree[key] = new XNode(nodesTree[key]);
+    //  return if no results
+    if (results.length === 0) return [];
+    // Intersect using Sets
+    main: for (const values of results) {
+      for (const id of smallestSet!) {
+        if (!values?.has(id)) {
+          smallestSet!.delete(id);
+          if (smallestSet!.size === 0) break main;
+          break;
+        }
       }
     }
-    return xtree;
+    // map data to values
+    return Array.from(smallestSet!).map((id) => this.base.get(id)!);
   }
-  async sync(tableDir: string, log: string) {
-    //? check if xlog-n exist and is fresher than log-n else rebuild xlog-n
-    const file = tableDir + log;
-    // console.log(
-    //   { xlog: log, tableDir, file, log: log.slice(1) },
-    //   new Date(statSync(file).atimeMs).toString(),
-    //   "\n",
-    //   new Date(statSync(tableDir + log.slice(1)).atimeMs).toString()
-    // );
-    if (statSync(file).atimeMs < statSync(tableDir + log.slice(1)).atimeMs) {
-      return;
+
+  // Multi-attribute count
+  count(query: Record<string, any> | true): number {
+    if (query === true) {
+      return this.base.size;
     }
-    const LOG = loadLogSync(file, {});
-    const xtree = await this.load(file);
-    for (let i = 0; i < LOG.length; i++) {
-      await this.createIndex(xtree, LOG[i], file);
+    const entries = Object.entries(query);
+    // Start with the smallest set for optimal intersection
+    let smallestSet: Set<string> | null = null;
+    let smallestSize = Infinity;
+    for (const [key, value] of entries) {
+      const node = this.nodes.get(key);
+      const values = node?.valueMap.get(value);
+      if (!node || !values) return 0;
+      if (values.size < smallestSize) {
+        smallestSize = values.size;
+        smallestSet = values;
+      }
     }
+    // Intersect using Sets
+    const result = new Set(smallestSet);
+    for (const [key, value] of entries) {
+      const node = this.nodes.get(key);
+      const values = node?.valueMap.get(value);
+      for (const id of result) {
+        if (!values?.has(id)) {
+          result.delete(id);
+        }
+      }
+    }
+    return result.size;
+  }
+
+  serialize(): Buffer {
+    return GLOBAL_OBJECT.pack({
+      base: this.base,
+      nodes: this.nodes,
+    });
   }
 }

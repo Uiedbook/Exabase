@@ -1,6 +1,6 @@
 import { bench, run } from "mitata";
 import { Database } from "bun:sqlite";
-import { Exabase } from "./src/index.ts";
+import { Exabase } from "../src/index.ts";
 
 import { performance } from "perf_hooks"; // For more precise timing
 import * as os from "os"; // For CPU info
@@ -47,7 +47,7 @@ function generateEmployeeData(dataSize: number): Employee[] {
 async function runBenchmark(
   db: Exabase,
   dataSize: number,
-  concurrency: number,
+  concurrency: number
 ): Promise<BenchmarkResult[]> {
   let results: BenchmarkResult[] = [];
 
@@ -127,7 +127,7 @@ async function main() {
           ReportsTo: { type: "number" },
           PhotoPath: { type: "string" },
         },
-      }),
+      })
     );
 
     const benchmarkResults = await runBenchmark(db, dataSize, 1); // Pass db here.

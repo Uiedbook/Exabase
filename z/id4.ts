@@ -1,6 +1,6 @@
 import { bench, run } from "mitata";
 import { Database } from "bun:sqlite";
-import { Exabase, ExaId } from "./src/index.ts";
+import { Exabase, ExaId } from "../src/index.ts";
 
 const db1 = new Exabase({ endpoint: "", secretAccessKey: "" });
 const db2 = new Database("z/sql_file/benchmark.sqlite");

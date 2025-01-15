@@ -4,7 +4,6 @@ export type ExabaseOptions = {
   // accessKeyId: string;
   // region: string;
   // bucketName: string;
-  // writeWindow: number;
   secretAccessKey: string;
   endpoint: string;
 };
@@ -62,29 +61,16 @@ export type Msg = {
   _id: string;
   [x: string]: string | string[] | number | boolean | Msg | Msg[];
 };
-export type Msgs = Msg[];
 
-export interface iTable {
-  [x: string]: { [x: string]: string };
+export type LOG_file = Record<string, { size: number; length: number }>;
+
+export interface Struct {
+  base: Map<string, Msg>;
+  nodes: Map<
+    string,
+    {
+      attribute: string;
+      valueMap: Map<any, Set<string>>;
+    }
+  >;
 }
-
-export type LOG_file_type = Record<string, { size: number; length: number }>;
-export type Xtree_flag = "i" | "u" | "d" | "n";
-export type wTrainType = [(value: unknown) => void, Msg, Xtree_flag];
-
-export type xPersistType = {
-  maps: Record<string, Record<string, number[]>>;
-  keys: string[];
-};
-
-interface XNode {
-  map: Record<string, number[]>;
-  // constructor(map?: Record<string, number[]>);
-  create(val: string, idk: number): void;
-  drop(val: string, idk: number): void;
-}
-
-export type xTreeType = {
-  tree: Record<string, XNode>;
-  keys: string[];
-};

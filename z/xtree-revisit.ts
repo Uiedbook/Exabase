@@ -27,9 +27,7 @@ class Xtree {
     // }
     this.base.set(id, data);
     for (const [attribute, value] of Object.entries(data)) {
-      if (!this.indexTable[attribute]) {
-        continue;
-      }
+      if (!this.indexTable[attribute]) continue;
       let node = this.nodes.get(attribute);
       if (!node) {
         node = { attribute, valueMap: new Map<any, Set<string>>() };

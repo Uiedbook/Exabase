@@ -12,40 +12,24 @@ import { bench, run } from "mitata";
 import { Database } from "bun:sqlite";
 import { Exabase } from "../src/index.js";
 
-const db = new Exabase({});
+const db = new Exabase({ endpoint: "", secretAccessKey: "" });
 await db.query(
-  JSON.stringify({
+  /*JSON.stringify*/ {
     table: "EMPLOYEE",
-    induce: {
-      LastName: { type: "string" },
-      FirstName: { type: "string" },
-      Title: { type: "string" },
-      TitleOfCourtesy: { type: "string" },
-      BirthDate: { type: "string" },
-      HireDate: { type: "string" },
-      Address: { type: "string" },
-      City: { type: "string" },
-      Region: { type: "string" },
-      PostalCode: { type: "string" },
-      Country: { type: "string" },
-      HomePhone: { type: "string" },
-      Extension: { type: "string" },
-      Photo: { type: "string" },
-      Notes: { type: "string" },
-      ReportsTo: { type: "number" },
-      PhotoPath: { type: "string" },
+    execute: {
+      createTable: true,
     },
-  }),
+  }
 );
 
 const db2 = Database.open("z/sql_file/Northwind_large.sqlite");
 
 let employeeExabaseCount = await db.query(
-  JSON.stringify({ table: "EMPLOYEE", count: true }),
+  /*JSON.stringify*/ { table: "EMPLOYEE", count: true }
 );
 
 const sql = db2.prepare(`SELECT * FROM "Employee"`);
-const employeeSQLITECount = sql.all();
+const employeeSQLITECount: any[] = sql.all();
 
 console.log("Exabase item count", employeeExabaseCount);
 console.log("sqlite item count", employeeSQLITECount.length);
@@ -56,8 +40,9 @@ if (employeeExabaseCount !== employeeSQLITECount.length) {
   console.time("Exabase | Insert time");
 
   for (let i = 0; i < employeeSQLITECount.length; i++) {
+    delete employeeSQLITECount[i].Id;
     await db.query(
-      JSON.stringify({ table: "EMPLOYEE", insert: employeeSQLITECount[i] }),
+      /*JSON.stringify*/ { table: "EMPLOYEE", insert: employeeSQLITECount[i] }
     );
   }
 
@@ -66,14 +51,20 @@ if (employeeExabaseCount !== employeeSQLITECount.length) {
 }
 
 employeeExabaseCount = await db.query(
-  JSON.stringify({ table: "EMPLOYEE", count: true }),
+  /*JSON.stringify*/ { table: "EMPLOYEE", count: true }
 );
 console.log(
   "read Exabase item count to ensure it's consistent ofc it is",
-  employeeExabaseCount,
+  employeeExabaseCount
 );
 
-const sq = JSON.stringify({ table: "EMPLOYEE", many: true });
+const sq = {
+  table: "EMPLOYEE",
+  where: { "*": true },
+  get: true,
+};
+const a = await db.query(sq);
+
 {
   bench('SELECT * FROM "Employee" Exabase', async () => {
     await db.query(sq);

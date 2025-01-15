@@ -1,159 +1,30 @@
-import { promises as fsp, readFileSync, statSync } from "node:fs";
+import { promises as fsp, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { resolve as _resolve } from "node:path";
 import { randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 // ?
 import { GLOBAL_OBJECT } from "./classes.ts";
-import { type Msg, type Msgs, type Xtree_flag } from "./types.ts";
+import { type Msg, type Struct } from "./types.ts";
 
 export const loadLog = async (filePath: string) => {
   try {
     const data = await readFile(filePath);
-    return (GLOBAL_OBJECT.packr.decode(data) || []) as Msgs;
+    return (GLOBAL_OBJECT.unpack(data) || {}) as Struct;
   } catch (_error) {
     // console.log({ filePath, _error }, 1);
-    return [] as Msgs;
+    return {} as Struct;
   }
 };
 
 export const loadLogSync = (filePath: string, defaults: any = []) => {
   try {
-    return GLOBAL_OBJECT.packr.decode(readFileSync(filePath)) || [];
+    return GLOBAL_OBJECT.unpack(readFileSync(filePath)) || [];
   } catch (_error) {
     // console.log({ filePath, _error });
     return defaults;
   }
 };
-
-export const getFileSize = (file: string): number => {
-  try {
-    return statSync(file).size;
-  } catch (err) {
-    return 0;
-  }
-};
-
-export function findMessage(_id: string, messages: Msgs): Msg | undefined {
-  if (messages[0]?._id === _id) {
-    const message = messages[0];
-    return message;
-  }
-  //? binary search it
-  let left = 0;
-  let right = messages.length - 1;
-  while (left <= right) {
-    const mid = Math.floor((left + right) / 2);
-    const midId = messages[mid]?._id;
-    if (midId === _id) {
-      const message = messages[mid];
-      return message;
-    } else if (midId < _id) {
-      left = mid + 1;
-    } else if (midId === undefined) {
-      return undefined;
-    } else {
-      right = mid - 1;
-    }
-  }
-}
-
-export function deepMerge(target: any, source: any): any {
-  if (source === undefined || source === null) return target;
-  for (const key in source) {
-    if (Object.prototype.hasOwnProperty.call(source, key)) {
-      const targetValue = target[key];
-      const sourceValue = source[key];
-
-      if (Array.isArray(sourceValue)) {
-        target[key] = Array.isArray(targetValue)
-          ? [...new Set([...targetValue, ...sourceValue])]
-          : [...sourceValue];
-      } else if (typeof sourceValue === "object" && sourceValue !== null) {
-        target[key] =
-          typeof targetValue === "object" && targetValue !== null
-            ? deepMerge(targetValue, sourceValue)
-            : { ...sourceValue };
-      } else {
-        target[key] = sourceValue;
-      }
-    }
-  }
-  return target;
-}
-
-//? binary search it
-export const binarySearch_find = (_id: string, messages: { _id: string }[]) => {
-  let left = 0;
-  let right = messages.length - 1;
-  for (; left <= right; ) {
-    const mid = (left + right) >>> 1;
-    const midId = messages[mid]._id;
-    if (midId === _id) {
-      return mid;
-    } else if (midId < _id) {
-      left = mid + 1;
-    } else {
-      right = mid - 1;
-    }
-  }
-  return undefined;
-};
-//? binary search and mutate it
-export const binarySearch_mutate = (
-  message: Msg,
-  messages: Msgs,
-  flag: Xtree_flag
-) => {
-  if (messages.length === 1) {
-    if (message._id === messages[0]._id) {
-      flag === "d" ? messages.splice(0, 1) : (messages[0] = message);
-    }
-    return messages;
-  }
-
-  const _id = message._id;
-  let left = 0;
-  let right = messages.length - 1;
-  for (; left <= right; ) {
-    const mid = (left + right) >>> 1;
-    const midId = messages[mid]._id;
-    if (midId === _id) {
-      //? run mutation
-      if (flag === "u") {
-        messages[mid] = Object.assign(messages[mid], message);
-      } else {
-        messages.splice(mid, 1);
-      }
-      break;
-    } else if (midId < _id) {
-      left = mid + 1;
-    } else {
-      right = mid - 1;
-    }
-  }
-  return messages;
-};
-
-//? binary sort insert it
-export function binarySorted_insert<T extends { _id: string }>(
-  item: T,
-  arr: T[]
-): number {
-  let low = 0;
-  let high = arr.length;
-
-  while (low < high) {
-    const mid = (low + high) >>> 1;
-    if (arr[mid]._id < item._id) {
-      low = mid + 1;
-    } else {
-      high = mid;
-    }
-  }
-  arr.splice(low, 0, item);
-  return low;
-}
 
 const PROCESS_UNIQUE = randomBytes(5);
 
@@ -216,27 +87,6 @@ export function resizeLOG_CACHE(data: Record<string, any>) {
     }
   }
 }
-//? SynFileWrit tree
-export async function SynFileWrit(file: string, data: Buffer) {
-  const uint8Array = new Uint8Array(data);
-  if (uint8Array.length > 1) {
-    let fd;
-    const tmpfile = file + "-SYNC";
-    try {
-      fd = await fsp.open(tmpfile, "w");
-
-      await fd.write(uint8Array, 0, uint8Array.length, 0);
-      await fd.sync();
-      await fsp.rename(tmpfile, file);
-    } finally {
-      if (fd !== undefined) {
-        await fd.close();
-      }
-    }
-  } else {
-    fsp.unlink(file);
-  }
-}
 
 //? SynFileWrit tree
 export const SynFileWritWithWaitList = {
@@ -275,6 +125,7 @@ export const SynFileWritWithWaitList = {
 };
 
 const numb = (str: string) => {
+  if (str.length > 5) str = str.slice(0, 5);
   let out = 0;
   for (let pos = 0, len = str.length; pos < len; pos++) {
     out += str.charCodeAt(pos);
@@ -284,10 +135,10 @@ const numb = (str: string) => {
 
 // ? bucket sort for sorting
 export function bucketSort(
-  arr: Msgs,
+  arr: Msg[],
   prop: keyof Msg,
   order: "ASC" | "DESC"
-): Msgs {
+): Msg[] {
   if (arr.length === 0) return arr;
   //? Calculate numb values once and store them
   const numbValues = arr.map((item) => numb(item[prop].toString()));
@@ -298,7 +149,7 @@ export function bucketSort(
   const bucketCount = Math.max(Math.floor(arr.length / 2), 1);
   const bucketSize = Math.ceil((maxValue - minValue + 1) / bucketCount);
   // ? create buckets
-  const buckets: Msgs[] = Array.from({ length: bucketCount }, () => []);
+  const buckets: Msg[][] = Array.from({ length: bucketCount }, () => []);
   for (let i = 0; i < arr.length; i++) {
     const data: Msg = arr[i];
     const bucketIndex = Math.floor(
@@ -307,7 +158,7 @@ export function bucketSort(
     buckets[bucketIndex].push(data);
   }
   // ? merge buckets
-  const result: Msgs = [];
+  const result: Msg[] = [];
   for (const bucket of buckets) {
     if (bucket.length > 0) {
       result.push(...mergeSort(bucket, prop));
@@ -316,7 +167,7 @@ export function bucketSort(
   return order === "DESC" ? result.reverse() : result;
 }
 
-function mergeSort(arr: Msgs, prop: keyof Msg): Msgs {
+function mergeSort(arr: Msg[], prop: keyof Msg): Msg[] {
   if (arr.length <= 1) return arr;
   const middle = Math.floor(arr.length / 2);
   const left = arr.slice(0, middle);
@@ -324,8 +175,8 @@ function mergeSort(arr: Msgs, prop: keyof Msg): Msgs {
   return merge(mergeSort(left, prop), mergeSort(right, prop), prop);
 }
 
-function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
-  const result: Msgs = [];
+function merge(left: Msg[], right: Msg[], prop: keyof Msg): Msg[] {
+  const result: Msg[] = [];
   let li = 0;
   let ri = 0;
   while (li < left.length && ri < right.length) {
@@ -340,40 +191,5 @@ function merge(left: Msgs, right: Msgs, prop: keyof Msg): Msgs {
   return result.concat(left.slice(li)).concat(right.slice(ri));
 }
 
-// ? from https://github.com/lovasoa/fast_array_intersect/blob/master/index.ts
-export function intersect(arrays: ReadonlyArray<string>[]): string[] {
-  if (arrays.length === 0) return [];
-  //? Put the smallest array in the beginning
-  for (let i = 1; i < arrays.length; i++) {
-    if (arrays[i].length < arrays[0].length) {
-      let tmp = arrays[0];
-      arrays[0] = arrays[i];
-      arrays[i] = tmp;
-    }
-  }
-  // ? if the smallest array is empty, return an empty array
-  if (arrays[0].length === 0) return [];
-  //? Create a map associating each element to its current count
-  const set = new Map();
-  for (const elem of arrays[0]) {
-    set.set(elem, 1);
-  }
-  for (let i = 1; i < arrays.length; i++) {
-    let found = 0;
-    for (const e of arrays[i]) {
-      const count = set.get(e);
-      if (count === i) {
-        set.set(e, count + 1);
-        found++;
-      }
-    }
-    //? Stop early if an array has no element in common with the smallest
-    if (found === 0) return [];
-  }
-  //? Output only the elements that have been seen as many times as there are arrays
-  return arrays[0].filter((e) => {
-    const count = set.get(e);
-    if (count !== undefined) set.set(e, 0);
-    return count === arrays.length;
-  });
-}
+const a = new Map();
+Array.from(a.values());

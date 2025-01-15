@@ -1,6 +1,6 @@
 import { bench, run } from "mitata";
 import { Database } from "bun:sqlite";
-import { Exabase } from "./src/index.ts";
+import { Exabase } from "../src/index.ts";
 
 const db1 = new Exabase({ endpoint: "", secretAccessKey: "" });
 await db1.query({

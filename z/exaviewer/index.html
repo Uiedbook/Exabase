@@ -227,10 +227,8 @@
       </section>
 
       <section id="table-section" style="display: none">
-        <h2>Parsed Data</h2>
-        <table id="parsed-table">
-          <caption>
-            data
+        <h2>Table</h2>
+        <table id="parsed-table"> 
           </caption>
           <thead>
             <tr id="header-row"></tr>
@@ -240,10 +238,7 @@
       </section>
 
       <section id="code-section" style="display: none">
-        <h2>Parsed Data raw</h2>
-        <caption>
-          data
-        </caption>
+        <h2>Indexes</h2> 
         <div id="code" class="code"></div>
       </section>
     </div>
@@ -254,38 +249,37 @@
 
     <script src="msgpackr.js"></script>
     <script>
-      function syntaxHighlight(json) {
-        if (typeof json != "string") {
-          json = JSON.stringify(json, null, "	");
-        }
+function syntaxHighlight(json) {
+    if (typeof json !== "string") {
+        json = JSON.stringify(json, null, "\t"); // Proper formatting with tabs
+    }
 
-        json = json
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;");
+    json = json
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 
-        return json.replace(
-          /("(\u[a-zA-Z0-9]{4}|\[^u]|[^\"])*"(s*:)?|(true|false|null)|-?d+(?:.d*)?(?:[eE][+-]?d+)?)|[0-9]?/g,
-          function (match) {
-            if (!match) return "";
-            var cls = "";
+    json = json.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+        function (match) {
+            let cls = "";
             if (/^"/.test(match)) {
-              if (/:$/.test(match)) {
-                cls = "key";
-              } else {
-                cls = "string";
-              }
+                cls = /:$/.test(match) ? "key" : "string";
             } else if (/true|false/.test(match)) {
-              cls = "boolean";
+                cls = "boolean";
             } else if (/null/.test(match)) {
-              cls = "null";
-            } else if (/[0-9]/.test(match)) {
-              cls = "number";
+                cls = "null";
+            } else {
+                cls = "number";
             }
             return '<span class="' + cls + '">' + match + "</span>";
-          }
-        );
-      }
+        }
+    );
+
+    // Add line breaks for better readability
+    return json.replace(/\n/g, "<br>").replace(/\t/g, "&nbsp;&nbsp;&nbsp;&nbsp;");
+}
+
 
       document
         .getElementById("file-form")
@@ -297,35 +291,36 @@
             var reader = new FileReader();
             reader.onload = function () {
               var arrayBuffer = reader.result;
-              var data = msgpackr.decode(new Uint8Array(arrayBuffer));
-              renderTable(data, file.name.includes("LOG-"));
+              var data = new msgpackr.Unpackr().unpack(
+                new Uint8Array(arrayBuffer)
+              );
+              console.log(data);
+              renderTable(data.base, true);
+              renderTable(data.nodes, false);
             };
             reader.readAsArrayBuffer(file);
           }
         });
 
-      function renderTable(data, table) {
-        console.log({ data, table });
-        var tableSection = document.getElementById("table-section");
-        var codeSection = document.getElementById("code-section");
+      function renderTable(data, table) { 
         // Populate table headers
-        if (!table) {
-          Object.keys(data[0]);
-          tableSection.style.display = "none";
+        if (!table) { 
+          var codeSection = document.getElementById("code-section");
+          // tableSection.style.display = "none";
           codeSection.style.display = "block";
           codeSection.querySelector("#code").innerHTML = syntaxHighlight(
-            JSON.stringify(data)
+            convertToSerializable(data)
           );
           return;
         }
+        var tableSection = document.getElementById("table-section");
         tableSection.style.display = "block";
-        codeSection.style.display = "none";
+        // codeSection.style.display = "none";
         var headerRow = document.getElementById("header-row");
         headerRow.innerHTML = "";
         var dataRows = document.getElementById("data-rows");
         dataRows.innerHTML = "";
-        Object.keys(data[0]);
-        var headers = ["no", ...Object.keys(data[0])];
+        var headers = ["no", ...Object.keys(Array.from(data.values())[0])];
         // var headers = Object.keys(data[0]);
         headers.forEach(function (header) {
           var th = document.createElement("th");
@@ -334,7 +329,7 @@
           headerRow.appendChild(th);
         });
         // Populate table data rows
-        data.forEach(function (item, idx) {
+        Array.from(data.values()).forEach(function (item, idx) {
           item.no = idx + 1;
           var row = document.createElement("tr");
           headers.forEach(function (header, idx) {
@@ -347,6 +342,23 @@
           dataRows.appendChild(row);
         });
       }
+      function convertToSerializable(obj) {
+  if (obj instanceof Map) {
+    return Array.from(obj.entries()).reduce((acc, [key, value]) => {
+      acc[key] = convertToSerializable(value);
+      return acc;
+    }, {});
+  } else if (obj instanceof Set) {
+    return Array.from(obj);
+  } else if (typeof obj === "object" && obj !== null) {
+    return Object.keys(obj).reduce((acc, key) => {
+      acc[key] = convertToSerializable(obj[key]);
+      return acc;
+    }, {});
+  }
+  return obj;
+}
+
     </script>
   </body>
 </html>
