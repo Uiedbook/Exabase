@@ -1,94 +1,61 @@
 import { Exabase } from "../src/index.ts";
 
-const db = new Exabase({});
+const db = new Exabase({ endpoint: "", secretAccessKey: "" });
 
-await db.query(
-  JSON.stringify({
-    table: "USER",
-    induce: {
-      age: { type: "number", required: true, index: true },
-      name: { type: "string", index: true },
-      mom: {
-        relationType: "ONE",
-        type: "string",
-        target: "MOM",
-        required: true,
-      },
-      kids: {
-        relationType: "MANY",
-        type: "string",
-        target: "CHILD",
-      },
-    },
-  }),
-);
+await db.query({
+  table: "USER",
+  execute: { createTable: true },
+});
 
-await db.query(
-  JSON.stringify({
-    table: "MOM",
-    induce: {
-      age: { type: "number", required: true, index: true },
-      name: { type: "string", index: true, required: true },
-    },
-  }),
-);
+await db.query({
+  table: "MOM",
+  execute: {
+    createTable: true,
+  },
+});
 
-await db.query(
-  JSON.stringify({
-    table: "CHILD",
-    induce: {
-      age: { type: "number", required: true, index: true },
-      name: { type: "string", index: true },
-    },
-  }),
-);
+await db.query({
+  table: "CHILD",
+  execute: {
+    createTable: true,
+  },
+});
 
 for (let i = 0; i < 10; i++) {
-  const mom = await db.query(
-    JSON.stringify({
-      table: "MOM",
-      insert: { age: i + 40, name: "mom name" },
-    }),
-  );
-  const user = await db.query(
-    JSON.stringify({
-      table: "USER",
-      insert: {
-        age: i + 20,
-        name: "user name",
-        mom: mom,
-      },
-    }),
-  );
-  const kid = await db.query(
-    JSON.stringify({
-      table: "CHILD",
-      insert: {
-        age: 5,
-        name: "kid name",
-      },
-    }),
-  );
+  const mom = await db.query({
+    table: "MOM",
+    insert: { age: i + 40, name: "mom name" },
+  });
+  const user = await db.query({
+    table: "USER",
+    insert: {
+      age: i + 20,
+      name: "user name",
+      mom: mom,
+    },
+  });
+  const kid = await db.query({
+    table: "CHILD",
+    insert: {
+      age: 5,
+      name: "kid name",
+    },
+  });
   user.kids.push(kid);
-  await db.query(
-    JSON.stringify({
-      table: "USER",
-      update: {
-        ...user,
-        kids: [kid],
-      },
-    }),
-  );
+  await db.query({
+    table: "USER",
+    update: {
+      ...user,
+      kids: [kid],
+    },
+  });
 }
 
-const ser = await db.query(
-  JSON.stringify({
-    table: "USER",
-    search: { name: "user name", age: 20 },
-    populate: true,
-    sort: { age: "ASC" },
-  }),
-);
+const ser = await db.query({
+  table: "USER",
+  get: { name: "user name", age: 20 },
+  sort: { age: "ASC" },
+});
 
 // console.log({ all: ser }, ser.length);
 console.log({ first: ser[0], last: ser.at(-1) }, ser.length);

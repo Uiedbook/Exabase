@@ -21,18 +21,16 @@ export type searchQuery<Model> =
   | Partial<Model>
   | Record<"$eq" | "$ne" | "$gt" | "$gte" | "$lt" | "$lte", Partial<Model>>;
 
-export type QueryType<Model> = {
+export type QueryType<Model = Record<string, any>> = {
   table: string;
   execute?: {
     dropTable?: boolean;
     createTable?: boolean;
-    addIndex?: boolean;
-    removeIndex?: boolean;
   };
   sort?: {
     [x in keyof Partial<Model>]: "ASC" | "DESC";
   };
-  where?: {
+  get?: {
     [field: string]:
       | {
           eq?: any;
@@ -44,16 +42,12 @@ export type QueryType<Model> = {
         }
       | any;
   };
-  insert?: Record<string, any>;
+  insert?: Model;
   update?: Partial<Model>;
-  delete?: boolean;
-  get?: boolean;
-  count?: boolean;
+  delete?: string;
+  count?: boolean | Partial<Model>;
   skip?: number;
   take?: number;
-  aggregate?: {
-    [field: string]: "sum" | "avg" | "min" | "max" | "count";
-  };
   consistency?: "strong" | "eventual";
 };
 
@@ -66,11 +60,5 @@ export type LOG_file = Record<string, { size: number; length: number }>;
 
 export interface Struct {
   base: Map<string, Msg>;
-  nodes: Map<
-    string,
-    {
-      attribute: string;
-      valueMap: Map<any, Set<string>>;
-    }
-  >;
+  nodes: Map<string, Map<any, Set<string>>>;
 }

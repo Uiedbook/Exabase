@@ -4,39 +4,29 @@ class Xtree {
   private base: Map<string, any>; // Base storage mapping IDs to data
   private nodes: Map<
     string,
-    {
-      attribute: string; // The attribute this node indexes
-      valueMap: Map<any, Set<string>>; // Maps attribute values to sets of IDs
-    }
+    Map<any, Set<string>> // Maps attribute values to sets of IDs
   >; // Nodes for different attributes
 
   indexTable: Record<string, boolean>;
-  constructor(init: { indexTable: Record<string, boolean> }) {
-    this.indexTable = init.indexTable;
+  constructor() {
     this.base = new Map<string, any>(); // ID is now always a string
     this.nodes = new Map<string, any>();
   }
 
   // Add or update data in the tree
   index(id: string, data: Record<string, any>): void {
-    // TODO: this is for Exabase. kindly ignore
-    // Drop existing mappings first if they exist
-    // const existingData = this.base.get(id);
-    // if (existingData) {
-    //   this.drop(id);
-    // }
     this.base.set(id, data);
     for (const [attribute, value] of Object.entries(data)) {
       if (!this.indexTable[attribute]) continue;
       let node = this.nodes.get(attribute);
       if (!node) {
-        node = { attribute, valueMap: new Map<any, Set<string>>() };
+        node = new Map<any, Set<string>>();
         this.nodes.set(attribute, node);
       }
-      if (!node.valueMap.has(value)) {
-        node.valueMap.set(value, new Set<string>());
+      if (!node.has(value)) {
+        node.set(value, new Set<string>());
       }
-      node.valueMap.get(value)!.add(id);
+      node.get(value)!.add(id);
     }
   }
 
@@ -46,14 +36,14 @@ class Xtree {
     if (!data) return;
     for (const [attribute, value] of Object.entries(data)) {
       const node = this.nodes.get(attribute);
-      if (!node || !node.valueMap.has(value)) continue;
+      if (!node || !node.has(value)) continue;
 
-      const idSet = node.valueMap.get(value)!;
+      const idSet = node.get(value)!;
       idSet.delete(id);
       if (idSet.size === 0) {
-        node.valueMap.delete(value); // Deferred cleanup
+        node.delete(value); // Deferred cleanup
       }
-      if (node.valueMap.size === 0) {
+      if (node.size === 0) {
         this.nodes.delete(attribute);
       }
     }
@@ -72,7 +62,7 @@ class Xtree {
 
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
       if (!node || !values) return [];
       if (values.size < smallestSize) {
         smallestSize = values.size;
@@ -84,7 +74,7 @@ class Xtree {
     const result = new Set(smallestSet);
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
       for (const id of result) {
         if (!values?.has(id)) {
           result.delete(id);
@@ -107,7 +97,7 @@ class Xtree {
 
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
       if (!node || !values) return 0;
 
       if (values.size < smallestSize) {
@@ -120,7 +110,7 @@ class Xtree {
     const result = new Set(smallestSet);
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
 
       for (const id of result) {
         if (!values?.has(id)) {
@@ -133,9 +123,7 @@ class Xtree {
 }
 
 // Example Usage
-const indexer = new Xtree({
-  indexTable: { name: true, age: true },
-});
+const indexer = new Xtree();
 
 // Index data
 indexer.index("1", { name: "ChatGPT", age: 1 });

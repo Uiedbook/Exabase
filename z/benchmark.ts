@@ -13,20 +13,16 @@ import { Database } from "bun:sqlite";
 import { Exabase } from "../src/index.js";
 
 const db = new Exabase({ endpoint: "", secretAccessKey: "" });
-await db.query(
-  /*JSON.stringify*/ {
-    table: "EMPLOYEE",
-    execute: {
-      createTable: true,
-    },
-  }
-);
+await db.query({
+  table: "EMPLOYEE",
+  execute: {
+    createTable: true,
+  },
+});
 
 const db2 = Database.open("z/sql_file/Northwind_large.sqlite");
 
-let employeeExabaseCount = await db.query(
-  /*JSON.stringify*/ { table: "EMPLOYEE", count: true }
-);
+let employeeExabaseCount = await db.query({ table: "EMPLOYEE", count: true });
 
 const sql = db2.prepare(`SELECT * FROM "Employee"`);
 const employeeSQLITECount: any[] = sql.all();
@@ -41,18 +37,14 @@ if (employeeExabaseCount !== employeeSQLITECount.length) {
 
   for (let i = 0; i < employeeSQLITECount.length; i++) {
     delete employeeSQLITECount[i].Id;
-    await db.query(
-      /*JSON.stringify*/ { table: "EMPLOYEE", insert: employeeSQLITECount[i] }
-    );
+    await db.query({ table: "EMPLOYEE", insert: employeeSQLITECount[i] });
   }
 
   console.timeEnd("Exabase | Insert time");
   console.log("sqlite data inserted into Exabase");
 }
 
-employeeExabaseCount = await db.query(
-  /*JSON.stringify*/ { table: "EMPLOYEE", count: true }
-);
+employeeExabaseCount = await db.query({ table: "EMPLOYEE", count: true });
 console.log(
   "read Exabase item count to ensure it's consistent ofc it is",
   employeeExabaseCount
@@ -60,8 +52,7 @@ console.log(
 
 const sq = {
   table: "EMPLOYEE",
-  where: { "*": true },
-  get: true,
+  get: { "*": true },
 };
 const a = await db.query(sq);
 

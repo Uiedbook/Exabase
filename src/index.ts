@@ -33,8 +33,6 @@ export class Exabase {
     execute: {
       dropTable?: boolean;
       createTable?: boolean;
-      addIndex?: boolean;
-      removeIndex?: boolean;
     } // All geniuses with rhythm
   ) {
     const existedIdx = this.tables.findIndex((t) => t === table);
@@ -54,39 +52,23 @@ export class Exabase {
       this.tables.splice(existedIdx, 1);
     }
   }
-  async query<T = any>(q: string | QueryType<T>): Promise<T> {
-    let query = q as QueryType<T>;
+  async query(query: string | QueryType) {
     //? verify query validity
-    if (typeof q === "string") {
-      query = JSON.parse(q);
+    if (typeof query === "string") {
+      query = JSON.parse(query);
     }
-    if (typeof query.table !== "string") throw new ExaError("malformed query!");
-    if (query.execute) {
-      this.induce(query.table, query.execute);
-      return undefined as T;
+    if (typeof (query as QueryType).table !== "string")
+      throw new ExaError("malformed query!");
+    if ((query as QueryType).execute) {
+      await this.induce(
+        (query as QueryType).table,
+        (query as QueryType).execute!
+      );
+      return;
     }
-    const table = GLOBAL_OBJECT.EXABASE_MANAGERS[query.table];
-
-    if (!table || table.isActive === false) {
-      if (table?.isActive === false) {
-        return new Promise((r) => {
-          let i = 3;
-          const id = setInterval(() => {
-            i -= 1;
-            if (table.isActive === true) {
-              clearInterval(id);
-              r(table.runner(query as any) as any);
-            }
-            if (i === 0) {
-              clearInterval(id);
-              r(
-                new ExaError("Table is not active yet, please try again!") as T
-              );
-            }
-          }, 1000);
-        });
-      }
-      throw new ExaError("unknown table!");
+    const table = GLOBAL_OBJECT.EXABASE_MANAGERS[(query as QueryType).table];
+    if (!table || table?.isActive === false) {
+      new ExaError("Table is not active (yet)!");
     }
     return table.runner(query as any) as any;
   }

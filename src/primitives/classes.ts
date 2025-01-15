@@ -41,11 +41,9 @@ export class ExaError extends Error {
 export class Manager {
   public name: string;
   public tableDir: string = "";
-  public isRelatedConstructed = false;
   public isActive = false;
   public LogFiles: LOG_file = {};
   public LOG_CACHE: Record<string, XTree> = {};
-  public indexTable: Record<string, boolean> = {};
   constructor(db_dir: string, table: string) {
     this.name = table;
     // ? setup steps
@@ -54,8 +52,6 @@ export class Manager {
     if (!existsSync(this.tableDir)) {
       mkdirSync(this.tableDir);
     }
-    // ? setup indexTable for searching
-    this.indexTable = {};
   }
   drop() {
     rmdirSync(this.tableDir, { recursive: true });
@@ -114,10 +110,13 @@ export class Manager {
     if (tree) return tree;
     const file = this.tableDir + log;
     const data = await loadLog(file);
-    tree = new XTree({ indexTable: this.indexTable, file, log });
+    console.log(data.base);
+
+    tree = new XTree({ file, log });
     if (data.base) tree.base = data.base;
     if (data.nodes) tree.nodes = data.nodes;
     this.LOG_CACHE[log] = tree;
+    // console.log(tree);
     return tree;
   }
   getLogForInsert() {
@@ -138,11 +137,11 @@ export class Manager {
   async find(
     query: QueryType<Record<string, any>>
   ): Promise<(Msg | undefined)[]> {
-    if (!query.where?.["_id"]) {
-      if (!query.where?.["*"]) {
+    if (!query.get?.["_id"]) {
+      if (!query.get?.["*"]) {
         return this.aggregate(
           false,
-          query.where as Msg,
+          query.get as Msg,
           1000
         ) as unknown as Msg[];
       }
@@ -176,37 +175,25 @@ export class Manager {
     if (query.get) {
       return this.find(query) as Promise<Msg[]>;
     }
-    if (typeof query["insert"] === "object" && !Array.isArray(query.insert)) {
+    if (typeof query["insert"] === "object") {
       const log = await this.getLogForInsert();
       query.insert["_id"] = ExaId(log.log);
       return log.index(query.insert as Msg);
     }
-    if (typeof query["update"] === "object" && !Array.isArray(query.update)) {
-      if (typeof query.update._id === "string" && query.update._id) {
-        const file = msgId(query.update._id);
-        const log = await this.load(file);
-        log.index(query.update as Msg);
-      }
+    if (query.update?._id?.length) {
+      const file = msgId(query.update._id);
+      const log = await this.load(file);
+      return log.index(query.update as Msg);
     }
     if (query["count"]) {
-      if (query["count"] === true) {
-        const logFiles = Object.values(this.LogFiles);
-        if (!logFiles.length) return 0;
-        let len = 0;
-        for (const log of logFiles) {
-          len += log.length;
-        }
-        return len;
-      }
-      return this.aggregate(true, query["count"], 0);
+      return this.aggregate(true, query["count"] as any, 0);
     }
     if (query["delete"]) {
-      const file = msgId(query.where?.["_id"]);
+      const file = msgId(query.delete);
       const log = await this.load(file);
-      log.index({ _id: query.where?.["id"] }, true);
+      return log.index({ _id: query.delete }, true);
     }
     console.log(query);
-
     throw new ExaError("Invalid query");
   }
 }
@@ -216,19 +203,10 @@ class XTree {
   file: string;
   base: Map<string, Msg>; // Base storage mapping IDs to data
   nodes: Map<
-    string,
-    {
-      attribute: string; // The attribute this node indexes
-      valueMap: Map<any, Set<string>>; // Maps attribute values to sets of IDs
-    }
-  >; // Nodes for different attributes
-  indexTable: Record<string, boolean>;
-  constructor(init: {
-    indexTable: Record<string, boolean>;
-    log: string;
-    file: string;
-  }) {
-    this.indexTable = init.indexTable;
+    string, // The attribute this node indexes
+    Map<any, Set<string>> // Maps attribute values to sets of IDs
+  >;
+  constructor(init: { log: string; file: string }) {
     this.base = new Map<string, any>(); // ID is now always a string
     this.nodes = new Map<string, any>();
     this.log = init.log;
@@ -236,7 +214,7 @@ class XTree {
   }
 
   // Add or update data in the tree
-  index(data: Msg, drop: boolean = false): void {
+  index(data: Msg, drop: boolean = false) {
     const id: string = data._id;
     // Drop existing mappings first if they exist
     const prevData = this.base.get(id);
@@ -248,15 +226,16 @@ class XTree {
       // if (!this.indexTable[attribute]) continue;
       let node = this.nodes.get(attribute);
       if (!node) {
-        node = { attribute, valueMap: new Map<any, Set<string>>() };
+        node = new Map<any, Set<string>>();
         this.nodes.set(attribute, node);
       }
-      if (!node.valueMap.has(value)) {
-        node.valueMap.set(value, new Set<string>());
+      if (!node.has(value)) {
+        node.set(value, new Set<string>());
       }
-      node.valueMap.get(value)!.add(id);
+      node.get(value)!.add(id);
     }
     SynFileWritWithWaitList.write(this.file, this.serialize());
+    return data;
   }
 
   // Drop all mappings for an ID
@@ -265,14 +244,13 @@ class XTree {
     if (!data) return;
     for (const [attribute, value] of Object.entries(data)) {
       const node = this.nodes.get(attribute);
-      if (!node || !node.valueMap.has(value)) continue;
-
-      const idSet = node.valueMap.get(value)!;
+      if (!node || !node.has(value)) continue;
+      const idSet = node.get(value)!;
       idSet.delete(id);
       if (idSet.size === 0) {
-        node.valueMap.delete(value); // Deferred cleanup
+        node.delete(value); // Deferred cleanup
       }
-      if (node.valueMap.size === 0) {
+      if (node.size === 0) {
         this.nodes.delete(attribute);
       }
     }
@@ -291,7 +269,7 @@ class XTree {
     const results: Set<string>[] = [];
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
       if (!node || !values) return [];
       results.push(values);
       if (values.size < smallestSize) {
@@ -330,7 +308,7 @@ class XTree {
       if (!node) return []; // Key not found, return empty results
       const combinedSet = new Set<string>();
       const op = operator[key]; //  get the operator
-      for (const [k, valSet] of node.valueMap) {
+      for (const [k, valSet] of node) {
         let match = false;
         switch (op) {
           case "like":
@@ -395,7 +373,7 @@ class XTree {
     let smallestSize = Infinity;
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
       if (!node || !values) return 0;
       if (values.size < smallestSize) {
         smallestSize = values.size;
@@ -406,7 +384,7 @@ class XTree {
     const result = new Set(smallestSet);
     for (const [key, value] of entries) {
       const node = this.nodes.get(key);
-      const values = node?.valueMap.get(value);
+      const values = node?.get(value);
       for (const id of result) {
         if (!values?.has(id)) {
           result.delete(id);
