@@ -20,7 +20,7 @@ if (!isNativeAccelerationEnabled)
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
   static MEMORY_PERCENT: number;
-  static pack = new Packr({ useRecords: false }).pack;
+  static pack = new Packr().pack;
   static unpack = new Unpackr().unpack;
   static db: any;
   static logCount: number;
@@ -110,18 +110,10 @@ export class Manager {
     if (tree) return tree;
     const file = this.tableDir + log;
     const data = await loadLog(file);
-    console.log({ data });
-    const nodes = Object.keys(data?.nodes);
-    console.log({ nodesl: data?.nodes, nodes });
-    for (let i = 0; i < nodes.length; i++) {
-      const attr = nodes[i];
-      console.log(data?.nodes?.[attr]);
-      // data.nodes[attr] = new Set(data.nodes[attr]);
-      // data.nodes.set[attr] = new Set(data.nodes[attr]);
-    }
     tree = new XTree({ file, log });
-    if (data?.base) tree.base = new Map(Object.entries(data.base || {}));
-    if (data?.nodes) tree.nodes = new Map(Object.entries(data.nodes || []));
+    for (let i = 0; i < data.length; i++) {
+      tree.index(data[i]);
+    }
     this.LOG_CACHE[log] = tree;
     return tree;
   }
@@ -166,19 +158,25 @@ export class Manager {
       }
       // ?
       return result;
+    } else {
+      if (query.get["_id"]) {
+      }
     }
     return [];
   }
-  async findOne(query: { where: { _id: string } }): Promise<Msg | undefined> {
-    if (query.where?.["_id"]) {
-      const file = msgId(query.where?.["_id"]);
+  async findOne(_id: string): Promise<Msg | undefined> {
+    if (_id) {
+      const file = msgId(_id);
       const log = await this.load(file);
-      return log.base.get(query.where?.["_id"]);
+      return log.base.get(_id);
     }
   }
 
   async runner(query: QueryType<Msg>): Promise<Msg[] | Msg | number | void> {
     if (query.get) {
+      if (query.get["_id"]) {
+        return this.findOne(query.get["_id"]);
+      }
       return this.find(query) as Promise<Msg[]>;
     }
     if (typeof query["insert"] === "object") {
@@ -229,13 +227,12 @@ class XTree {
     this.base.set(id, data);
     for (const [attribute, value] of Object.entries(data)) {
       if (attribute === "_id") continue;
-      // if (!this.indexTable[attribute]) continue;
       let node = this.nodes.get(attribute);
       if (!node) {
         node = new Map<any, Set<string>>();
         this.nodes.set(attribute, node);
       }
-      if (!node.values) {
+      if (!node.has(value)) {
         node.set(value, new Set<string>());
       }
       node.get(value)!.add(id);
@@ -253,8 +250,6 @@ class XTree {
       if (!node || !node.has(value)) continue;
       const idSet = node.get(value)!;
       idSet.delete(id);
-      console.log({ idSet, id, data });
-
       if (idSet.size === 0) {
         node.delete(value); // Deferred cleanup
       }
@@ -403,9 +398,7 @@ class XTree {
   }
 
   serialize(): Buffer {
-    return GLOBAL_OBJECT.pack({
-      base: this.base,
-      nodes: this.nodes,
-    });
+    const data = Array.from(this.base.values());
+    return GLOBAL_OBJECT.pack(data);
   }
 }
