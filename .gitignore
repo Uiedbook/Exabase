@@ -12,3 +12,4 @@ tests/sql_file/Northwind_large.sqlite
 dist
 plan.md 
 bloomfilter.md
+xtree-data/data/data_76.log

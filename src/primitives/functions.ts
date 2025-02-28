@@ -88,9 +88,10 @@ export function resizeLOG_CACHE(data: Record<string, any>) {
   }
 }
 
-//? SynFileWrit tree
-export const SynFileWritWithWaitList = {
-  waiters: {} as Record<string, ((value: unknown) => void)[]>,
+//? SynFileWriter
+export const SynFileWriter = {
+  waiters: {} as Record<string, ((value: unknown) => void)[]>, // Write locks for each file
+  // Acquire write lock for a file
   acquireWrite(file: string) {
     return new Promise((resolve) => {
       if (!this.waiters[file]) {
@@ -102,24 +103,27 @@ export const SynFileWritWithWaitList = {
       }
     });
   },
-  async write(file: string, data: Buffer) {
-    await this.acquireWrite(file);
-    let fd;
-    const tmpfile = file + "-SYNC";
-    try {
-      fd = await fsp.open(tmpfile, "w");
-      await fd.write(new Uint8Array(data), 0, data.length, 0);
-      await fd.sync();
-      await fsp.rename(tmpfile, file);
-    } finally {
-      if (fd !== undefined) {
-        await fd.close();
-      }
-    }
-    // ? adjusting the wait list
-    this.waiters[file].shift(); // ? waiting list does not leak
+  // Release write lock
+  releaseWrite(file: string) {
+    this.waiters[file].shift();
     if (this.waiters[file].length > 0) {
       this.waiters[file][0](undefined);
+    }
+  },
+  // Write data to a file atomically
+  async write(file: string, data: Buffer): Promise<void> {
+    await this.acquireWrite(file); // Lock the file
+    const tmpfile = file + "-SYNC";
+    try {
+      // Write to a temporary file
+      const fd = await fsp.open(tmpfile, "w");
+      await fd.write(data, 0, data.length, 0);
+      await fd.sync(); // Ensure data is persisted to disk
+      await fd.close();
+      // Rename the temporary file to the target file
+      await fsp.rename(tmpfile, file);
+    } finally {
+      this.releaseWrite(file); // Unlock the file
     }
   },
 };

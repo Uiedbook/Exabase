@@ -8,7 +8,7 @@ import {
   loadLog,
   loadLogSync,
   msgId,
-  SynFileWritWithWaitList,
+  SynFileWriter,
 } from "./functions.ts";
 import type { S3 } from "./blob-lib.ts";
 import { isNativeAccelerationEnabled } from "msgpackr";
@@ -237,7 +237,7 @@ class XTree {
       }
       node.get(value)!.add(id);
     }
-    SynFileWritWithWaitList.write(this.file, this.serialize());
+    SynFileWriter.write(this.file, this.serialize());
     return data;
   }
 

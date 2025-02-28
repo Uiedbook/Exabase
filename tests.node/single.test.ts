@@ -58,4 +58,4 @@ const ser = await db.query({
 });
 
 // console.log({ all: ser }, ser.length);
-console.log({ first: ser[0], last: ser.at(-1) }, ser.length);
+// console.log({ first: ser[0], last: ser.at(-1) }, ser.length);
