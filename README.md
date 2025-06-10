@@ -17,26 +17,35 @@
   </p>
 </p>
 
-## Exabase is still in development do not use!
+## Exabase is still in development do not use in production!
 
 ### Learn our goal ⬇️
 
 #### [Bottomless]() 𐄁 [Strong consistency and consensus]() 𐄁 [High performance]() 𐄁 [Ease of use]()
 
-![Contributors](https://img.shields.io/github/contributors/uiedbook/Exabase?color=dark-green)
-[![npm Version](https://img.shields.io/npm/v/exabase.svg)](https://www.npmjs.com/package/exabase)
-![Forks](https://img.shields.io/github/forks/uiedbook/Exabase?style=social)
-![Stargazers](https://img.shields.io/github/stars/uiedbook/Exabase?style=social)
-
-Exabase provides support for these features:
+<div align="center">
+  <a href="https://npm-stat.com/charts.html?package=exabase">
+    <img src="https://img.shields.io/npm/dm/exabase" alt="Downloads per Month"/>
+  </a>
+  <a href="https://npm-stat.com/charts.html?package=exabase">
+    <img src="https://img.shields.io/npm/dy/exabase" alt="Downloads per Year"/>
+  </a>
+  <a href="https://badge.fury.io/js/exabase">
+    <img src="https://badge.fury.io/js/exabase.svg" alt="npm version">
+  </a>
+  <a href="https://github.com/codedynasty-dev/exabase">
+    <img src="https://img.shields.io/github/stars/codedynasty-dev/exabase?style=social" alt="Stars"/>
+  </a>
+</div>
+Exabase offers these features:
 
 - High performance
 - Bottomless storage.
 - Consistency.
 
-exabase is embedded and scales as you scale your app. instances are light as they are tracked to use less memory and disk footprint.
+Exabase is embedded and scales as you scale your app. instances are light as they are tracked to use less memory and small disk footprint.
 
---
+---
 
 # How Exabase will work
 
@@ -45,42 +54,45 @@ techniques.
 
 - Separation of concerns mechanism across tables. This allows for more
   efficiency by keeping each table manager in it own space.
-- Exabase make an extensive use efficient algorithms for storage and query of data.
+- Exabase make an extensive use efficient algorithms and data structures for storage and query of data.
 - Consistency and Durability in log files and other very important files is
   achieved through an ACID complaint data processing mechanism.
-- Exabase achieves a high search query efficiency using a custom search indexing
-  mechanism called Xtree.
+- Exabase achieves a high search query efficiency using a custom data structure called Xtree.
 
-# Current support runtimes.
+## Current support runtimes.
 
 Exabase support server-side Javascript runtime like:
 
-- Nodejs.
 - Bunjs.
-- Denojs.
 
-# Goal
+## Goal
 
-Native support to be written in the ig programming language.
-this is still a prototypal phase.
+Native support to be written in the C programming language.
 
-# How to get started with Exabase database.
+## How to get started with Exabase database.
 
 ### Installation
 
-Install Exabase right on your project using npm.
+Install Exabase right on your project using bun.
 
 ```
-npm i exabase@latest --save
+bun add exabase@latest
 ```
 
 ## Using Exabase
 
 The `Exabase` class accepts an object argument with the following options:
 
+```ts
+const db = new Exabase({
+  endpoint: "",
+  secretAccessKey: "",
+});
+```
+
 ## Exabase JSON Query format
 
-Exabase is queried with json. in the format
+Exabase is queried with json in this format
 
 ```ts
  {

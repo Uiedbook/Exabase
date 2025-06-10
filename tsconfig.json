@@ -7,7 +7,6 @@
     "moduleDetection": "force",
     "allowJs": true,
     "removeComments": true,
-    "allowImportingTsExtensions": true,
     // Bundler mode
     "moduleResolution": "bundler",
     "verbatimModuleSyntax": true,

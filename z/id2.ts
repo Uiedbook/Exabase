@@ -104,7 +104,10 @@ async function main() {
   let allBenchmarkResults: BenchmarkResult[] = [];
 
   for (const dataSize of dataSizes) {
-    const db = new Exabase({}); // Generate database for given set and conditions involved here within bench setup itself such that benchmarked fairly to measure instantiation according to spec when varying scales like data loaded since matters much concerning initial load behavior in a resource-constrained usecase especially if the amount varies greatly but normally can optimize based on expected upperbound..
+    const db = new Exabase({
+      endpoint: "",
+      secretAccessKey: "",
+    }); // Generate database for given set and conditions involved here within bench setup itself such that benchmarked fairly to measure instantiation according to spec when varying scales like data loaded since matters much concerning initial load behavior in a resource-constrained usecase especially if the amount varies greatly but normally can optimize based on expected upperbound..
     await db.query(
       JSON.stringify({
         table: "EMPLOYEE",
