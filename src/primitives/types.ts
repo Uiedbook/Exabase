@@ -33,13 +33,13 @@ export type QueryType<Model = Record<string, any>> = {
   get?: {
     [field: string]:
       | {
-          eq?: any;
-          lt?: any;
-          gt?: any;
-          lte?: any;
-          gte?: any;
-          like?: string;
-        }
+        eq?: any;
+        lt?: any;
+        gt?: any;
+        lte?: any;
+        gte?: any;
+        like?: string;
+      }
       | any;
   };
   insert?: Model;

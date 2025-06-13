@@ -10,7 +10,7 @@ class GlobalIndex {
   // Determine if a shard is relevant to the query
   private isShardRelevant(
     query: Record<string, any>,
-    shardId: string
+    shardId: string,
   ): boolean {
     const shardMetadata = this.metadata.get(shardId);
     if (!shardMetadata) return false;
@@ -36,7 +36,7 @@ class GlobalIndex {
   private updateShardMetadata(
     shardId: string,
     query: Record<string, any>,
-    found: boolean
+    found: boolean,
   ): void {
     const shardMetadata = this.metadata.get(shardId);
     if (!shardMetadata) return;
@@ -44,8 +44,8 @@ class GlobalIndex {
     for (const [key, value] of Object.entries(query)) {
       if (found) {
         // Increase frequency for successful queries
-        const freq =
-          shardMetadata.frequencies.get(key) ?? new Map<any, number>();
+        const freq = shardMetadata.frequencies.get(key) ??
+          new Map<any, number>();
         freq.set(value, (freq.get(value) ?? 0) + 1);
         shardMetadata.frequencies.set(key, freq);
       } else {

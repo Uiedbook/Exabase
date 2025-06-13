@@ -45,14 +45,14 @@ async function populateExabase(dataSize: number) {
 
 function populateSQLite(dataSize: number) {
   const stmt = db2.prepare(
-    `INSERT INTO PACKET (_id, key, metadata) VALUES (?, ?, ?)`
+    `INSERT INTO PACKET (_id, key, metadata) VALUES (?, ?, ?)`,
   );
   db2.transaction(() => {
     for (let i = 0; i < dataSize; i++) {
       stmt.run(
         ExaId(`log-${i}`),
         `item-${i}`,
-        JSON.stringify({ time: Date.now() })
+        JSON.stringify({ time: Date.now() }),
       );
     }
   })();
@@ -90,7 +90,7 @@ async function benchmark(dataSize: number) {
       .run(
         ExaId("LOG-1"),
         `item-${dataSize}`,
-        JSON.stringify({ time: Date.now() })
+        JSON.stringify({ time: Date.now() }),
       );
   });
 
@@ -118,7 +118,7 @@ async function benchmark(dataSize: number) {
     const items = db2.prepare(`SELECT key FROM PACKET`).all();
 
     const updateStmt = db2.prepare(
-      `UPDATE PACKET SET metadata = ? WHERE key = ?`
+      `UPDATE PACKET SET metadata = ? WHERE key = ?`,
     );
     db2.transaction(() => {
       for (const item of items) {

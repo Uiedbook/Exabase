@@ -141,7 +141,7 @@ const numb = (str: string) => {
 export function bucketSort(
   arr: Msg[],
   prop: keyof Msg,
-  order: "ASC" | "DESC"
+  order: "ASC" | "DESC",
 ): Msg[] {
   if (arr.length === 0) return arr;
   //? Calculate numb values once and store them
@@ -157,7 +157,7 @@ export function bucketSort(
   for (let i = 0; i < arr.length; i++) {
     const data: Msg = arr[i];
     const bucketIndex = Math.floor(
-      (numb(data[prop].toString()) - minValue) / bucketSize
+      (numb(data[prop].toString()) - minValue) / bucketSize,
     );
     buckets[bucketIndex].push(data);
   }

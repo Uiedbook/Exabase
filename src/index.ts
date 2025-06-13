@@ -33,7 +33,7 @@ export class Exabase {
     execute: {
       dropTable?: boolean;
       createTable?: boolean;
-    } // All geniuses with rhythm
+    }, // All geniuses with rhythm
   ) {
     const existedIdx = this.tables.findIndex((t) => t === table);
     if (execute.createTable && existedIdx === -1) {
@@ -57,12 +57,13 @@ export class Exabase {
     if (typeof query === "string") {
       query = JSON.parse(query);
     }
-    if (typeof (query as QueryType).table !== "string")
+    if (typeof (query as QueryType).table !== "string") {
       throw new ExaError("malformed query!");
+    }
     if ((query as QueryType).execute) {
       await this.induce(
         (query as QueryType).table,
-        (query as QueryType).execute!
+        (query as QueryType).execute!,
       );
       return;
     }

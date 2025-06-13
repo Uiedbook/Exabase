@@ -47,7 +47,7 @@ function generateEmployeeData(dataSize: number): Employee[] {
 async function runBenchmark(
   db: Exabase,
   dataSize: number,
-  concurrency: number
+  concurrency: number,
 ): Promise<BenchmarkResult[]> {
   let results: BenchmarkResult[] = [];
 
@@ -130,7 +130,7 @@ async function main() {
           ReportsTo: { type: "number" },
           PhotoPath: { type: "string" },
         },
-      })
+      }),
     );
 
     const benchmarkResults = await runBenchmark(db, dataSize, 1); // Pass db here.

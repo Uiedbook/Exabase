@@ -78,7 +78,7 @@ class Xtree {
   // Multi-attribute relational operations
   operator<T extends Record<string, any>>(
     query: T,
-    operator: Record<keyof T, "eq" | "lt" | "gt" | "lte" | "gte" | "like">
+    operator: Record<keyof T, "eq" | "lt" | "gt" | "lte" | "gte" | "like">,
   ): Record<string, any>[] {
     const entries = Object.entries(query);
     if (entries.length === 0) {

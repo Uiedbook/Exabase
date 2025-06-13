@@ -36,8 +36,8 @@ async function prepareDatabase(exabase: Exabase, numProducts: number) {
         JSON.stringify({
           insert: product,
           table: "Product",
-        })
-      )
+        }),
+      ),
     ); //adjust parameters appropriately
   }
 
@@ -45,7 +45,7 @@ async function prepareDatabase(exabase: Exabase, numProducts: number) {
   console.log(
     "Created and initialized database, inserted ",
     numProducts,
-    " products."
+    " products.",
   );
 }
 
@@ -69,7 +69,7 @@ const benchmarkFunctions = {
           find: "product",
           filter: { category: "Category 1", name: { $regex: /Product.*/ } },
         },
-      })
+      }),
     );
   },
 
@@ -77,7 +77,7 @@ const benchmarkFunctions = {
 
   findMany: async (exabase: Exabase) => {
     let products = await exabase.query(
-      JSON.stringify({ query: { find: "products" } })
+      JSON.stringify({ query: { find: "products" } }),
     );
 
     // For measuring or performing operations matching specific types do or generate where relevant
@@ -105,7 +105,7 @@ const benchmarkFunctions = {
           set: { $inc: { price: 1 } },
           filter: { category: "Category 1", name: { $regex: /Product.*/ } },
         },
-      })
+      }),
     );
   },
   //Implement further tests involving aggregation like structures to evaluate how that behavior changes across those data scales if queries involved as crucial measure intended, relative to use cases of target domains when those queries deemed representative. Aggregation types can affect business usage directly depending availability so it matters demonstrating viability as relevant or critical metric according domain when comparing similar query structures used elsewhere to gain adoption if insufficient compared or when needing specific properties not met reliably as compared to those already very common for the platform especially since this can create subtle issues otherwise where benchmark suggests useful from specific conditions encountered or from limited types but that engine's underlying behavior and principle used at design changes from test to test potentially in unpredictable fashion compared to other existing product where behavior of aggregation either documented and understood relatively precisely to some acceptable bound and with theoretical expectation as guarantee.
@@ -116,7 +116,7 @@ const benchmarkFunctions = {
 async function benchmarkForScale(
   exabase: Exabase,
   size: number,
-  concurrency: number
+  concurrency: number,
 ) {
   const benchmarkResults: BenchmarkResult[] = [];
 
@@ -156,7 +156,7 @@ async function runAndMeasureAcrossDatasetSizeAndConcurrency() {
             description: "This is product ",
             reviews: [],
           },
-        })
+        }),
       );
       let results = await benchmarkForScale(exabase, size, c);
       benchmarksForScale = benchmarksForScale.concat(results); //Collect across the scales to record to a single output (assuming tests can proceed serially.*
@@ -171,7 +171,7 @@ async function runAndMeasureAcrossDatasetSizeAndConcurrency() {
 
 const writeBenchmarkToFile = async (
   filename: string,
-  results: BenchmarkResult[]
+  results: BenchmarkResult[],
 ): Promise<void> => {
   try {
     let fileHandle = await fs.open(filename, "w");

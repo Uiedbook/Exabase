@@ -185,7 +185,7 @@ class XTree {
   }
 }
 
-export { GlobalIndex, XTree };
+// export { GlobalIndex, XTree };
 
 class GlobalIndex {
   private shards: Map<string, XTree>; // Top-level structure mapping shard IDs to XTree instances
@@ -242,7 +242,7 @@ class GlobalIndex {
   private hash(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash = (hash << 5) - hash + (str.codePointAt(i) || 0);
       hash |= 0; // Convert to 32-bit integer
     }
     return Math.abs(hash);

@@ -47,7 +47,7 @@ if (employeeExabaseCount !== employeeSQLITECount.length) {
 employeeExabaseCount = await db.query({ table: "EMPLOYEE", count: true });
 console.log(
   "read Exabase item count to ensure it's consistent ofc it is",
-  employeeExabaseCount
+  employeeExabaseCount,
 );
 
 const sq = {

@@ -12,10 +12,11 @@ import {
 } from "./functions.ts";
 import type { S3 } from "./blob-lib.ts";
 import { isNativeAccelerationEnabled } from "msgpackr";
-if (!isNativeAccelerationEnabled)
+if (!isNativeAccelerationEnabled) {
   console.warn(
-    "Native acceleration not enabled, verify that install finished properly"
+    "Native acceleration not enabled, verify that install finished properly",
   );
+}
 
 export class GLOBAL_OBJECT {
   static EXABASE_MANAGERS: Record<string, Manager> = {};
@@ -80,7 +81,7 @@ export class Manager {
         }
       }
       console.log(
-        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!"
+        "Exabase: table " + this.tableDir.split("/")[1] + " is now ready!",
       );
     } catch (err) {
       console.log({ err });
@@ -133,20 +134,20 @@ export class Manager {
   }
 
   async find(
-    query: QueryType<Record<string, any>>
+    query: QueryType<Record<string, any>>,
   ): Promise<(Msg | undefined)[]> {
     if (!query.get?.["_id"]) {
       if (!query.get?.["*"]) {
         return this.aggregate(
           false,
           query.get as Msg,
-          1000
+          1000,
         ) as unknown as Msg[];
       }
       let result: Msg[] = this.aggregate(
         false,
         {},
-        (query.take || 1000) + (query.skip || 0)
+        (query.take || 1000) + (query.skip || 0),
       ) as unknown as Msg[];
       if (query.skip) {
         result = result.slice(query.skip);
@@ -296,7 +297,7 @@ class XTree {
   // Multi-attribute relational operations
   operator<T extends Record<string, any>>(
     query: T,
-    operator: Record<keyof T, "eq" | "lt" | "gt" | "lte" | "gte" | "like">
+    operator: Record<keyof T, "eq" | "lt" | "gt" | "lte" | "gte" | "like">,
   ): Msg[] {
     const entries = Object.entries(query);
     if (entries.length === 0) {
